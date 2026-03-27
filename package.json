@@ -1,6 +1,6 @@
 {
   "name": "linkedin-telegram-directory-bot",
-  "version": "0.0.26-step024.8",
+  "version": "0.0.27-step024.9",
   "private": true,
   "type": "module",
   "packageManager": "npm@10.8.2",

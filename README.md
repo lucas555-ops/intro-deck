@@ -1,6 +1,6 @@
 # LinkedIn Telegram Directory Bot
 
-STEP024.8 baseline for a Telegram-native professional directory with LinkedIn OIDC identity bootstrap, durable notification receipt diagnostics, an allowlisted in-Telegram operator surface, deploy-readiness micro-hardening, public legal/web surfaces for app registration, and a live OAuth route import-resolution hotfix.
+STEP024.9 reconciliation baseline for a Telegram-native professional directory with LinkedIn OIDC identity bootstrap, durable notification receipt diagnostics, an allowlisted in-Telegram operator surface, deploy-readiness micro-hardening, public legal/web surfaces for app registration, deploy-stable webhook/bot-init protection, and a live OAuth route import-resolution hotfix.
 
 ## What this repo is
 
@@ -21,14 +21,14 @@ Not:
 
 ## Core docs
 
-- `docs/README.md` — docs map and reading order
-- `docs/00_CURRENT_STATE.md` — current snapshot and next recommended step
-- `docs/00_BOOT.md` — project framing and non-goals
-- `docs/01_PROJECT_OPERATING_MANUAL.md` — working system for this project
-- `docs/04_EXECUTION_CONTRACT.md` — what counts as good work here
-- `docs/06_TRUTH_BOUNDARY_AND_SPIKE_RULES.md` — source/live/inference/blocked rules
-- `docs/08_TELEGRAM_UI_ROUTER_CONTRACT.md` — app-like Telegram UX contract
-- `docs/09_SELECTION_SURFACES_CONTRACT.md` — picker/filter/toggle contract
+- `doc/README.md` — docs map and reading order
+- `doc/00_CURRENT_STATE.md` — current snapshot and next recommended step
+- `doc/00_BOOT.md` — project framing and non-goals
+- `doc/01_PROJECT_OPERATING_MANUAL.md` — working system for this project
+- `doc/04_EXECUTION_CONTRACT.md` — what counts as good work here
+- `doc/06_TRUTH_BOUNDARY_AND_SPIKE_RULES.md` — source/live/inference/blocked rules
+- `doc/08_TELEGRAM_UI_ROUTER_CONTRACT.md` — app-like Telegram UX contract
+- `doc/09_SELECTION_SURFACES_CONTRACT.md` — picker/filter/toggle contract
 
 ## Current STEP
 
@@ -47,7 +47,9 @@ Not:
 - STEP024 — lightweight operator/admin diagnostics surface
 - STEP024.5 — micro-hardening / deploy-readiness gap close
 - STEP024.6 — public legal/web surfaces baseline + Vercel config fix
+- STEP024.7 — deploy-stable webhook/bot-init + public npm registry lock baseline
 - STEP024.8 — LinkedIn OAuth route import-resolution hotfix + regression smoke
+- STEP024.9 — repo reconciliation pack merging STEP024.7 + STEP024.8 into one consistent handoff baseline
 
 ## Current code baseline
 
@@ -77,6 +79,7 @@ Not:
 - `npm run check`
 - `npm run smoke:env`
 - `npm run smoke:auth`
+- `npm run smoke:oauth-routes`
 - `npm run smoke:router`
 - `npm run smoke:profile`
 - `npm run smoke:skills`
@@ -100,6 +103,7 @@ Not:
 - `npm run smoke:notification-history`
 - `npm run smoke:ops`
 - `npm run smoke:legal`
+- `npm run smoke:bot-init`
 
 ## Truth note
 
