@@ -1,5 +1,5 @@
 import { Composer } from 'grammy';
-import { renderProfileSavedKeyboard, renderProfileSavedNotice } from '../../lib/telegram/render.js';
+import { renderProfilePreviewKeyboard, renderProfileSavedNotice } from '../../lib/telegram/render.js';
 import { applyDirectoryFilterInputForTelegramUser } from '../../lib/storage/directoryFilterStore.js';
 import { applyProfileFieldInput } from '../../lib/storage/profileEditStore.js';
 import { formatUserFacingError } from '../utils/notices.js';
@@ -27,7 +27,7 @@ export function createTextComposer({ buildDirectoryFiltersSurface }) {
         fieldLabel: profileResult.fieldMeta.label,
         profileSnapshot: profileResult.profile
       }), {
-        reply_markup: renderProfileSavedKeyboard()
+        reply_markup: renderProfilePreviewKeyboard()
       });
       return;
     }

@@ -1,5 +1,5 @@
 import { Composer } from 'grammy';
-import { renderProfileInputKeyboard, renderProfileInputPrompt, renderProfileSavedKeyboard, renderProfileSavedNotice } from '../../lib/telegram/render.js';
+import { renderProfileInputKeyboard, renderProfileInputPrompt, renderProfilePreviewKeyboard, renderProfileSavedNotice } from '../../lib/telegram/render.js';
 import { safeEditOrReply } from '../../lib/telegram/safeEditOrReply.js';
 import { cancelDirectoryFilterInputForTelegramUser } from '../../lib/storage/directoryFilterStore.js';
 import {
