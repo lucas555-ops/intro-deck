@@ -15,3 +15,4 @@ export async function safeEditOrReply(ctx, text, other = {}) {
 
   return ctx.reply(text, other);
 }
+ 
