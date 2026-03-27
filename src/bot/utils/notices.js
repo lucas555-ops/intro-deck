@@ -15,7 +15,7 @@ export function formatIntroRequestReason(reason) {
     case 'intro_request_throttled':
       return 'Please wait a moment before sending the same intro request again.';
     default:
-      return String(reason || 'Intro request failed.');
+      return 'Could not send the intro request right now.';
   }
 }
 
@@ -40,6 +40,60 @@ export function formatIntroDecisionReason(reason) {
     case 'intro_request_decision_failed':
       return 'Could not save the intro decision right now.';
     default:
-      return String(reason || 'Intro decision failed.');
+      return 'Could not update the intro request right now.';
   }
+}
+
+export function formatUserFacingError(input, fallback = 'Something went wrong. Please try again.') {
+  const message = String(input || '').trim();
+  if (!message) {
+    return fallback;
+  }
+
+  const safeDirectMessages = [
+    'cannot be empty',
+    'is too long',
+    'must be a valid URL',
+    'must start with http:// or https://',
+    'must point to linkedin.com',
+    'must be a member profile URL'
+  ];
+
+  if (safeDirectMessages.some((needle) => message.includes(needle))) {
+    return message;
+  }
+
+  if (
+    message.includes('Profile not found for edit session') ||
+    message.includes('Profile not found for skill toggle') ||
+    message.includes('Profile not found for clear skills')
+  ) {
+    return 'Complete LinkedIn connection first, then open your profile again.';
+  }
+
+  if (message.includes('DATABASE_URL is not configured')) {
+    return 'This feature is unavailable right now.';
+  }
+
+  const internalSignals = [
+    'violates',
+    'constraint',
+    'relation "',
+    'SQLSTATE',
+    'duplicate key',
+    'syntax error',
+    'Cannot find module',
+    'Unsupported profile field key',
+    'Unsupported field key',
+    'column ',
+    'insert into',
+    'update ',
+    'delete from'
+  ];
+
+  if (internalSignals.some((needle) => message.includes(needle))) {
+    return fallback;
+  }
+
+  return message;
 }
