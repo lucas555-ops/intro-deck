@@ -12,6 +12,15 @@ import { getSkillMeta, normalizeProfileFieldValue, getProfileFieldMeta } from '.
 
 const EDIT_SESSION_TTL_MINUTES = 20;
 
+function mapProfileEditSessionStartError(error, fieldKey) {
+  const message = String(error?.message || error || '');
+  if (message.includes('profile_edit_sessions_field_key_check')) {
+    const fieldLabel = getProfileFieldMeta(fieldKey)?.label || 'Requested field';
+    return new Error(`${fieldLabel} is not available until the latest database migration is applied.`);
+  }
+  return error;
+}
+
 export async function loadProfileEditorState({ telegramUserId }) {
   if (!isDatabaseConfigured()) {
     return {
@@ -55,19 +64,23 @@ export async function beginProfileFieldEdit({ telegramUserId, fieldKey }) {
       throw new Error('Profile not found for edit session');
     }
 
-    const pendingSession = await startProfileEditSession(client, {
-      userId: profile.user_id,
-      fieldKey,
-      ttlMinutes: EDIT_SESSION_TTL_MINUTES
-    });
+    try {
+      const pendingSession = await startProfileEditSession(client, {
+        userId: profile.user_id,
+        fieldKey,
+        ttlMinutes: EDIT_SESSION_TTL_MINUTES
+      });
 
-    return {
-      persistenceEnabled: true,
-      started: true,
-      fieldMeta,
-      pendingSession,
-      profile
-    };
+      return {
+        persistenceEnabled: true,
+        started: true,
+        fieldMeta,
+        pendingSession,
+        profile
+      };
+    } catch (error) {
+      throw mapProfileEditSessionStartError(error, fieldKey);
+    }
   });
 }
 
