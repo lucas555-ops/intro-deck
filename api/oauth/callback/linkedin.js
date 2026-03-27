@@ -34,6 +34,7 @@ function renderHtml({ title, body }) {
       body { font-family: Arial, sans-serif; margin: 40px auto; max-width: 720px; padding: 0 16px; line-height: 1.5; }
       .card { border: 1px solid #e5e7eb; border-radius: 16px; padding: 20px; }
       code { background: #f3f4f6; padding: 2px 6px; border-radius: 6px; }
+      .meta { color: #6b7280; font-size: 14px; }
     </style>
   </head>
   <body>
@@ -42,6 +43,29 @@ function renderHtml({ title, body }) {
     </div>
   </body>
 </html>`;
+}
+
+function describeError(error) {
+  if (!error) {
+    return { name: 'UnknownError', message: 'Unknown error' };
+  }
+
+  const summary = {
+    name: error.name || 'Error',
+    message: error.message || String(error)
+  };
+
+  if (error.code) {
+    summary.code = error.code;
+  }
+  if (error.status) {
+    summary.status = error.status;
+  }
+  if (error.cause?.message) {
+    summary.cause = error.cause.message;
+  }
+
+  return summary;
 }
 
 export default async function handler(req, res) {
@@ -72,10 +96,19 @@ export default async function handler(req, res) {
     }));
   }
 
+  let stage = 'config';
+  let statePayload = null;
+
   try {
     const linkedinConfig = getLinkedInConfig();
-    const statePayload = verifySignedState(state, linkedinConfig.stateSecret);
+
+    stage = 'verify_state';
+    statePayload = verifySignedState(state, linkedinConfig.stateSecret);
+
+    stage = 'fetch_discovery';
     const discovery = await fetchOidcDiscovery(linkedinConfig.oidcDiscoveryUrl);
+
+    stage = 'exchange_token';
     const tokenPayload = await exchangeCodeForToken({
       discovery,
       clientId: linkedinConfig.clientId,
@@ -86,6 +119,7 @@ export default async function handler(req, res) {
 
     let idTokenClaims = {};
     if (tokenPayload.id_token) {
+      stage = 'validate_id_token';
       idTokenClaims = await validateIdToken({
         idToken: tokenPayload.id_token,
         discovery,
@@ -95,13 +129,17 @@ export default async function handler(req, res) {
 
     let userInfo = {};
     if (tokenPayload.access_token) {
+      stage = 'fetch_userinfo';
       userInfo = await fetchUserInfo({
         discovery,
         accessToken: tokenPayload.access_token
       });
     }
 
+    stage = 'extract_identity';
     const identity = pickLinkedInIdentityClaims({ idTokenClaims, userInfo });
+
+    stage = 'persist_identity';
     const persistResult = await persistLinkedInIdentity({
       telegramUserId: statePayload.telegramUserId,
       telegramUsername: statePayload.telegramUsername || null,
@@ -111,6 +149,7 @@ export default async function handler(req, res) {
     });
 
     try {
+      stage = 'notify_telegram';
       const { botToken } = getTelegramConfig();
       await sendTelegramMessage({
         botToken,
@@ -130,7 +169,11 @@ export default async function handler(req, res) {
         }
       });
     } catch (notifyError) {
-      console.warn('[linkedin callback] telegram notify skipped', notifyError);
+      console.warn('[linkedin callback] telegram notify skipped', {
+        stage: 'notify_telegram',
+        telegramUserId: statePayload.telegramUserId,
+        error: describeError(notifyError)
+      });
     }
 
     const summary = buildConnectedSummary(identity) || 'Minimal identity extracted';
@@ -146,10 +189,21 @@ export default async function handler(req, res) {
       `
     }));
   } catch (callbackError) {
-    console.error('[linkedin callback] failed', callbackError);
+    console.error('[linkedin callback] failed', {
+      stage,
+      telegramUserId: statePayload?.telegramUserId || null,
+      hasCode: Boolean(code),
+      hasState: Boolean(state),
+      error: describeError(callbackError)
+    });
+
     return res.status(500).send(renderHtml({
       title: 'LinkedIn callback failed',
-      body: '<h1>LinkedIn callback failed</h1><p>Please return to Telegram and try the connection again.</p>'
+      body: `
+        <h1>LinkedIn callback failed</h1>
+        <p>Please return to Telegram and try the connection again.</p>
+        <p class="meta">Failure stage: <code>${escapeHtml(stage)}</code>. Check the server logs for the detailed reason.</p>
+      `
     }));
   }
 }
