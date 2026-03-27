@@ -1,6 +1,6 @@
 # LinkedIn Telegram Directory Bot
 
-STEP024.6 baseline for a Telegram-native professional directory with LinkedIn OIDC identity bootstrap, durable notification receipt diagnostics, an allowlisted in-Telegram operator surface, deploy-readiness micro-hardening, and public legal/web surfaces for app registration.
+STEP024.8 baseline for a Telegram-native professional directory with LinkedIn OIDC identity bootstrap, durable notification receipt diagnostics, an allowlisted in-Telegram operator surface, deploy-readiness micro-hardening, public legal/web surfaces for app registration, and a live OAuth route import-resolution hotfix.
 
 ## What this repo is
 
@@ -47,6 +47,7 @@ Not:
 - STEP024 — lightweight operator/admin diagnostics surface
 - STEP024.5 — micro-hardening / deploy-readiness gap close
 - STEP024.6 — public legal/web surfaces baseline + Vercel config fix
+- STEP024.8 — LinkedIn OAuth route import-resolution hotfix + regression smoke
 
 ## Current code baseline
 

@@ -1,6 +1,6 @@
 {
   "name": "linkedin-telegram-directory-bot",
-  "version": "0.0.25-step024.7",
+  "version": "0.0.26-step024.8",
   "private": true,
   "type": "module",
   "packageManager": "npm@10.8.2",
@@ -11,6 +11,7 @@
     "check": "node --check api/health.js && node --check api/webhook.js && node --check api/cron/notification-retry.js && node --check api/ops/notification-receipts.js && node --check api/oauth/start/linkedin.js && node --check api/oauth/callback/linkedin.js && node --check src/bot/createBot.js && node --check src/config/env.js && node --check src/db/pool.js && node --check src/db/usersRepo.js && node --check src/db/linkedinRepo.js && node --check src/db/profileRepo.js && node --check src/db/directoryRepo.js && node --check src/db/editSessionRepo.js && node --check src/db/directoryFilterRepo.js && node --check src/db/introRepo.js && node --check src/db/runtimeGuardRepo.js && node --check src/db/notificationRepo.js && node --check src/lib/linkedin/oidc.js && node --check src/lib/linkedin/profile.js && node --check src/lib/profile/contract.js && node --check src/lib/storage/linkedinIdentityStore.js && node --check src/lib/storage/profileStore.js && node --check src/lib/storage/profileEditStore.js && node --check src/lib/storage/directoryFilterStore.js && node --check src/lib/storage/directoryStore.js && node --check src/lib/storage/introRequestStore.js && node --check src/lib/storage/runtimeGuardStore.js && node --check src/lib/crypto/secretCompare.js && node --check src/lib/storage/notificationStore.js && node --check src/lib/telegram/botApi.js && node --check src/lib/telegram/render.js && node --check src/lib/telegram/safeEditOrReply.js && node --check src/bot/composers/homeComposer.js && node --check src/bot/composers/profileComposer.js && node --check src/bot/composers/directoryComposer.js && node --check src/bot/composers/introComposer.js && node --check src/bot/composers/operatorComposer.js && node --check src/bot/composers/textComposer.js && node --check src/bot/surfaces/appSurfaces.js && node --check src/bot/utils/notices.js && node --check src/bot/utils/pendingInputs.js",
     "smoke:env": "node scripts/smoke_env_contract.js",
     "smoke:auth": "node scripts/smoke_linkedin_auth_contract.js",
+    "smoke:oauth-routes": "node scripts/smoke_oauth_route_imports.js",
     "smoke:router": "node scripts/smoke_router_contract.js",
     "smoke:storage": "node scripts/smoke_storage_contract.js",
     "smoke:profile": "node scripts/smoke_profile_edit_contract.js",
