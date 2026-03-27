@@ -41,7 +41,9 @@
     "smoke:oauth-routes": "node scripts/smoke_oauth_route_imports.js",
     "smoke:profile-session-schema": "node scripts/smoke_profile_edit_session_schema_contract.js",
     "smoke:product-surfaces": "node scripts/smoke_product_surface_contract.js",
-    "smoke:profile-render-compat": "node scripts/smoke_profile_render_export_compat.js"
+    "smoke:profile-render-compat": "node scripts/smoke_profile_render_export_compat.js",
+    "smoke:help-fallback": "node scripts/smoke_help_fallback_callback_contract.js",
+    "smoke:linkedin-callback-diagnostics": "node scripts/smoke_linkedin_callback_diagnostics_contract.js"
   },
   "dependencies": {
     "grammy": "1.41.1",

@@ -1,6 +1,6 @@
 # LinkedIn Telegram Directory Bot
 
-STEP026.4 baseline for a Telegram-native professional directory with LinkedIn OIDC identity bootstrap, clean user-facing Telegram surfaces, a reconciled command contract, durable notification receipts, an allowlisted operator diagnostics layer, deploy-stable Vercel settings, and public legal/web surfaces for app registration.
+STEP026.5 baseline for a Telegram-native professional directory with LinkedIn OIDC identity bootstrap, clean user-facing Telegram surfaces, a reconciled command contract, durable notification receipts, an allowlisted operator diagnostics layer, deploy-stable Vercel settings, and explicit LinkedIn callback stage diagnostics for faster live debugging.
 
 ## What this repo is
 
@@ -37,7 +37,7 @@ Not:
 - STEP024.9 — repo/docs/smoke reconciliation baseline
 - STEP025 — profile edit session schema fix for LinkedIn URL
 - STEP026.2 — reconciled self-contained baseline for product surface polish + compatibility
-- STEP026.4 — command contract cleanup for /help, /profile, /browse, /inbox, and operator-only /ops
+- STEP026.5 — mixed-state help fallback callback fix + staged LinkedIn callback diagnostics
 
 ## Current code baseline
 
@@ -122,4 +122,4 @@ ops - Open operator diagnostics
 - Source baseline is ahead of live confirmation
 - Last known live deploy baseline before this repo pass was STEP024.7 deploy-stable
 - STEP026.2 source is self-contained and carries forward the STEP024.8, STEP024.9, STEP025, STEP026, and STEP026.1 fixes needed for consistency
-- STEP026.4 adds a clean command layer so the public command menu matches real handlers and /ops stays operator-only in practice
+- STEP026.5 keeps the public command layer clean, hardens the help-surface fallback callbacks against mixed deploys, and adds staged LinkedIn callback diagnostics for live failure triage
