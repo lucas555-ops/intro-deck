@@ -60,8 +60,8 @@ export default async function handler(req, res) {
 
   if (error) {
     return res.status(400).send(renderHtml({
-      title: 'LinkedIn auth canceled',
-      body: `<h1>LinkedIn auth failed</h1><p><code>${escapeHtml(error)}</code></p>`
+      title: 'LinkedIn sign-in canceled',
+      body: `<h1>LinkedIn sign-in was canceled</h1><p><code>${escapeHtml(error)}</code></p>`
     }));
   }
 
@@ -120,7 +120,7 @@ export default async function handler(req, res) {
           '',
           buildConnectedSummary(identity) || 'Minimal identity extracted.',
           buildPersistenceSummary(persistResult),
-          'STEP005 profile draft editing is ready. Open the profile menu to complete your card.'
+          'Open the profile editor in Telegram to complete your card.'
         ].join('\n'),
         replyMarkup: {
           inline_keyboard: [
@@ -142,15 +142,14 @@ export default async function handler(req, res) {
         <h1>LinkedIn connected</h1>
         <p>${escapeHtml(summary)}</p>
         <p>${escapeHtml(persistenceSummary)}</p>
-        <p>STEP005 keeps LinkedIn identity persisted and opens the in-Telegram profile completion flow when <code>DATABASE_URL</code> is configured.</p>
-        <p>You can return to Telegram now.</p>
+        <p>You can return to Telegram now and finish your profile.</p>
       `
     }));
   } catch (callbackError) {
     console.error('[linkedin callback] failed', callbackError);
     return res.status(500).send(renderHtml({
       title: 'LinkedIn callback failed',
-      body: `<h1>LinkedIn callback failed</h1><p><code>${escapeHtml(String(callbackError?.message || callbackError))}</code></p>`
+      body: '<h1>LinkedIn callback failed</h1><p>Please return to Telegram and try the connection again.</p>'
     }));
   }
 }
