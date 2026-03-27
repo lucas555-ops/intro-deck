@@ -3,16 +3,16 @@
 ## Snapshot
 
 - Project: LinkedIn Telegram Directory Bot
-- Current STEP: STEP024.5
-- Phase: runtime build / lightweight operator diagnostics surface over the existing intro, hardening, retention, split-runtime, receipt, and retry layers
+- Current STEP: STEP024.6
+- Phase: runtime build / lightweight operator diagnostics surface over the existing intro, hardening, retention, split-runtime, receipt, retry, and deploy-readiness web surfaces
 - Primary mode: Telegram SaaS / Bot + Engineering Ops
 - Secondary mode: Hardening + Docs / Handoff discipline
-- Runtime status: working scaffold with real auth, persistence, in-Telegram profile completion, curated skill selection, public browse, persisted per-user directory filters, text/city narrowing, outbound LinkedIn action, intro request persistence, fail-closed webhook secret guard, intro inbox decisions plus privacy-first contact unlocking, durable service notification receipts, protected retry, protected read-only receipt diagnostics, and a narrow in-Telegram operator/admin diagnostics surface; still not production-ready
+- Runtime status: working scaffold with real auth, persistence, in-Telegram profile completion, curated skill selection, public browse, persisted per-user directory filters, text/city narrowing, outbound LinkedIn action, intro request persistence, fail-closed webhook secret guard, intro inbox decisions plus privacy-first contact unlocking, durable service notification receipts, protected retry, protected read-only receipt diagnostics, a narrow in-Telegram operator/admin diagnostics surface, and public web/legal surfaces for Vercel + LinkedIn app setup; still not production-ready
 
 ## Audit status
 
 - Syntax check: passed
-- Smoke suite: passed for env, auth, router, profile, skills, directory, filters, search, outbound, intro, webhook, intro-actions, intro-decisions, intro-contact, intro-detail, guards, intro-retention, code-split, data-split, receipts, notification-retry, notification-history, ops, and cron
+- Smoke suite: passed for env, auth, router, profile, skills, directory, filters, search, outbound, intro, webhook, intro-actions, intro-decisions, intro-contact, intro-detail, guards, intro-retention, code-split, data-split, receipts, notification-retry, notification-history, ops, cron, and legal
 - Docs link scan: carried forward from STEP011C baseline and spot-checked after STEP024 docs additions
 - Live deployment proof: still not available in this repo snapshot
 
@@ -54,6 +54,9 @@
 - notification retry baseline now tracks `attempt_count`, `last_attempt_at`, `next_attempt_at`, `max_attempts`, and `last_error_code`, and exposes a protected retry endpoint for due receipt re-delivery
 - notification receipt diagnostics baseline now exposes protected read-only recent history, operator bucket counts, and per-intro drilldown summary
 - lightweight operator/admin diagnostics surface now exists inside Telegram via `/ops` and an operator-only home entrypoint, gated by allowlisted Telegram user IDs
+- public root landing page for Vercel default domain
+- public privacy policy page for LinkedIn app registration
+- public terms-of-use page linked from the landing and privacy surfaces
 
 ## What is intentionally still missing
 
@@ -67,6 +70,7 @@
 - broad admin surfaces
 - migration runner / deploy automation
 - production observability
+- custom domain and dedicated support/contact email
 
 ## Current truth
 
@@ -78,7 +82,7 @@
 - public browse only shows profiles that are both `listed` and `active`
 - text query and city narrowing exist, but this is still not a search engine with ranking
 - intro requests, accept/decline decisions, and decision-aware detail/contact surfaces persist in DB, but reply/chat flows are still intentionally missing
-- receipt truth is durable in DB, retry truth is DB-backed, STEP023 adds protected operator read truth, STEP024 adds an allowlisted in-Telegram operator surface without turning the product into a broad notification center, and STEP024.5 closes deploy-readiness gaps with shared secret compare, dual-mode retry auth for Vercel cron + manual fallback, retention-safe notification recipient FK policy, and retry-path runtime guard cleanup
+- receipt truth is durable in DB, retry truth is DB-backed, STEP023 adds protected operator read truth, STEP024 adds an allowlisted in-Telegram operator surface without turning the product into a broad notification center, STEP024.5 closes deploy-readiness gaps with shared secret compare, dual-mode retry auth for Vercel cron + manual fallback, retention-safe notification recipient FK policy, and retry-path runtime guard cleanup, and STEP024.6 adds public web/legal surfaces plus a Vercel config fix so the default domain can be used immediately for LinkedIn Page/App setup
 - industry filtering is a curated bucket layer over user-entered industry text
 - skill filtering matches any selected skill, not all selected skills
 - search text matches display name, LinkedIn name, headline, company, industry, and about
