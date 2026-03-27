@@ -1,5 +1,5 @@
-import { getLinkedInConfig } from '../../../../src/config/env.js';
-import { buildAuthorizeUrl, buildSignedState, fetchOidcDiscovery } from '../../../../src/lib/linkedin/oidc.js';
+import { getLinkedInConfig } from '../../../src/config/env.js';
+import { buildAuthorizeUrl, buildSignedState, fetchOidcDiscovery } from '../../../src/lib/linkedin/oidc.js';
 
 export default async function handler(req, res) {
   if (req.method !== 'GET') {
