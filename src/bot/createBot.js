@@ -1,4 +1,4 @@
-import { Bot } from 'grammy'; 
+import { Bot } from 'grammy';
 import { getAppConfig, getTelegramConfig } from '../config/env.js';
 import { createDirectoryComposer } from './composers/directoryComposer.js';
 import { createHomeComposer } from './composers/homeComposer.js';
@@ -11,9 +11,13 @@ import { formatIntroDecisionReason, formatIntroRequestReason } from './utils/not
 import { clearAllPendingInputs } from './utils/pendingInputs.js';
 
 let botSingleton = null;
+let botInitPromise = null;
 
-export function createBot() {
+export async function createBot() {
   if (botSingleton) {
+    if (botInitPromise) {
+      await botInitPromise;
+    }
     return botSingleton;
   }
 
@@ -67,5 +71,12 @@ export function createBot() {
   });
 
   botSingleton = bot;
+  botInitPromise = bot.init().catch((error) => {
+    botSingleton = null;
+    botInitPromise = null;
+    throw error;
+  });
+
+  await botInitPromise;
   return botSingleton;
 }
