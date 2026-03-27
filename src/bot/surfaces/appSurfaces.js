@@ -9,6 +9,8 @@ import {
   renderIntroInboxText,
   renderDirectoryListKeyboard,
   renderDirectoryListText,
+  renderHelpKeyboard,
+  renderHelpText,
   renderHomeKeyboard,
   renderHomeText,
   renderOperatorDiagnosticsKeyboard,
@@ -82,6 +84,13 @@ export function createSurfaceBuilders({ appBaseUrl }) {
     };
   }
 
+  async function buildHelpSurface() {
+    return {
+      text: renderHelpText(),
+      reply_markup: renderHelpKeyboard()
+    };
+  }
+
   async function buildProfileMenuSurface(ctx, notice = null) {
     const state = await loadProfileEditorState({
       telegramUserId: ctx.from.id
@@ -101,7 +110,10 @@ export function createSurfaceBuilders({ appBaseUrl }) {
         notice
       }),
       reply_markup: renderProfileMenuKeyboard({
-        profileSnapshot: state.profile
+        appBaseUrl,
+        telegramUserId: ctx.from.id,
+        profileSnapshot: state.profile,
+        persistenceEnabled: state.persistenceEnabled
       })
     };
   }
@@ -347,6 +359,7 @@ async function buildDirectoryCardSurface(ctx, profileId, page = 0, notice = null
 
   return {
     buildHomeSurface,
+    buildHelpSurface,
     buildProfileMenuSurface,
     buildProfilePreviewSurface,
     buildProfileSkillsSurface,
