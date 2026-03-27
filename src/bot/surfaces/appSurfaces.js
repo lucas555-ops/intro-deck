@@ -1,27 +1,4 @@
-import {
-  renderDirectoryCardKeyboard,
-  renderDirectoryCardText,
-  renderDirectoryFiltersKeyboard,
-  renderDirectoryFiltersText,
-  renderIntroDetailKeyboard,
-  renderIntroDetailText,
-  renderIntroInboxKeyboard,
-  renderIntroInboxText,
-  renderDirectoryListKeyboard,
-  renderDirectoryListText,
-  renderHelpKeyboard,
-  renderHelpText,
-  renderHomeKeyboard,
-  renderHomeText,
-  renderOperatorDiagnosticsKeyboard,
-  renderOperatorDiagnosticsText,
-  renderProfileMenuKeyboard,
-  renderProfileMenuText,
-  renderProfilePreviewKeyboard,
-  renderProfilePreviewText,
-  renderProfileSkillsKeyboard,
-  renderProfileSkillsText
-} from '../../lib/telegram/render.js';
+import * as render from '../../lib/telegram/render.js';
 import { loadDirectoryCard, loadDirectoryPage } from '../../lib/storage/directoryStore.js';
 import { loadDirectoryFilterState } from '../../lib/storage/directoryFilterStore.js';
 import { loadIntroInboxState, loadIntroRequestDetailForTelegramUser } from '../../lib/storage/introRequestStore.js';
@@ -29,6 +6,55 @@ import { touchTelegramUserAndLoadProfile } from '../../lib/storage/profileStore.
 import { loadNotificationOperatorSurface } from '../../lib/storage/notificationStore.js';
 import { loadProfileEditorState } from '../../lib/storage/profileEditStore.js';
 import { isOperatorTelegramUser } from '../../config/env.js';
+
+
+function fallbackRenderHelpText() {
+  return [
+    '❓ Help',
+    '',
+    'Use Intro Deck to connect your LinkedIn identity, complete a concise profile inside Telegram, browse listed professionals, and manage your intro inbox.',
+    '',
+    'Shortcuts:',
+    '• /profile — open your profile',
+    '• /browse — browse the directory',
+    '• /inbox — open your intro inbox',
+    '• /menu — return home'
+  ].join('\n');
+}
+
+function fallbackRenderHelpKeyboard() {
+  return {
+    inline_keyboard: [
+      [{ text: '🧩 Profile', callback_data: 'nav:profile' }, { text: '🌐 Browse directory', callback_data: 'dir:open' }],
+      [{ text: '📥 Intro inbox', callback_data: 'intro:inbox' }],
+      [{ text: '🏠 Home', callback_data: 'nav:home' }]
+    ]
+  };
+}
+
+const renderHelpText = typeof render.renderHelpText === 'function' ? render.renderHelpText : fallbackRenderHelpText;
+const renderHelpKeyboard = typeof render.renderHelpKeyboard === 'function' ? render.renderHelpKeyboard : fallbackRenderHelpKeyboard;
+const renderDirectoryCardKeyboard = render.renderDirectoryCardKeyboard;
+const renderDirectoryCardText = render.renderDirectoryCardText;
+const renderDirectoryFiltersKeyboard = render.renderDirectoryFiltersKeyboard;
+const renderDirectoryFiltersText = render.renderDirectoryFiltersText;
+const renderIntroDetailKeyboard = render.renderIntroDetailKeyboard;
+const renderIntroDetailText = render.renderIntroDetailText;
+const renderIntroInboxKeyboard = render.renderIntroInboxKeyboard;
+const renderIntroInboxText = render.renderIntroInboxText;
+const renderDirectoryListKeyboard = render.renderDirectoryListKeyboard;
+const renderDirectoryListText = render.renderDirectoryListText;
+const renderHomeKeyboard = render.renderHomeKeyboard;
+const renderHomeText = render.renderHomeText;
+const renderOperatorDiagnosticsKeyboard = render.renderOperatorDiagnosticsKeyboard;
+const renderOperatorDiagnosticsText = render.renderOperatorDiagnosticsText;
+const renderProfileMenuKeyboard = render.renderProfileMenuKeyboard;
+const renderProfileMenuText = render.renderProfileMenuText;
+const renderProfilePreviewKeyboard = render.renderProfilePreviewKeyboard;
+const renderProfilePreviewText = render.renderProfilePreviewText;
+const renderProfileSkillsKeyboard = render.renderProfileSkillsKeyboard;
+const renderProfileSkillsText = render.renderProfileSkillsText;
+
 
 export function createSurfaceBuilders({ appBaseUrl }) {
   async function buildHomeSurface(ctx) {
