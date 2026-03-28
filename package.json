@@ -68,7 +68,8 @@
     "smoke:notice-targeting": "node scripts/smoke_notice_targeting_contract.js",
     "smoke:admin-templates": "node scripts/smoke_admin_templates_contract.js",
     "smoke:admin-search": "node scripts/smoke_admin_search_contract.js",
-    "smoke:admin-search-results": "node scripts/smoke_admin_search_results_contract.js"
+    "smoke:admin-search-results": "node scripts/smoke_admin_search_results_contract.js",
+    "smoke:founder-admin-visibility": "node scripts/smoke_founder_admin_visibility_contract.js"
   },
   "dependencies": {
     "grammy": "1.41.1",

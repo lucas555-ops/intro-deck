@@ -3,17 +3,17 @@
 ## Snapshot
 
 - Project: LinkedIn Telegram Directory Bot
-- Current STEP: STEP039
+- Current STEP: STEP039.1
 - Phase: live user-product baseline plus hardened operator communications, delivery controls, and refined operator productivity
 - Primary mode: Telegram SaaS / Bot + product hardening
 - Secondary mode: Docs / Handoff discipline
-- Runtime status: working source baseline with LinkedIn auth, persistence, in-Telegram profile completion, curated skill selection, public browse, intro inbox/detail, notification retry diagnostics, LinkedIn relink transfer flow, operator admin shell, operator Users + User Card, and a first Communications layer with Notice / Broadcast / Outbox; now includes batch-safe broadcast delivery materialization, failures drilldown, and outbox progress truth; now includes admin compact counters, hub summaries, polished operator rows, tighter empty-state/navigation consistency, refined operator segments, quick actions, scoped user drilldowns, and compact admin trend counters across hub screens; still needs live re-deploy to confirm STEP039 in production
+- Runtime status: working source baseline with LinkedIn auth, persistence, in-Telegram profile completion, curated skill selection, public browse, intro inbox/detail, notification retry diagnostics, LinkedIn relink transfer flow, operator admin shell, operator Users + User Card, and a first Communications layer with Notice / Broadcast / Outbox; now includes batch-safe broadcast delivery materialization, failures drilldown, and outbox progress truth; now includes admin compact counters, hub summaries, polished operator rows, tighter empty-state/navigation consistency, refined operator segments, quick actions, scoped user drilldowns, and compact admin trend counters across hub screens; still needs live re-deploy to confirm STEP039.1 in production
 
 ## Audit status
 
 - Syntax check: ready to run in-repo
 - Smoke suite: expanded with oauth-route, bot-init, product-surface, admin-shell, admin-users, admin-user-card, notice, broadcast, outbox, admin-intros, and admin-delivery contracts
-- Docs link scan: updated through STEP039 continuity
+- Docs link scan: updated through STEP039.1 continuity
 - Live deployment proof: not refreshed from this repo snapshot
 
 ## What exists now
@@ -125,6 +125,7 @@
 ## Next recommended step
 
 - STEP039 — Operator productivity shortcuts v2 + scoped search on top of the STEP039 operator baseline
+- STEP039.1 — narrow founder-only admin entry visibility hotfix with `/admin` fallback and allowlist visibility wired to `ADMIN_CHAT_ID` + `TG_OPERATOR_IDS`
 
 
 ## STEP032 delta
@@ -184,3 +185,10 @@
 - Added search entrypoints on Admin Home and section surfaces.
 - Added result surfaces with direct drilldowns into User Card, Intro Detail, Delivery Detail, Outbox Record, and Audit Detail.
 - Added lightweight operator productivity shortcuts v2 without introducing a heavy global search system.
+
+
+## STEP039.1 delta
+
+- home keyboard keeps the existing `👑 Admin` button but now shows it for founder/operator accounts resolved from `ADMIN_CHAT_ID` and `TG_OPERATOR_IDS` (with legacy `OPERATOR_TELEGRAM_USER_IDS` still accepted as compatibility input)
+- `/admin` now mirrors `/ops` as an operator-only fallback entrypoint without changing the public command list
+- added founder-only visibility smoke and refreshed env/docs freeze for the new allowlist source of truth

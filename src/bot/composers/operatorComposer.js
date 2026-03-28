@@ -629,7 +629,7 @@ export function createOperatorComposer({
     await renderSurface(ctx, surface, method);
   }
 
-  composer.command('ops', async (ctx) => {
+  const renderOperatorEntry = async (ctx) => {
     const introRequestId = parseOpsIntroRequestId(ctx.message?.text || '');
     if (introRequestId) {
       await renderOperatorDiagnostics(ctx, { introRequestId }, 'reply');
@@ -637,6 +637,14 @@ export function createOperatorComposer({
     }
 
     await renderAdminSurface(ctx, 'home', 'reply');
+  };
+
+  composer.command('ops', async (ctx) => {
+    await renderOperatorEntry(ctx);
+  });
+
+  composer.command('admin', async (ctx) => {
+    await renderOperatorEntry(ctx);
   });
 
   composer.callbackQuery('adm:home', async (ctx) => {

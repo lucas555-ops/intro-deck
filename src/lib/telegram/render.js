@@ -449,7 +449,7 @@ export function renderHomeKeyboard({ appBaseUrl, telegramUserId, profileSnapshot
   rows.push([{ text: '❓ Help', callback_data: 'help:root' }]);
 
   if (isOperator) {
-    rows.push([{ text: '👑 Admin', callback_data: 'adm:home' }]);
+    rows.push([{ text: '👑 Админка', callback_data: 'adm:home' }]);
   }
 
   return buildInlineKeyboard(rows);

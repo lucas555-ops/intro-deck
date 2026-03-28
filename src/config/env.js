@@ -33,6 +33,16 @@ function readIntegerEnv(name, fallback) {
   return parsed;
 }
 
+function readTelegramUserIdEnv(name) {
+  const raw = readEnv(name, '');
+  if (!raw) {
+    return null;
+  }
+
+  const parsed = Number.parseInt(raw, 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+}
+
 function readTelegramUserIdListEnv(name) {
   const raw = readEnv(name, '');
   if (!raw) {
@@ -119,8 +129,20 @@ export function getNotificationOpsConfig() {
 }
 
 export function getOperatorConfig() {
+  const adminChatId = readTelegramUserIdEnv('ADMIN_CHAT_ID');
+  const founderOperatorIds = readTelegramUserIdListEnv('TG_OPERATOR_IDS');
+  const legacyOperatorIds = readTelegramUserIdListEnv('OPERATOR_TELEGRAM_USER_IDS');
+  const operatorTelegramUserIds = [...new Set([
+    ...(adminChatId ? [adminChatId] : []),
+    ...founderOperatorIds,
+    ...legacyOperatorIds
+  ])];
+
   return {
-    operatorTelegramUserIds: readTelegramUserIdListEnv('OPERATOR_TELEGRAM_USER_IDS')
+    adminChatId,
+    founderOperatorIds,
+    legacyOperatorIds,
+    operatorTelegramUserIds
   };
 }
 

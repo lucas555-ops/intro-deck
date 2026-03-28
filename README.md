@@ -1,6 +1,6 @@
 # LinkedIn Telegram Directory Bot
 
-STEP038 baseline for a Telegram-native professional directory with LinkedIn OIDC identity bootstrap, clean user-facing Telegram surfaces, durable notification receipts, explicit LinkedIn callback diagnostics, confirmed LinkedIn relink transfer flow, a first operator admin shell, operator Users + User Card surfaces, a first Communications layer with Notice / Broadcast / Outbox, operator Intros + Delivery read surfaces, direct operator messaging from User Card with unified Outbox records, refined admin segmentation/productivity shortcuts, and compact admin analytics + trend counters, refined notice/broadcast targeting, and a real admin templates layer.
+STEP039.1 baseline for a Telegram-native professional directory with LinkedIn OIDC identity bootstrap, clean user-facing Telegram surfaces, durable notification receipts, explicit LinkedIn callback diagnostics, confirmed LinkedIn relink transfer flow, a first operator admin shell, operator Users + User Card surfaces, a first Communications layer with Notice / Broadcast / Outbox, operator Intros + Delivery read surfaces, direct operator messaging from User Card with unified Outbox records, refined admin segmentation/productivity shortcuts, and compact admin analytics + trend counters, refined notice/broadcast targeting, and a real admin templates layer.
 
 ## What this repo is
 
@@ -52,6 +52,7 @@ Not:
 - STEP036 — Segmentation refinement + operator productivity pass across Users / Intros / Communications / Audit
 - STEP037 — Compact admin analytics + trend counters across Admin / Operations / Communications / System hubs
 - STEP038 — Broadcast/notice targeting refinement + templates polish
+- STEP039.1 — founder-only admin entry visibility in the Telegram home menu with `/admin` fallback and allowlist wired to `ADMIN_CHAT_ID` + `TG_OPERATOR_IDS`
 
 ## Current code baseline
 
