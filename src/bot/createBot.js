@@ -7,6 +7,7 @@ import { createOperatorComposer } from './composers/operatorComposer.js';
 import { createProfileComposer } from './composers/profileComposer.js';
 import { createTextComposer } from './composers/textComposer.js';
 import { createSurfaceBuilders } from './surfaces/appSurfaces.js';
+import { createAdminSurfaceBuilders } from './surfaces/adminSurfaces.js';
 import { formatIntroDecisionReason, formatIntroRequestReason } from './utils/notices.js';
 import { clearAllPendingInputs } from './utils/pendingInputs.js';
 
@@ -26,6 +27,7 @@ export async function createBot() {
   const bot = new Bot(botToken);
 
   const surfaces = createSurfaceBuilders({ appBaseUrl });
+  const adminSurfaces = createAdminSurfaceBuilders({ currentStep: 'STEP033' });
 
   bot.use(createHomeComposer({
     appBaseUrl,
@@ -59,12 +61,47 @@ export async function createBot() {
   }));
 
   bot.use(createTextComposer({
-    buildDirectoryFiltersSurface: surfaces.buildDirectoryFiltersSurface
+    buildDirectoryFiltersSurface: surfaces.buildDirectoryFiltersSurface,
+    buildAdminUserCardSurface: adminSurfaces.buildAdminUserCardSurface,
+    buildAdminUserMessageSurface: adminSurfaces.buildAdminUserMessageSurface,
+    buildAdminNoticeSurface: adminSurfaces.buildAdminNoticeSurface,
+    buildAdminBroadcastSurface: adminSurfaces.buildAdminBroadcastSurface
   }));
 
   bot.use(createOperatorComposer({
     clearAllPendingInputs,
-    buildOperatorDiagnosticsSurface: surfaces.buildOperatorDiagnosticsSurface
+    buildOperatorDiagnosticsSurface: surfaces.buildOperatorDiagnosticsSurface,
+    buildAdminHomeSurface: adminSurfaces.buildAdminHomeSurface,
+    buildAdminOperationsSurface: adminSurfaces.buildAdminOperationsSurface,
+    buildAdminCommunicationsSurface: adminSurfaces.buildAdminCommunicationsSurface,
+    buildAdminSystemSurface: adminSurfaces.buildAdminSystemSurface,
+    buildAdminHealthSurface: adminSurfaces.buildAdminHealthSurface,
+    buildAdminOperatorsSurface: adminSurfaces.buildAdminOperatorsSurface,
+    buildAdminUsersSurface: adminSurfaces.buildAdminUsersSurface,
+    buildAdminUserCardSurface: adminSurfaces.buildAdminUserCardSurface,
+    buildAdminUserPublicCardSurface: adminSurfaces.buildAdminUserPublicCardSurface,
+    buildAdminUserMessageSurface: adminSurfaces.buildAdminUserMessageSurface,
+    buildAdminDirectTemplatePickerSurface: adminSurfaces.buildAdminDirectTemplatePickerSurface,
+    buildAdminDirectPreviewSurface: adminSurfaces.buildAdminDirectPreviewSurface,
+    buildAdminUserNotePromptSurface: adminSurfaces.buildAdminUserNotePromptSurface,
+    buildAdminIntrosSurface: adminSurfaces.buildAdminIntrosSurface,
+    buildAdminIntroDetailSurface: adminSurfaces.buildAdminIntroDetailSurface,
+    buildAdminDeliverySurface: adminSurfaces.buildAdminDeliverySurface,
+    buildAdminDeliveryRecordSurface: adminSurfaces.buildAdminDeliveryRecordSurface,
+    buildAdminQualitySurface: adminSurfaces.buildAdminQualitySurface,
+    buildAdminAuditSurface: adminSurfaces.buildAdminAuditSurface,
+    buildAdminAuditRecordSurface: adminSurfaces.buildAdminAuditRecordSurface,
+    buildAdminNoticeSurface: adminSurfaces.buildAdminNoticeSurface,
+    buildAdminNoticeAudienceSurface: adminSurfaces.buildAdminNoticeAudienceSurface,
+    buildAdminNoticePreviewSurface: adminSurfaces.buildAdminNoticePreviewSurface,
+    buildAdminBroadcastSurface: adminSurfaces.buildAdminBroadcastSurface,
+    buildAdminBroadcastAudienceSurface: adminSurfaces.buildAdminBroadcastAudienceSurface,
+    buildAdminBroadcastPreviewSurface: adminSurfaces.buildAdminBroadcastPreviewSurface,
+    buildAdminOutboxSurface: adminSurfaces.buildAdminOutboxSurface,
+    buildAdminOutboxRecordSurface: adminSurfaces.buildAdminOutboxRecordSurface,
+    buildAdminCommsEditPromptSurface: adminSurfaces.buildAdminCommsEditPromptSurface,
+    buildAdminPlaceholderSurface: adminSurfaces.buildAdminPlaceholderSurface,
+    buildOperatorOnlySurface: adminSurfaces.buildOperatorOnlySurface
   }));
 
   bot.catch((error) => {

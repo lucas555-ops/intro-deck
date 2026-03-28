@@ -1,4 +1,6 @@
 import {
+  renderHelpKeyboard,
+  renderHelpText,
   renderHomeKeyboard,
   renderHomeText,
   renderProfileInputKeyboard,
@@ -45,7 +47,7 @@ const textDisconnected = renderHomeText({
   profileSnapshot: null,
   persistenceEnabled: false
 });
-if (!textDisconnected.includes('Persistence: disabled')) {
+if (!textDisconnected.includes('Profile saving is unavailable right now.')) {
   throw new Error('home text must expose disabled persistence state');
 }
 
@@ -53,7 +55,7 @@ const textConnected = renderHomeText({
   persistenceEnabled: true,
   profileSnapshot
 });
-if (!textConnected.includes('connected as Rustam')) {
+if (!textConnected.includes('Connected as: Rustam')) {
   throw new Error('home text missing connected profile summary');
 }
 if (!textConnected.includes('Skills: Founder, Growth')) {
@@ -68,25 +70,28 @@ const keyboard = renderHomeKeyboard({
 });
 
 const serialized = JSON.stringify(keyboard.inline_keyboard);
-if (!serialized.includes('Complete profile')) {
+if (!serialized.includes('Edit profile')) {
   throw new Error('home keyboard missing profile entrypoint');
 }
-if (!serialized.includes('home:root')) {
-  throw new Error('home keyboard missing root callback');
+if (!serialized.includes('help:root')) {
+  throw new Error('home keyboard missing help callback');
+}
+if (serialized.includes('home:root')) {
+  throw new Error('home keyboard must not include a home callback on the home surface');
 }
 
 const menuText = renderProfileMenuText({
   profileSnapshot,
   persistenceEnabled: true
 });
-if (!menuText.includes('Profile draft editor')) {
+if (!menuText.includes('Profile editor')) {
   throw new Error('profile menu text missing title');
 }
 if (!menuText.includes('Skills: Founder, Growth')) {
   throw new Error('profile menu text missing skills summary');
 }
 
-const menuKeyboard = JSON.stringify(renderProfileMenuKeyboard({ profileSnapshot }).inline_keyboard);
+const menuKeyboard = JSON.stringify(renderProfileMenuKeyboard({ profileSnapshot, persistenceEnabled: true }).inline_keyboard);
 if (!menuKeyboard.includes('p:ed:hl')) {
   throw new Error('profile menu keyboard missing headline edit callback');
 }
@@ -95,7 +100,7 @@ if (!menuKeyboard.includes('p:sk')) {
 }
 
 const previewText = renderProfilePreviewText({ profileSnapshot, persistenceEnabled: true });
-if (!previewText.includes('Directory card preview')) {
+if (!previewText.includes('Profile preview')) {
   throw new Error('profile preview text missing title');
 }
 if (!previewText.includes('Skills: Founder, Growth')) {
@@ -137,3 +142,12 @@ if (!skillsKeyboard.includes('p:sk:clr')) {
 }
 
 console.log('OK: router baseline contract');
+
+const helpText = renderHelpText();
+if (!helpText.includes('Use Intro Deck to connect your LinkedIn identity')) {
+  throw new Error('help text missing product summary');
+}
+const helpKeyboard = JSON.stringify(renderHelpKeyboard().inline_keyboard);
+if (!helpKeyboard.includes('p:menu') || !helpKeyboard.includes('dir:list:0') || !helpKeyboard.includes('intro:inbox')) {
+  throw new Error('help keyboard missing key entrypoints');
+}

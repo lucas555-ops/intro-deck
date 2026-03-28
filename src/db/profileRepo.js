@@ -182,6 +182,23 @@ export async function getProfileSnapshotByTelegramUserId(client, telegramUserId)
 }
 
 
+export async function unhideProfileListingByUserId(client, userId) {
+  await client.query(
+    `
+      update member_profiles
+      set
+        visibility_status = 'listed',
+        updated_at = now()
+      where user_id = $1
+        and visibility_status = 'hidden'
+        and profile_state = 'active'
+    `,
+    [userId]
+  );
+
+  return getProfileSnapshotByUserId(client, userId);
+}
+
 export async function hideProfileListingByUserId(client, userId) {
   await client.query(
     `

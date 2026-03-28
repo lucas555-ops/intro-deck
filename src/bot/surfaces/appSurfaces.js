@@ -6,6 +6,7 @@ import { touchTelegramUserAndLoadProfile } from '../../lib/storage/profileStore.
 import { loadNotificationOperatorSurface } from '../../lib/storage/notificationStore.js';
 import { loadProfileEditorState } from '../../lib/storage/profileEditStore.js';
 import { isOperatorTelegramUser } from '../../config/env.js';
+import { loadActiveAdminNotice } from '../../lib/storage/adminStore.js';
 
 
 function fallbackRenderHelpText() {
@@ -57,6 +58,33 @@ const renderProfileSkillsKeyboard = render.renderProfileSkillsKeyboard;
 const renderProfileSkillsText = render.renderProfileSkillsText;
 
 
+
+function noticeMatchesProfile(notice, profileSnapshot) {
+  if (!notice?.isActive || !notice?.body) {
+    return null;
+  }
+
+  const hasLinkedIn = Boolean(profileSnapshot?.linkedin_sub);
+  const profileState = profileSnapshot?.profile_state || null;
+  const visibilityStatus = profileSnapshot?.visibility_status || 'hidden';
+
+  switch (notice.audienceKey) {
+    case 'CONNECTED':
+      return hasLinkedIn ? notice.body : null;
+    case 'NOT_CONNECTED':
+      return hasLinkedIn ? null : notice.body;
+    case 'PROFILE_INCOMPLETE':
+      return hasLinkedIn && profileState !== 'active' ? notice.body : null;
+    case 'READY_NOT_LISTED':
+      return profileState === 'active' && visibilityStatus !== 'listed' ? notice.body : null;
+    case 'LISTED':
+      return profileState === 'active' && visibilityStatus === 'listed' ? notice.body : null;
+    case 'ALL':
+    default:
+      return notice.body;
+  }
+}
+
 export function createSurfaceBuilders({ appBaseUrl }) {
   async function buildHomeSurface(ctx) {
     const storeResult = await touchTelegramUserAndLoadProfile({
@@ -93,13 +121,19 @@ export function createSurfaceBuilders({ appBaseUrl }) {
       }))
       : null;
 
+    const adminNoticeResult = storeResult.persistenceEnabled
+      ? await loadActiveAdminNotice().catch(() => ({ persistenceEnabled: true, notice: null }))
+      : { persistenceEnabled: false, notice: null };
+    const activeNotice = noticeMatchesProfile(adminNoticeResult.notice, storeResult.profile);
+
     return {
       text: renderHomeText({
         profileSnapshot: storeResult.profile,
         persistenceEnabled: storeResult.persistenceEnabled,
         directoryStats: directoryResult ? { totalCount: directoryResult.totalCount || 0 } : null,
         introInboxStats: introInboxResult?.inbox?.counts || null,
-        isOperator: isOperatorTelegramUser(ctx.from.id)
+        isOperator: isOperatorTelegramUser(ctx.from.id),
+        notice: activeNotice
       }),
       reply_markup: renderHomeKeyboard({
         appBaseUrl,
@@ -130,11 +164,17 @@ export function createSurfaceBuilders({ appBaseUrl }) {
       };
     });
 
+    const adminNoticeResult = state.persistenceEnabled
+      ? await loadActiveAdminNotice().catch(() => ({ persistenceEnabled: true, notice: null }))
+      : { persistenceEnabled: false, notice: null };
+    const activeNotice = noticeMatchesProfile(adminNoticeResult.notice, state.profile);
+    const combinedNotice = [activeNotice, notice].filter(Boolean).join('\n\n') || null;
+
     return {
       text: renderProfileMenuText({
         profileSnapshot: state.profile,
         persistenceEnabled: state.persistenceEnabled,
-        notice
+        notice: combinedNotice
       }),
       reply_markup: renderProfileMenuKeyboard({
         appBaseUrl,

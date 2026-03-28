@@ -8,6 +8,7 @@ import {
   upsertLinkedInAccount
 } from '../../db/linkedinRepo.js';
 import { ensureProfileDraft, hideProfileListingByUserId } from '../../db/profileRepo.js';
+import { createAdminAuditEvent } from '../../db/adminRepo.js';
 
 function buildRawIdentityPayload({ identity, rawTokenPayload, rawUserInfo, source = 'linkedin_oidc' }) {
   return {
@@ -89,6 +90,22 @@ export async function persistLinkedInIdentity({
       const profileDraft = await ensureProfileDraft(client, {
         userId: user.id,
         identity
+      });
+
+      await createAdminAuditEvent(client, {
+        eventType: 'linkedin_relink_transferred',
+        actorUserId: user.id,
+        targetUserId: user.id,
+        secondaryTargetUserId: existingBySub.user_id,
+        summary: 'LinkedIn connection moved to a new Telegram account.',
+        detail: {
+          linkedinSub: identity.linkedinSub,
+          fullName: identity.fullName || existingBySub.full_name || null,
+          previousTelegramUserId: existingBySub.telegram_user_id || null,
+          previousTelegramUsername: existingBySub.telegram_username || null,
+          newTelegramUserId: telegramUserId,
+          newTelegramUsername: telegramUsername || null
+        }
       });
 
       return {

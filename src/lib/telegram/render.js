@@ -382,7 +382,7 @@ export function buildLinkedInStartUrl({ appBaseUrl, telegramUserId, returnTo = '
   return url.toString();
 }
 
-export function renderHomeText({ profileSnapshot = null, persistenceEnabled = false, directoryStats = null, introInboxStats = null, isOperator = false } = {}) {
+export function renderHomeText({ profileSnapshot = null, persistenceEnabled = false, directoryStats = null, introInboxStats = null, isOperator = false, notice = null } = {}) {
   const lines = [
     '💼 Intro Deck',
     '',
@@ -417,7 +417,12 @@ export function renderHomeText({ profileSnapshot = null, persistenceEnabled = fa
 
   if (isOperator) {
     lines.push('');
-    lines.push('Operator diagnostics are available for this account.');
+    lines.push('Admin tools are available for this account.');
+  }
+
+  if (notice) {
+    lines.push('');
+    lines.push(notice);
   }
 
   return lines.join('\n');
@@ -441,11 +446,36 @@ export function renderHomeKeyboard({ appBaseUrl, telegramUserId, profileSnapshot
     rows.push([{ text: '📥 Intro inbox', callback_data: 'intro:inbox' }]);
   }
 
+  rows.push([{ text: '❓ Help', callback_data: 'help:root' }]);
+
   if (isOperator) {
-    rows.push([{ text: '🛠 Ops diagnostics', callback_data: 'ops:diag' }]);
+    rows.push([{ text: '👑 Admin', callback_data: 'adm:home' }]);
   }
 
   return buildInlineKeyboard(rows);
+}
+
+export function renderHelpText() {
+  return [
+    '❓ Help',
+    '',
+    'Use Intro Deck to connect your LinkedIn identity, complete a concise profile inside Telegram, browse trusted professionals, and send warm intros.',
+    '',
+    'Start here:',
+    '• connect LinkedIn',
+    '• complete your profile',
+    '• browse the directory',
+    '• check your intro inbox'
+  ].join('\n');
+}
+
+export function renderHelpKeyboard() {
+  return buildInlineKeyboard([
+    [{ text: '🧩 Profile', callback_data: 'p:menu' }],
+    [{ text: '🌐 Browse directory', callback_data: 'dir:list:0' }],
+    [{ text: '📥 Intro inbox', callback_data: 'intro:inbox' }],
+    [{ text: '🏠 Home', callback_data: 'home:root' }]
+  ]);
 }
 
 export function renderProfileMenuText({ profileSnapshot = null, persistenceEnabled = false, notice = null } = {}) {
@@ -477,7 +507,22 @@ export function renderProfileMenuText({ profileSnapshot = null, persistenceEnabl
   return lines.join('\n');
 }
 
-export function renderProfileMenuKeyboard({ profileSnapshot = null } = {}) {
+export function renderProfileMenuKeyboard({ appBaseUrl = null, telegramUserId = null, profileSnapshot = null, persistenceEnabled = false } = {}) {
+  if (!persistenceEnabled) {
+    return buildInlineKeyboard([
+      [{ text: '🏠 Home', callback_data: 'home:root' }]
+    ]);
+  }
+
+  if (!profileSnapshot?.linkedin_sub) {
+    const rows = [];
+    if (appBaseUrl && telegramUserId) {
+      rows.push([{ text: '🔐 Connect LinkedIn', url: buildLinkedInStartUrl({ appBaseUrl, telegramUserId }) }]);
+    }
+    rows.push([{ text: '🏠 Home', callback_data: 'home:root' }]);
+    return buildInlineKeyboard(rows);
+  }
+
   const visibilityLabel = profileSnapshot?.visibility_status === 'listed' ? '🙈 Hide from directory' : '🌐 List in directory';
 
   return buildInlineKeyboard([
@@ -1045,7 +1090,7 @@ export function renderOperatorDiagnosticsText({
   ];
 
   if (!allowed) {
-    lines.push('This Telegram user is not allowed to open operator diagnostics.');
+    lines.push('This area is only available to the operator account.');
   } else if (!persistenceEnabled) {
     lines.push('Persistence: disabled in current environment');
   } else if (introRequestId) {

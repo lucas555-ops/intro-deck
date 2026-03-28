@@ -16,8 +16,11 @@ const homeKeyboard = JSON.stringify(renderHomeKeyboard({
   persistenceEnabled: true,
   isOperator: true
 }).inline_keyboard);
-if (!homeKeyboard.includes("ops:diag")) {
-  throw new Error("Home keyboard must expose ops diagnostics entrypoint for operators");
+if (!homeKeyboard.includes("adm:home")) {
+  throw new Error("Home keyboard must expose the admin shell entrypoint for operators");
+}
+if (homeKeyboard.includes("ops:diag")) {
+  throw new Error("Home keyboard must not expose the legacy diagnostics callback directly");
 }
 
 const operatorText = renderOperatorDiagnosticsText({
@@ -73,4 +76,4 @@ if (!composerSource.includes("ops:b:(all|due|fal|exh)")) {
   throw new Error("Operator composer must expose bucket filter callbacks");
 }
 
-console.log("OK: lightweight operator/admin diagnostics surface contract");
+console.log("OK: lightweight operator/admin shell + diagnostics surface contract");

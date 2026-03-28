@@ -1,6 +1,6 @@
 # LinkedIn Telegram Directory Bot
 
-STEP026.6 baseline for a Telegram-native professional directory with LinkedIn OIDC identity bootstrap, clean user-facing Telegram surfaces, a reconciled command contract, durable notification receipts, an allowlisted operator diagnostics layer, deploy-stable Vercel settings, and explicit LinkedIn callback stage diagnostics for faster live debugging, plus a confirmed LinkedIn relink transfer flow that can safely move a LinkedIn identity to a new Telegram account and hide the previous listing.
+STEP033 baseline for a Telegram-native professional directory with LinkedIn OIDC identity bootstrap, clean user-facing Telegram surfaces, durable notification receipts, explicit LinkedIn callback diagnostics, confirmed LinkedIn relink transfer flow, a first operator admin shell, operator Users + User Card surfaces, a first Communications layer with Notice / Broadcast / Outbox, and operator Intros + Delivery read surfaces, and direct operator messaging from User Card with unified Outbox records.
 
 ## What this repo is
 
@@ -12,6 +12,8 @@ A Telegram-first professional directory:
 - row-level intro inbox actions with real decisions, privacy-first contact unlocking, and dedicated intro detail surfaces
 - webhook secret guard for Telegram webhook ingress
 - durable notification receipts with retry and operator diagnostics
+- operator shell with communications controls
+- operator intro and delivery visibility
 
 Not:
 - a LinkedIn clone
@@ -37,7 +39,11 @@ Not:
 - STEP024.9 — repo/docs/smoke reconciliation baseline
 - STEP025 — profile edit session schema fix for LinkedIn URL
 - STEP026.2 — reconciled self-contained baseline for product surface polish + compatibility
-- STEP026.6 — mixed-state help fallback callback fix + staged LinkedIn callback diagnostics
+- STEP026.6 — LinkedIn relink transfer flow for moving an identity to a new Telegram account
+- STEP028 — operator admin shell baseline with `/ops` → Admin, section hubs, and `adm:` callback namespace
+- STEP029 — Users + User Card with operator segments, listing controls, and DB-backed operator notes
+- STEP030 — Notice + Broadcast baseline with singleton notice, bounded send flow, and outbox history
+- STEP031 — Intros + Delivery operator surfaces with intro board/detail and receipt drilldown
 
 ## Current code baseline
 
@@ -58,10 +64,18 @@ Not:
 - best-effort Telegram service notifications with durable notification receipts for intro create / accept / decline events
 - due receipt retry baseline with attempt counters, next-at scheduling, and a protected retry endpoint
 - protected read-only receipt diagnostics endpoint with recent history, operator buckets, and per-intro summary
-- allowlisted `/ops` diagnostics surface with retry_due / failed / exhausted sections and per-intro drilldown
+- allowlisted `/ops` operator shell with Admin / Operations / Communications / System hubs
+- operator Users list with compact segments, pagination, and User Card drilldown
+- User Card with view-card preview, hide/unhide listing controls, note flow, and message entrypoint scaffold
+- singleton Notice with audience targeting and selected user-surface rendering
+- bounded Broadcast draft → preview → confirm → send flow
+- Outbox history with per-record drilldown for notice/broadcast events
+- protected retry diagnostics surface still available inside the System section and via legacy `ops:*` callbacks
+- operator Intros list with segment filters, Intro Detail, Delivery list, and Delivery Detail drilldown
 - public `/`, `/privacy`, and `/terms` static surfaces for Vercel + LinkedIn app setup
 - Node 20.x deploy baseline, root `.npmrc`, and public npm lockfile hygiene
-- migration `012_profile_edit_sessions_linkedin_url_field_key.sql` for the `li` edit-session contract
+- migrations `012`, `013`, and `014` for LinkedIn URL edit sessions, operator notes, and communications baseline
+- STEP031 is code-only: no new migration required
 
 ## Telegram public commands
 
@@ -79,7 +93,7 @@ help - Learn how to use the bot
 Operator-only command kept out of the public menu:
 
 ```text
-ops - Open operator diagnostics
+ops - Open the operator admin shell
 ```
 
 ## Smoke commands
@@ -115,11 +129,15 @@ ops - Open operator diagnostics
 - `npm run smoke:legal`
 - `npm run smoke:bot-init`
 - `npm run smoke:commands`
-- `npm run smoke:product-surfaces`
+- `npm run smoke:admin-shell`
+- `npm run smoke:admin-allowlist`
+- `npm run smoke:admin-users`
+- `npm run smoke:admin-user-card`
+- `npm run smoke:notice`
+- `npm run smoke:broadcast`
+- `npm run smoke:outbox`
 
-## Truth note
-
-- Source baseline is ahead of live confirmation
-- Last known live deploy baseline before this repo pass was STEP024.7 deploy-stable
-- STEP026.2 source is self-contained and carries forward the STEP024.8, STEP024.9, STEP025, STEP026, and STEP026.1 fixes needed for consistency
-- STEP026.6 keeps the public command layer clean, hardens the help-surface fallback callbacks against mixed deploys, and adds staged LinkedIn callback diagnostics for live failure triage
+- STEP032 — Directory quality board + Audit detail with admin audit events and operator quality buckets
+- STEP032 adds migration `015_admin_audit_events.sql`
+- STEP033 — Direct operator messaging from User Card with unified Outbox `direct` records
+- STEP033 adds migration `016_admin_direct_message_outbox.sql`
