@@ -1,6 +1,6 @@
 {
   "name": "linkedin-telegram-directory-bot",
-  "version": "0.40.0",
+  "version": "0.43.0",
   "private": true,
   "type": "module",
   "packageManager": "npm@10.8.2",
@@ -71,7 +71,10 @@
     "smoke:admin-search-results": "node scripts/smoke_admin_search_results_contract.js",
     "smoke:founder-admin-visibility": "node scripts/smoke_founder_admin_visibility_contract.js",
     "smoke:admin-funnel-drilldowns": "node scripts/smoke_admin_funnel_drilldowns.js",
-    "smoke:admin-russian-layer": "node scripts/smoke_admin_russian_layer.js"
+    "smoke:admin-russian-layer": "node scripts/smoke_admin_russian_layer.js",
+    "smoke:admin-bulk-actions": "node scripts/smoke_admin_bulk_actions_contract.js",
+    "smoke:admin-runbook-freeze": "node scripts/smoke_admin_runbook_freeze_contract.js",
+    "smoke:admin-live-verification": "node scripts/smoke_admin_live_verification_contract.js"
   },
   "dependencies": {
     "grammy": "1.41.1",

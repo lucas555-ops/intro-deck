@@ -1,46 +1,46 @@
 # 16_RELEASE_READINESS_CHECKLIST
 
-This project is not release-ready yet.
-This checklist exists now to prevent future “we'll define release later” drift.
+This project is still not automatically release-ready.
+STEP043 tightens this checklist around launch/runbook/freeze truth plus explicit verification/rehearsal discipline.
 
 ## Product truth
 
-- [ ] Auth flow is manually verified against a real LinkedIn app
-- [ ] Current listed/active visibility behavior is manually verified
-- [ ] Intro request flow is verified end to end in deployed environment
-- [ ] All placeholder surfaces are explicitly documented
+- [ ] Auth flow manually verified against a real LinkedIn app
+- [ ] Listed/active visibility manually verified
+- [ ] Intro flow manually verified end to end in deployed runtime
+- [ ] Notice / Broadcast / Outbox manually verified in deployed runtime
 
 ## Runtime / env
 
 - [ ] `DATABASE_URL` configured
-- [ ] LinkedIn client env configured
+- [ ] LinkedIn env configured
 - [ ] callback URL configured in LinkedIn app
-- [ ] degraded behavior without optional envs remains truthful
+- [ ] operator allowlist env configured correctly
+
+## Operator / launch discipline
+
+- [ ] `73_LAUNCH_OPS_RUNBOOK_V1.md` matches real operator flow
+- [ ] `74_LAUNCH_FREEZE_POLICY_V1.md` matches allowed-change policy
+- [ ] `76_LIVE_VERIFICATION_PLAYBOOK_V1.md` matches the real verification pass order
+- [ ] `77_LAUNCH_REHEARSAL_CHECKLIST_V1.md` matches the real rehearsal flow
+- [ ] `78_GO_NO_GO_VERDICT_TEMPLATE_V1.md` is ready to record the outcome
 
 ## Smoke
 
 - [ ] `npm run check`
-- [ ] all current smoke scripts pass
-- [ ] smoke set is documented in current handoff
+- [ ] relevant smoke set passes
+- [ ] runbook/freeze smoke exists in repo
+- [ ] live-verification/rehearsal smoke exists in repo
 
 ## Docs
 
-- [ ] `00_CURRENT_STATE.md` matches the actual repo baseline
-- [ ] feature baseline docs match runtime behavior
+- [ ] `00_CURRENT_STATE.md` matches actual repo baseline
 - [ ] current handoff is refreshed
+- [ ] current start-new-chat prompt is refreshed
 - [ ] recent work history is complete
 
 ## Not release-ready while any of these are true
 
-- [ ] accept/decline/reply/chat intro flow is still undefined but implied in UX copy
-- [ ] premium/admin surfaces exist only as ideas
-- [ ] official/manual runtime verification has not been done
-
-
-## STEP024.5 additions
-
-- Set `CRON_SECRET` for Vercel cron bearer auth.
-- Keep `NOTIFICATION_RETRY_SECRET` only for manual curl/backward-compatible retry execution.
-- Apply `migrations/011_notification_receipts_retention_policy_and_guard_cleanup.sql` after 001-010.
-- Verify `/api/cron/notification-retry` accepts both `GET + Authorization: Bearer <CRON_SECRET>` and `POST + x-notification-retry-secret`.
-- Verify retry path reports `guardCleanup` in JSON output.
+- [ ] live deploy verification has not been done
+- [ ] runbook/freeze/verification truth is missing or stale
+- [ ] repo claims live readiness beyond evidence

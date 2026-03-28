@@ -27,7 +27,7 @@ export async function createBot() {
   const bot = new Bot(botToken);
 
   const surfaces = createSurfaceBuilders({ appBaseUrl });
-  const adminSurfaces = createAdminSurfaceBuilders({ currentStep: 'STEP040' });
+  const adminSurfaces = createAdminSurfaceBuilders({ currentStep: 'STEP043' });
 
   bot.use(createHomeComposer({
     appBaseUrl,
@@ -78,7 +78,12 @@ export async function createBot() {
     buildAdminSystemSurface: adminSurfaces.buildAdminSystemSurface,
     buildAdminHealthSurface: adminSurfaces.buildAdminHealthSurface,
     buildAdminOperatorsSurface: adminSurfaces.buildAdminOperatorsSurface,
+    buildAdminRunbookSurface: adminSurfaces.buildAdminRunbookSurface,
+    buildAdminFreezeSurface: adminSurfaces.buildAdminFreezeSurface,
+    buildAdminLiveVerificationSurface: adminSurfaces.buildAdminLiveVerificationSurface,
+    buildAdminLaunchRehearsalSurface: adminSurfaces.buildAdminLaunchRehearsalSurface,
     buildAdminUsersSurface: adminSurfaces.buildAdminUsersSurface,
+    buildAdminBulkActionsSurface: adminSurfaces.buildAdminBulkActionsSurface,
     buildAdminUserCardSurface: adminSurfaces.buildAdminUserCardSurface,
     buildAdminUserPublicCardSurface: adminSurfaces.buildAdminUserPublicCardSurface,
     buildAdminUserMessageSurface: adminSurfaces.buildAdminUserMessageSurface,

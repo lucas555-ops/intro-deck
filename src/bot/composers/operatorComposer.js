@@ -19,6 +19,7 @@ import {
   loadAdminCommunicationsState,
   loadAdminBroadcastFailures,
   loadAdminBroadcastState,
+  loadAdminUserSegmentBulkActions,
   loadAdminDeliveryPage,
   loadAdminDeliveryRecord,
   loadAdminDashboardSummary,
@@ -35,6 +36,8 @@ import {
   selectAdminDirectMessageTemplate,
   sendAdminBroadcast,
   sendAdminDirectMessage,
+  prepareAdminUserSegmentBulkBroadcast,
+  prepareAdminUserSegmentBulkNotice,
   updateAdminBroadcastAudienceSelection,
   updateAdminNoticeAudienceSelection,
   applyAdminNoticeTemplateSelection,
@@ -73,7 +76,12 @@ export function createOperatorComposer({
   buildAdminSystemSurface,
   buildAdminHealthSurface,
   buildAdminOperatorsSurface,
+  buildAdminRunbookSurface,
+  buildAdminFreezeSurface,
+  buildAdminLiveVerificationSurface,
+  buildAdminLaunchRehearsalSurface,
   buildAdminUsersSurface,
+  buildAdminBulkActionsSurface,
   buildAdminUserCardSurface,
   buildAdminUserPublicCardSurface,
   buildAdminUserMessageSurface,
@@ -144,6 +152,29 @@ export function createOperatorComposer({
     }));
 
     const surface = await buildAdminUsersSurface({ state, notice });
+    await renderSurface(ctx, surface, method);
+  }
+
+
+  async function renderAdminBulkActions(ctx, { segmentKey = 'all', page = 0, notice = null } = {}, method = 'edit') {
+    if (!isOperatorTelegramUser(ctx.from.id)) {
+      await renderOperatorOnly(ctx, method);
+      return;
+    }
+
+    const state = await loadAdminUserSegmentBulkActions({
+      segmentKey
+    }).catch((error) => ({
+      persistenceEnabled: true,
+      segmentKey: normalizeAdminUserSegment(segmentKey),
+      segmentLabel: null,
+      noticeAction: { supported: false, estimate: 0 },
+      broadcastAction: { supported: false, estimate: 0 },
+      activeNotice: false,
+      reason: String(error?.message || error)
+    }));
+
+    const surface = await buildAdminBulkActionsSurface({ state, page: parsePage(page), notice });
     await renderSurface(ctx, surface, method);
   }
 
@@ -585,6 +616,18 @@ export function createOperatorComposer({
       case 'opscope':
         surface = await buildAdminOperatorsSurface({ summary: dashboard?.summary?.system || null });
         break;
+      case 'runbook':
+        surface = await buildAdminRunbookSurface();
+        break;
+      case 'freeze':
+        surface = await buildAdminFreezeSurface();
+        break;
+      case 'verify':
+        surface = await buildAdminLiveVerificationSurface();
+        break;
+      case 'rehearse':
+        surface = await buildAdminLaunchRehearsalSurface();
+        break;
       case 'directory':
         await renderAdminQuality(ctx, {}, method);
         return;
@@ -791,6 +834,26 @@ export function createOperatorComposer({
     await renderAdminSurface(ctx, 'opscope', 'edit');
   });
 
+  composer.callbackQuery('adm:runbook', async (ctx) => {
+    await ctx.answerCallbackQuery();
+    await renderAdminSurface(ctx, 'runbook', 'edit');
+  });
+
+  composer.callbackQuery('adm:freeze', async (ctx) => {
+    await ctx.answerCallbackQuery();
+    await renderAdminSurface(ctx, 'freeze', 'edit');
+  });
+
+  composer.callbackQuery('adm:verify', async (ctx) => {
+    await ctx.answerCallbackQuery();
+    await renderAdminSurface(ctx, 'verify', 'edit');
+  });
+
+  composer.callbackQuery('adm:rehearse', async (ctx) => {
+    await ctx.answerCallbackQuery();
+    await renderAdminSurface(ctx, 'rehearse', 'edit');
+  });
+
   composer.callbackQuery('adm:audit', async (ctx) => {
     await ctx.answerCallbackQuery();
     await renderAdminAudit(ctx, { segmentKey: 'all', page: 0 }, 'edit');
@@ -837,6 +900,68 @@ export function createOperatorComposer({
       segmentKey: ctx.match?.[1] || 'all',
       page: parsePage(ctx.match?.[2])
     }, 'edit');
+  });
+
+
+  composer.callbackQuery(/^adm:bulk:user:(all|conn|noprof|inc|noskills|ready|listd|listact|listinact|nointro|pend|relink):(\d+)$/, async (ctx) => {
+    await ctx.answerCallbackQuery();
+    await renderAdminBulkActions(ctx, {
+      segmentKey: ctx.match?.[1] || 'all',
+      page: parsePage(ctx.match?.[2])
+    }, 'edit');
+  });
+
+  composer.callbackQuery(/^adm:bulk:user:(all|conn|noprof|inc|noskills|ready|listd|listact|listinact|nointro|pend|relink):(\d+):(not|bc)$/, async (ctx) => {
+    await ctx.answerCallbackQuery();
+    const segmentKey = ctx.match?.[1] || 'all';
+    const page = parsePage(ctx.match?.[2]);
+    const action = ctx.match?.[3] || 'bc';
+
+    if (action === 'not') {
+      const result = await prepareAdminUserSegmentBulkNotice({
+        operatorTelegramUserId: ctx.from.id,
+        operatorTelegramUsername: ctx.from.username || null,
+        segmentKey
+      }).catch((error) => ({ persistenceEnabled: true, prepared: false, blocked: true, reason: String(error?.message || error) }));
+
+      if (!result.prepared) {
+        const warning = result.reason === 'admin_bulk_notice_blocked_active_notice'
+          ? '⚠️ Активный notice сначала нужно выключить вручную.'
+          : `⚠️ ${formatUserFacingError(result.reason, 'Could not prepare safe bulk notice right now.')}`;
+        await renderAdminBulkActions(ctx, { segmentKey, page, notice: warning }, 'edit');
+        return;
+      }
+
+      const state = await loadAdminNoticeState().catch(() => ({ persistenceEnabled: true, notice: result.notice, estimate: result.estimate }));
+      const surface = await buildAdminNoticePreviewSurface({
+        state,
+        notice: `✅ Notice prepared for segment ${segmentKey}. Проверь превью и включи вручную.`
+      });
+      await renderSurface(ctx, surface, 'edit');
+      return;
+    }
+
+    const result = await prepareAdminUserSegmentBulkBroadcast({
+      operatorTelegramUserId: ctx.from.id,
+      operatorTelegramUsername: ctx.from.username || null,
+      segmentKey
+    }).catch((error) => ({ persistenceEnabled: true, prepared: false, blocked: true, reason: String(error?.message || error) }));
+
+    if (!result.prepared) {
+      await renderAdminBulkActions(ctx, {
+        segmentKey,
+        page,
+        notice: `⚠️ ${formatUserFacingError(result.reason, 'Could not prepare safe bulk broadcast right now.')}`
+      }, 'edit');
+      return;
+    }
+
+    const state = await loadAdminBroadcastState().catch(() => ({ persistenceEnabled: true, draft: result.draft, estimate: result.estimate, latestRecord: null }));
+    const surface = await buildAdminBroadcastPreviewSurface({
+      state,
+      notice: `✅ Broadcast prepared for segment ${segmentKey}. Проверь превью и подтверди отправку.`
+    });
+    await renderSurface(ctx, surface, 'edit');
   });
 
   composer.callbackQuery(/^adm:usr:open:(\d+):(all|conn|noprof|inc|noskills|ready|listd|listact|listinact|nointro|pend|relink):(\d+)$/, async (ctx) => {

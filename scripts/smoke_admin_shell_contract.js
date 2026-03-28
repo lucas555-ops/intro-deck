@@ -16,7 +16,7 @@ if (operatorHomeKeyboard.includes('ops:diag')) {
   throw new Error('Operator home keyboard must not expose the legacy diagnostics callback directly');
 }
 
-const surfaces = createAdminSurfaceBuilders({ currentStep: 'STEP040' });
+const surfaces = createAdminSurfaceBuilders({ currentStep: 'STEP043' });
 const adminHome = await surfaces.buildAdminHomeSurface();
 if (!adminHome.text.includes('👑 Админка')) {
   throw new Error('Admin home surface must expose the Russian admin title');
@@ -35,8 +35,8 @@ for (const fragment of ['adm:home:funnel:', 'adm:ops:funnel:', 'adm:comms:funnel
 }
 
 const createBotSource = readFileSync(new URL('../src/bot/createBot.js', import.meta.url), 'utf8');
-if (!createBotSource.includes("currentStep: 'STEP040'")) {
-  throw new Error('Bot factory must wire STEP040 admin surfaces');
+if (!createBotSource.includes("currentStep: 'STEP043'")) {
+  throw new Error('Bot factory must wire STEP043 admin surfaces');
 }
 
 console.log('OK: admin shell contract');

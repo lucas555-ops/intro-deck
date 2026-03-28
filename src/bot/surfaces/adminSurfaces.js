@@ -287,6 +287,10 @@ function buildSystemHubKeyboard({ summary = null } = {}) {
       { text: `📝 Изменения листинга: ${summary?.listingChanges7d || 0}`, callback_data: 'adm:sys:funnel:listing_changes' }
     ],
     [{ text: `🔄 Релинки 7д: ${summary?.relinks7d || 0}`, callback_data: 'adm:sys:funnel:relinks' }],
+    [{ text: '🧭 Регламент запуска', callback_data: 'adm:runbook' }],
+    [{ text: '🧊 Freeze', callback_data: 'adm:freeze' }],
+    [{ text: '✅ Live verification', callback_data: 'adm:verify' }],
+    [{ text: '🎭 Репетиция запуска', callback_data: 'adm:rehearse' }],
     [{ text: '🩺 Здоровье', callback_data: 'adm:health' }],
     [{ text: '📜 Аудит', callback_data: 'adm:audit' }],
     [{ text: '👮 Операторы', callback_data: 'adm:opscope' }],
@@ -308,6 +312,17 @@ function buildDetailFooter(backCallback) {
     [{ text: '↩️ Назад', callback_data: backCallback }],
     [{ text: '🏠 Главная', callback_data: 'home:root' }]
   ]);
+}
+
+
+function buildUsersSegmentRow(currentSegmentKey) {
+  const ordered = ['all', 'conn', 'noprof', 'inc', 'noskills', 'ready', 'listd', 'listact', 'listinact', 'nointro', 'pend', 'relink'];
+  const buttons = ordered.map((segmentKey) => ({
+    text: `${currentSegmentKey === segmentKey ? '✅' : '▫️'} ${ADMIN_USER_SEGMENTS[segmentKey].label}`,
+    callback_data: `adm:usr:seg:${segmentKey}`
+  }));
+
+  return [buttons.slice(0, 2), buttons.slice(2, 4), buttons.slice(4, 6), buttons.slice(6, 8), buttons.slice(8, 10), buttons.slice(10, 12)];
 }
 
 function buildIntroSegmentRows(currentSegmentKey) {
@@ -665,6 +680,7 @@ function buildUsersListKeyboard({ state = null } = {}) {
     rows.push(pager);
   }
 
+  rows.push([{ text: '📦 Массовые действия', callback_data: `adm:bulk:user:${segmentKey}:${state?.page || 0}` }]);
   rows.push([{ text: '🔎 Поиск пользователей', callback_data: 'adm:search:users' }]);
   rows.push([{ text: state?.targetUserId ? '↩️ Назад в карточку пользователя' : '↩️ Назад в Операции', callback_data: state?.targetUserId ? `adm:usr:open:${state.targetUserId}:all:0` : 'adm:ops' }]);
   rows.push([{ text: '🏠 Главная', callback_data: 'home:root' }]);
@@ -916,6 +932,7 @@ function buildAdminQualityKeyboard({ state = null } = {}) {
   if (state?.hasNext) pager.push({ text: 'Вперёд ▶️', callback_data: `adm:qual:page:${segmentKey}:${(state?.page || 0) + 1}` });
   if (pager.length) rows.push(pager);
 
+  rows.push([{ text: '📦 Массовые действия', callback_data: `adm:bulk:user:${segmentKey}:${state?.page || 0}` }]);
   rows.push([{ text: '🔎 Поиск пользователей', callback_data: 'adm:search:users' }]);
   rows.push([{ text: state?.targetUserId ? '↩️ Назад в карточку пользователя' : '↩️ Назад в Операции', callback_data: state?.targetUserId ? `adm:usr:open:${state.targetUserId}:all:0` : 'adm:ops' }]);
   rows.push([{ text: '🏠 Главная', callback_data: 'home:root' }]);
@@ -1059,16 +1076,20 @@ function buildAdminNoticeAudienceSurface({ state = null, notice = null } = {}) {
   return { text: lines.join('\n'), reply_markup: buildInlineKeyboard(rows) };
 }
 
-function buildAdminNoticeПревьюSurface({ state = null } = {}) {
+function buildAdminNoticeПревьюSurface({ state = null, notice = null } = {}) {
   const current = state?.notice || { body: '', audienceKey: 'ALL', isActive: false };
+  const lines = [
+    '👁 Превью уведомления',
+    '',
+    `Аудитория: ${adminNoticeAudienceLabel(current.audienceKey)}`,
+    '',
+    current.body ? current.body : 'Текст notice пока пустой.'
+  ];
+  if (notice) {
+    lines.push('', notice);
+  }
   return {
-    text: [
-      '👁 Превью уведомления',
-      '',
-      `Аудитория: ${adminNoticeAudienceLabel(current.audienceKey)}`,
-      '',
-      current.body ? current.body : 'Текст notice пока пустой.'
-    ].join('\n'),
+    text: lines.join('\n'),
     reply_markup: buildInlineKeyboard([
       [{ text: current.isActive ? '⛔ Выключить' : '✅ Включить', callback_data: current.isActive ? 'adm:not:off' : 'adm:not:on' }],
       [{ text: '↩️ Назад к уведомлению', callback_data: 'adm:not' }],
@@ -1502,6 +1523,162 @@ function buildOperatorsKeyboard() {
   ]);
 }
 
+function buildLaunchRunbookText() {
+  return [
+    '🧭 Регламент запуска',
+    '',
+    'Режим STEP043: узкий launch/ops runbook + manual verification/rehearsal без новых фич и без широких мутаций.',
+    '',
+    'Ежедневный ритм:',
+    '1) открыть Система и проверить retry/exhausted/failures',
+    '2) открыть Операции и посмотреть bottlenecks: без профиля / ready-not-listed / pending >24ч / delivery issues',
+    '3) открыть Коммуникации и проверить active notice / latest broadcast / outbox errors',
+    '4) открыть Аудит и посмотреть relink / listing changes / bulk-prep',
+    '5) только потом готовить notice, broadcast или direct follow-up',
+    '',
+    'Preflight перед notice/broadcast:',
+    '• нет свежего callback/deployment инцидента',
+    '• нет всплеска delivery failures / exhausted',
+    '• сегмент и аудитория совпадают с реальной задачей',
+    '• текст подтверждён оператором',
+    '• после отправки будет ручной post-check через Outbox/Delivery',
+    '',
+    'Инциденты:',
+    '• LinkedIn callback ломается → стоп коммуникации, сначала env/health/callback truth',
+    '• delivery failures растут → стоп новые рассылки, открыть Delivery/Outbox/Audit',
+    '• listed-incomplete растёт → сначала чистим Quality/Users, потом льём трафик',
+    '',
+    'Это read-only runbook. Live status not confirmed — manual verification required.'
+  ].join('\n');
+}
+
+function buildLaunchRunbookKeyboard() {
+  return buildInlineKeyboard([
+    [{ text: '🧰 Операции', callback_data: 'adm:ops' }],
+    [{ text: '💬 Коммуникации', callback_data: 'adm:comms' }],
+    [{ text: '⚙️ Система', callback_data: 'adm:sys' }],
+    [{ text: '✅ Live verification', callback_data: 'adm:verify' }],
+    [{ text: '🎭 Репетиция запуска', callback_data: 'adm:rehearse' }],
+    [{ text: '🧊 Freeze', callback_data: 'adm:freeze' }],
+    [{ text: '🏠 Главная', callback_data: 'home:root' }]
+  ]);
+}
+
+function buildLaunchFreezeText() {
+  return [
+    '🧊 Freeze',
+    '',
+    'Назначение: удержать source baseline стабильным перед ручным запуском и live verification.',
+    '',
+    'Что замораживаем:',
+    '• Telegram router contract',
+    '• LinkedIn OIDC flow',
+    '• visibility/listing truth',
+    '• intro/request/decision truth',
+    '• notice/broadcast/send flows',
+    '• operator allowlist contract',
+    '',
+    'Что разрешено:',
+    '• docs updates',
+    '• narrow bugfix',
+    '• smoke/QA sync',
+    '• env/deploy verification',
+    '',
+    'Что не делаем:',
+    '• новые product domains',
+    '• heavy admin/BI expansion',
+    '• broad schema widening',
+    '• uncontrolled callback growth',
+    '',
+    'Правило перед merge/deploy:',
+    '1) check + актуальные smokes',
+    '2) docsStep/currentStep sync',
+    '3) changed files list + QA checklist',
+    '4) честный статус без claims о live readiness',
+    '',
+    'Выход из freeze только после ручного verification pass.'
+  ].join('\n');
+}
+
+function buildLaunchFreezeKeyboard() {
+  return buildInlineKeyboard([
+    [{ text: '🧭 Регламент запуска', callback_data: 'adm:runbook' }],
+    [{ text: '✅ Live verification', callback_data: 'adm:verify' }],
+    [{ text: '🎭 Репетиция запуска', callback_data: 'adm:rehearse' }],
+    [{ text: '🩺 Здоровье', callback_data: 'adm:health' }],
+    [{ text: '⚙️ Система', callback_data: 'adm:sys' }],
+    [{ text: '🏠 Главная', callback_data: 'home:root' }]
+  ]);
+}
+
+function buildLiveVerificationText() {
+  return [
+    '✅ Live verification',
+    '',
+    'Назначение: провести честный ручной verification pass на deployed baseline без расширения scope.',
+    '',
+    'Порядок проверки:',
+    '1) открыть landing / privacy / terms и проверить ссылку на @introdeckbot',
+    '2) открыть /api/health и /api/health?full=1, сверить step/docsStep/flags',
+    '3) в Telegram проверить /start, /menu, founder-only entry в 👑 Админка и /ops / /admin allowlist gating',
+    '4) открыть Админка / Операции / Коммуникации / Система и убедиться, что surfaces живы',
+    '5) пройти LinkedIn connect start и callback truth до сохранения identity/profile state',
+    '6) проверить direct message, notice prep, broadcast preview и post-check через Outbox/Delivery/Audit',
+    '',
+    'Фиксируем отдельно:',
+    '• source-confirmed',
+    '• live-confirmed',
+    '• blocked/unconfirmed',
+    '• go / no-go',
+    '',
+    'Разрешённый итог: честный no-go. Нельзя писать, что live готово, если любой из критичных проходов не закрыт.'
+  ].join('\n');
+}
+
+function buildLiveVerificationKeyboard() {
+  return buildInlineKeyboard([
+    [{ text: '🎭 Репетиция запуска', callback_data: 'adm:rehearse' }],
+    [{ text: '🩺 Здоровье', callback_data: 'adm:health' }],
+    [{ text: '🧊 Freeze', callback_data: 'adm:freeze' }],
+    [{ text: '⚙️ Система', callback_data: 'adm:sys' }],
+    [{ text: '🏠 Главная', callback_data: 'home:root' }]
+  ]);
+}
+
+function buildLaunchRehearsalText() {
+  return [
+    '🎭 Репетиция запуска',
+    '',
+    'Назначение: прогнать founder/operator цикл на узком тестовом коридоре до реального launch verdict.',
+    '',
+    'Репетиция:',
+    '1) health/preflight: retry/exhausted/failures не в аварийном состоянии',
+    '2) founder account: /start → /menu → 👑 Админка видна',
+    '3) operator shell: Админка / Операции / Коммуникации / Система / Регламент / Freeze / verification открываются',
+    '4) users segment: открыть safe segment и проверить drilldowns / bulk-prep contract',
+    '5) communications: подготовить notice или broadcast preview без широкого охвата',
+    '6) direct message: отправить узкий тестовый ЛС на founder/test recipient',
+    '7) post-check: Outbox / Delivery / Audit / Quality без скрытых ошибок и тупиков',
+    '',
+    'Критерии pass:',
+    '• callback/router живы',
+    '• LinkedIn/connect path не развален',
+    '• коммуникации не дают неожиданных failures',
+    '• admin surfaces и русские labels консистентны',
+    '',
+    'Если rehearsal падает — freeze сохраняется, идём в узкий bugfix, а не в новый scope.'
+  ].join('\n');
+}
+
+function buildLaunchRehearsalKeyboard() {
+  return buildInlineKeyboard([
+    [{ text: '✅ Live verification', callback_data: 'adm:verify' }],
+    [{ text: '💬 Коммуникации', callback_data: 'adm:comms' }],
+    [{ text: '⚙️ Система', callback_data: 'adm:sys' }],
+    [{ text: '🏠 Главная', callback_data: 'home:root' }]
+  ]);
+}
+
 function buildOperatorOnlyText() {
   return [
     '⚠️ Только для оператора',
@@ -1516,7 +1693,62 @@ function buildOperatorOnlyKeyboard() {
   ]);
 }
 
-export function createAdminSurfaceBuilders({ currentStep = 'STEP039' } = {}) {
+function buildAdminBulkActionsText({ state = null, page = 0, notice = null } = {}) {
+  const lines = [
+    '📦 Массовые действия',
+    '',
+    `Сегмент: ${state?.segmentLabel || ADMIN_USER_SEGMENTS[normalizeAdminUserSegment(state?.segmentKey)]?.label || 'Сегмент'} • стр. ${page + 1}`,
+    'Безопасный режим: только подготовка шаблона и явное подтверждение в коммуникациях.'
+  ];
+
+  const noticeAction = state?.noticeAction || { supported: false, estimate: 0 };
+  const broadcastAction = state?.broadcastAction || { supported: false, estimate: 0 };
+
+  lines.push('', 'Notice:');
+  if (noticeAction.supported) {
+    lines.push(`Шаблон: ${noticeAction.templateLabel}`);
+    lines.push(`Аудитория: ${noticeAction.audienceLabel}`);
+    lines.push(`Оценка охвата: ${noticeAction.estimate || 0}`);
+    if (state?.activeNotice) {
+      lines.push('Guard: активный notice сначала нужно выключить вручную.');
+    }
+  } else {
+    lines.push('Для этого сегмента safe notice preset не задан.');
+  }
+
+  lines.push('', 'Рассылка:');
+  if (broadcastAction.supported) {
+    lines.push(`Шаблон: ${broadcastAction.templateLabel}`);
+    lines.push(`Аудитория: ${broadcastAction.audienceLabel}`);
+    lines.push(`Оценка охвата: ${broadcastAction.estimate || 0}`);
+  } else {
+    lines.push('Для этого сегмента safe broadcast preset не задан.');
+  }
+
+  if (notice) {
+    lines.push('', notice);
+  }
+  return lines.join('\n');
+}
+
+function buildAdminBulkActionsKeyboard({ state = null, page = 0 } = {}) {
+  const segmentKey = normalizeAdminUserSegment(state?.segmentKey);
+  const rows = [];
+
+  if (state?.noticeAction?.supported) {
+    rows.push([{ text: `📣 Подготовить notice (${state.noticeAction.estimate || 0})`, callback_data: `adm:bulk:user:${segmentKey}:${page}:not` }]);
+  }
+  if (state?.broadcastAction?.supported) {
+    rows.push([{ text: `📬 Подготовить рассылку (${state.broadcastAction.estimate || 0})`, callback_data: `adm:bulk:user:${segmentKey}:${page}:bc` }]);
+  }
+
+  rows.push([{ text: '💬 Коммуникации', callback_data: 'adm:comms' }]);
+  rows.push([{ text: '↩️ Назад к пользователям', callback_data: `adm:usr:page:${segmentKey}:${page}` }]);
+  rows.push([{ text: '🏠 Главная', callback_data: 'home:root' }]);
+  return buildInlineKeyboard(rows);
+}
+
+export function createAdminSurfaceBuilders({ currentStep = 'STEP043' } = {}) {
   return {
     buildAdminHomeSurface: async ({ summary = null } = {}) => ({
       text: buildAdminHomeText({ summary }),
@@ -1542,9 +1774,29 @@ export function createAdminSurfaceBuilders({ currentStep = 'STEP039' } = {}) {
       text: buildOperatorsText({ summary }),
       reply_markup: buildOperatorsKeyboard()
     }),
+    buildAdminRunbookSurface: async () => ({
+      text: buildLaunchRunbookText(),
+      reply_markup: buildLaunchRunbookKeyboard()
+    }),
+    buildAdminFreezeSurface: async () => ({
+      text: buildLaunchFreezeText(),
+      reply_markup: buildLaunchFreezeKeyboard()
+    }),
+    buildAdminLiveVerificationSurface: async () => ({
+      text: buildLiveVerificationText(),
+      reply_markup: buildLiveVerificationKeyboard()
+    }),
+    buildAdminLaunchRehearsalSurface: async () => ({
+      text: buildLaunchRehearsalText(),
+      reply_markup: buildLaunchRehearsalKeyboard()
+    }),
     buildAdminUsersSurface: async ({ state, notice = null }) => ({
       text: buildUsersListText({ state, notice }),
       reply_markup: buildUsersListKeyboard({ state })
+    }),
+    buildAdminBulkActionsSurface: async ({ state = null, page = 0, notice = null } = {}) => ({
+      text: buildAdminBulkActionsText({ state, page, notice }),
+      reply_markup: buildAdminBulkActionsKeyboard({ state, page })
     }),
     buildAdminUserCardSurface: async ({ card, segmentKey = 'all', page = 0, notice = null }) => ({
       text: buildAdminUserCardText({ card, notice }),
@@ -1595,7 +1847,7 @@ export function createAdminSurfaceBuilders({ currentStep = 'STEP039' } = {}) {
       reply_markup: buildAdminNoticeKeyboard({ state })
     }),
     buildAdminNoticeAudienceSurface: async ({ state = null, notice = null } = {}) => buildAdminNoticeAudienceSurface({ state, notice }),
-    buildAdminNoticePreviewSurface: async ({ state = null } = {}) => buildAdminNoticeПревьюSurface({ state }),
+    buildAdminNoticePreviewSurface: async ({ state = null, notice = null } = {}) => buildAdminNoticeПревьюSurface({ state, notice }),
     buildAdminBroadcastSurface: async ({ state = null, notice = null } = {}) => ({
       text: buildAdminBroadcastText({ state, notice }),
       reply_markup: buildAdminBroadcastKeyboard({ state })
