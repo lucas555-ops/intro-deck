@@ -3,17 +3,17 @@
 ## Snapshot
 
 - Project: LinkedIn Telegram Directory Bot
-- Current STEP: STEP033
-- Phase: live user-product baseline plus operator communications and intro/delivery operator baseline
+- Current STEP: STEP039
+- Phase: live user-product baseline plus hardened operator communications, delivery controls, and refined operator productivity
 - Primary mode: Telegram SaaS / Bot + product hardening
 - Secondary mode: Docs / Handoff discipline
-- Runtime status: working source baseline with LinkedIn auth, persistence, in-Telegram profile completion, curated skill selection, public browse, intro inbox/detail, notification retry diagnostics, LinkedIn relink transfer flow, operator admin shell, operator Users + User Card, and a first Communications layer with Notice / Broadcast / Outbox; still needs live re-deploy to confirm STEP033 in production
+- Runtime status: working source baseline with LinkedIn auth, persistence, in-Telegram profile completion, curated skill selection, public browse, intro inbox/detail, notification retry diagnostics, LinkedIn relink transfer flow, operator admin shell, operator Users + User Card, and a first Communications layer with Notice / Broadcast / Outbox; now includes batch-safe broadcast delivery materialization, failures drilldown, and outbox progress truth; now includes admin compact counters, hub summaries, polished operator rows, tighter empty-state/navigation consistency, refined operator segments, quick actions, scoped user drilldowns, and compact admin trend counters across hub screens; still needs live re-deploy to confirm STEP039 in production
 
 ## Audit status
 
 - Syntax check: ready to run in-repo
 - Smoke suite: expanded with oauth-route, bot-init, product-surface, admin-shell, admin-users, admin-user-card, notice, broadcast, outbox, admin-intros, and admin-delivery contracts
-- Docs link scan: updated through STEP033 continuity
+- Docs link scan: updated through STEP039 continuity
 - Live deployment proof: not refreshed from this repo snapshot
 
 ## What exists now
@@ -60,6 +60,7 @@
 - operator Intros board with segment filters and Intro Detail drilldown
 - operator Delivery board with segment filters and Delivery Detail drilldown
 - active operator Notice can appear on user home and profile hub when the audience matches
+- compact 24h / 7d admin trend summaries now appear on Admin / Operations / Communications / System hubs
 - protected retry diagnostics surface still available for operators from the System section and legacy `ops:*` callbacks
 - public command layer now supports `/start`, `/menu`, `/help`, `/profile`, `/browse`, and `/inbox` as real entrypoints
 - public root landing page, privacy policy page, and terms-of-use page
@@ -78,8 +79,8 @@
 - premium logic
 - end-user notification center
 - resend / requeue mutations from operator diagnostics
-- direct 1:1 operator message send flow from User Card
-- Directory quality board and Audit detail admin read surfaces
+- advanced retry / resend controls for failed broadcast recipients
+- deep analytics / dashboards beyond current compact operator trends
 - migration runner / deploy automation
 - direct resend / repair actions from delivery detail
 - production observability beyond `/api/health`
@@ -123,7 +124,7 @@
 
 ## Next recommended step
 
-- STEP032 — Directory quality board + Audit detail on top of the STEP031 operator baseline
+- STEP039 — Operator productivity shortcuts v2 + scoped search on top of the STEP039 operator baseline
 
 
 ## STEP032 delta
@@ -139,3 +140,47 @@
 - Added direct message compose, template picker, preview, confirm, and send flow.
 - Unified `admin_comm_outbox` with `direct` records and target-user drilldown.
 - Added migration `016_admin_direct_message_outbox.sql`.
+
+
+## STEP034 delta
+
+- Added `migrations/017_admin_broadcast_batching.sql` to harden operator broadcasts with batch/job metadata and a materialized delivery-item table.
+- Broadcast send now snapshots recipients, clears the draft before delivery, processes recipients in bounded batches, and updates outbox progress as it goes.
+- Outbox records now carry batch/progress fields (`batch_size`, `cursor`, `started_at`, `finished_at`, `last_error`) plus broadcast failure summaries.
+- Added `Broadcast failures` drilldown from the Broadcast screen and broadcast outbox detail.
+- Expanded smoke coverage with `smoke:broadcast-batching` and `smoke:broadcast-idempotency`.
+
+
+## STEP036 delta
+
+- Refined Users segments with connected-no-profile, ready-no-skills, listed-active, listed-inactive, no-intros-yet, and recent-relinks buckets.
+- Refined Intros segments with pending >24h, pending >72h, accepted recent, declined recent, and delivery-problem views.
+- Refined Broadcast audiences with listed-inactive, connected-no-profile, ready-no-skills, and recent-pending-intros targeting.
+- Added quick actions on Admin home and faster operator shortcuts on User Card.
+- Added user-scoped Intros and user-scoped Audit drilldowns plus stronger cross-links from Audit detail.
+- Added smoke coverage for admin segmentation and operator productivity.
+
+
+## STEP037 delta
+
+- Added compact trend counters to Admin / Operations / Communications / System hub surfaces.
+- Added recent-period summaries for users, connections, listings, intros, deliveries, broadcasts, direct messages, and operator actions.
+- Extended admin dashboard summary wiring so communications and system hubs can show short 24h / 7d snapshots without adding a new analytics section.
+- Added `smoke:admin-trends` contract coverage and fixed latent return-shape drift in admin user / broadcast-failure list state.
+
+
+## STEP038 delta
+
+- Refined Notice audiences with operator-useful targeting like Connected, no profile / Ready, no skills / Listed inactive.
+- Refined Broadcast audiences with listed-active, accepted-recent, declined-recent, and recent-relinks buckets.
+- Replaced the old templates placeholder with a real Templates hub plus Notice/Broadcast template pickers.
+- Template apply now prefills body + suggested audience for Notice and Broadcast without adding new schema.
+- Notice surfaces now expose estimated visibility, and Broadcast/Notice keyboards now include direct access to template pickers.
+
+
+## STEP039 delta
+
+- Added scoped admin search for Users, Intros, Delivery, Outbox, and Audit.
+- Added search entrypoints on Admin Home and section surfaces.
+- Added result surfaces with direct drilldowns into User Card, Intro Detail, Delivery Detail, Outbox Record, and Audit Detail.
+- Added lightweight operator productivity shortcuts v2 without introducing a heavy global search system.

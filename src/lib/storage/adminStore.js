@@ -1,31 +1,41 @@
 import {
   ADMIN_AUDIT_SEGMENTS,
   ADMIN_BROADCAST_AUDIENCES,
+  ADMIN_BROADCAST_TEMPLATES,
   ADMIN_DELIVERY_SEGMENTS,
   ADMIN_DIRECT_MESSAGE_TEMPLATES,
   ADMIN_INTRO_SEGMENTS,
   ADMIN_NOTICE_AUDIENCES,
+  ADMIN_NOTICE_TEMPLATES,
   ADMIN_QUALITY_SEGMENTS,
   activateAdminNotice,
+  applyAdminBroadcastTemplate,
+  applyAdminNoticeTemplate,
   beginAdminCommsInputSession,
   beginAdminUserNoteSession,
   cancelAdminCommsInputSession,
   cancelAdminUserNoteSession,
   clearAdminBroadcastDraft,
   clearAdminDirectMessageDraft,
+  completeAdminBroadcastDeliveryItem,
   createAdminAuditEvent,
+  createAdminBroadcastDeliveryItems,
   createAdminCommOutboxRecord,
   disableAdminNotice,
   estimateAdminBroadcastAudienceCount,
+  estimateAdminNoticeAudienceCount,
   getAdminAuditRecordById,
   getAdminBroadcastDraft,
   getAdminCommOutboxRecordById,
   getAdminDeliveryRecordById,
   getAdminDirectMessageDraft,
+  getAdminDashboardSummary,
   getAdminIntroDetailById,
   getAdminNoticeState,
   getAdminUserCardById,
   listAdminAuditPage,
+  listAdminBroadcastFailurePage,
+  listAdminBroadcastDeliveryBatch,
   listAdminBroadcastRecipients,
   listAdminCommOutbox,
   listAdminDeliveryPage,
@@ -40,18 +50,50 @@ import {
   normalizeAdminQualitySegment,
   normalizeAdminUserSegment,
   saveAdminCommsTextFromSession,
+  summarizeAdminBroadcastDelivery,
   saveAdminUserNoteFromSession,
   setAdminUserListingVisibility,
-  updateAdminBroadcastAudience,
+  updateAdminBroadcastDraftAudience,
   updateAdminCommOutboxRecord,
+  markAdminBroadcastDeliveryItemSending,
   updateAdminNoticeAudience,
-  upsertAdminDirectMessageDraft
+  upsertAdminDirectMessageDraft,
+  normalizeAdminSearchScope,
+  upsertAdminSearchState,
+  getAdminSearchState,
+  searchAdminUsersPage,
+  searchAdminIntrosPage,
+  searchAdminDeliveryPage,
+  searchAdminOutboxPage,
+  searchAdminAuditPage
 } from '../../db/adminRepo.js';
 import { getTelegramConfig } from '../../config/env.js';
 import { isDatabaseConfigured, withDbClient, withDbTransaction } from '../../db/pool.js';
 import { sendTelegramMessage } from '../telegram/botApi.js';
 import { upsertTelegramUser } from '../../db/usersRepo.js';
 import { getIntroNotificationReceiptSummary, listRecentNotificationReceipts } from '../../db/notificationRepo.js';
+
+
+export async function loadAdminDashboardSummary() {
+  if (!isDatabaseConfigured()) {
+    return {
+      persistenceEnabled: false,
+      summary: {
+        home: { totalUsers: 0, listedUsers: 0, pendingIntros: 0, failedDeliveries: 0, activeNotice: false, latestBroadcastStatus: 'none', newUsers24h: 0, newUsers7d: 0, connected24h: 0, connected7d: 0, listed24h: 0, listed7d: 0, intros24h: 0, intros7d: 0, accepted7d: 0, declined7d: 0, pendingOlder24h: 0, failures24h: 0, failures7d: 0, exhaustedNow: 0, broadcasts7d: 0, directMessages7d: 0 },
+        operations: { totalUsers: 0, readyNotListed: 0, listedIncomplete: 0, pendingIntros: 0, staleIntros: 0, deliveryIssues: 0, connectedNoProfile: 0, readyNoSkills: 0, listedActive: 0, listedInactive: 0, noIntroYet: 0, recentRelinks7d: 0, newIntros24h: 0, accepted7d: 0, declined7d: 0, pendingOlder24h: 0 },
+        communications: { activeNotice: false, draftBroadcastReady: false, latestBroadcastStatus: 'none', recentDirectMessages: 0, recentOutboxFailures: 0, directMessages24h: 0, directMessages7d: 0, broadcasts7d: 0, broadcastDeliveredRecipients7d: 0, broadcastFailedRecipients7d: 0, outboxFailures24h: 0, outboxFailures7d: 0, latestBroadcastRecipients: 0, latestBroadcastDelivered: 0, latestBroadcastFailed: 0 },
+        system: { retryDue: 0, exhausted: 0, recentAuditEvents: 0, failedDeliveries: 0, failures24h: 0, failures7d: 0, delivered24h: 0, delivered7d: 0, operatorActions24h: 0, operatorActions7d: 0, listingChanges7d: 0, relinks7d: 0 }
+      },
+      reason: 'DATABASE_URL is not configured'
+    };
+  }
+
+  return withDbClient(async (client) => ({
+    persistenceEnabled: true,
+    summary: await getAdminDashboardSummary(client),
+    reason: 'admin_dashboard_summary_loaded'
+  }));
+}
 
 export async function loadAdminUsersPage({ segmentKey = 'all', page = 0 } = {}) {
   if (!isDatabaseConfigured()) {
@@ -207,15 +249,29 @@ export async function loadAdminCommunicationsState() {
       notice: { body: '', audienceKey: 'ALL', isActive: false },
       broadcastDraft: { body: '', audienceKey: 'ALL_CONNECTED' },
       outboxCount: 0,
+      latestBroadcastStatus: 'none',
+      recentDirectMessages: 0,
+      recentOutboxFailures: 0,
+      directMessages24h: 0,
+      directMessages7d: 0,
+      broadcasts7d: 0,
+      broadcastDeliveredRecipients7d: 0,
+      broadcastFailedRecipients7d: 0,
+      outboxFailures24h: 0,
+      outboxFailures7d: 0,
+      latestBroadcastRecipients: 0,
+      latestBroadcastDelivered: 0,
+      latestBroadcastFailed: 0,
       reason: 'DATABASE_URL is not configured'
     };
   }
 
   return withDbClient(async (client) => {
-    const [notice, broadcastDraft, outboxRows] = await Promise.all([
+    const [notice, broadcastDraft, outboxRows, summary] = await Promise.all([
       getAdminNoticeState(client),
       getAdminBroadcastDraft(client),
-      listAdminCommOutbox(client, { limit: 1 })
+      listAdminCommOutbox(client, { limit: 1 }),
+      getAdminDashboardSummary(client)
     ]);
 
     return {
@@ -223,9 +279,32 @@ export async function loadAdminCommunicationsState() {
       notice,
       broadcastDraft,
       outboxCount: outboxRows.length,
+      latestBroadcastStatus: summary.communications.latestBroadcastStatus,
+      recentDirectMessages: summary.communications.recentDirectMessages,
+      recentOutboxFailures: summary.communications.recentOutboxFailures,
+      directMessages24h: summary.communications.directMessages24h,
+      directMessages7d: summary.communications.directMessages7d,
+      broadcasts7d: summary.communications.broadcasts7d,
+      broadcastDeliveredRecipients7d: summary.communications.broadcastDeliveredRecipients7d,
+      broadcastFailedRecipients7d: summary.communications.broadcastFailedRecipients7d,
+      outboxFailures24h: summary.communications.outboxFailures24h,
+      outboxFailures7d: summary.communications.outboxFailures7d,
+      latestBroadcastRecipients: summary.communications.latestBroadcastRecipients,
+      latestBroadcastDelivered: summary.communications.latestBroadcastDelivered,
+      latestBroadcastFailed: summary.communications.latestBroadcastFailed,
       reason: 'admin_communications_loaded'
     };
   });
+}
+
+export async function loadAdminTemplatesLibrary() {
+  return {
+    persistenceEnabled: isDatabaseConfigured(),
+    noticeTemplates: Object.values(ADMIN_NOTICE_TEMPLATES),
+    broadcastTemplates: Object.values(ADMIN_BROADCAST_TEMPLATES),
+    directTemplates: Object.values(ADMIN_DIRECT_MESSAGE_TEMPLATES),
+    reason: 'admin_templates_loaded'
+  };
 }
 
 export async function loadAdminNoticeState() {
@@ -233,17 +312,27 @@ export async function loadAdminNoticeState() {
     return {
       persistenceEnabled: false,
       notice: { body: '', audienceKey: 'ALL', isActive: false },
+      estimate: 0,
       audienceOptions: Object.values(ADMIN_NOTICE_AUDIENCES),
+      templateOptions: Object.values(ADMIN_NOTICE_TEMPLATES),
       reason: 'DATABASE_URL is not configured'
     };
   }
 
-  return withDbClient(async (client) => ({
-    persistenceEnabled: true,
-    notice: await getAdminNoticeState(client),
-    audienceOptions: Object.values(ADMIN_NOTICE_AUDIENCES),
-    reason: 'admin_notice_loaded'
-  }));
+  return withDbClient(async (client) => {
+    const notice = await getAdminNoticeState(client);
+    const estimate = notice.body && notice.audienceKey
+      ? await estimateAdminNoticeAudienceCount(client, { audienceKey: notice.audienceKey })
+      : 0;
+    return {
+      persistenceEnabled: true,
+      notice,
+      estimate,
+      audienceOptions: Object.values(ADMIN_NOTICE_AUDIENCES),
+      templateOptions: Object.values(ADMIN_NOTICE_TEMPLATES),
+      reason: 'admin_notice_loaded'
+    };
+  });
 }
 
 export async function updateAdminNoticeAudienceSelection({ operatorTelegramUserId, operatorTelegramUsername = null, audienceKey }) {
@@ -268,6 +357,29 @@ export async function updateAdminNoticeAudienceSelection({ operatorTelegramUserI
       persistenceEnabled: true,
       notice,
       reason: 'admin_notice_audience_updated'
+    };
+  });
+}
+
+export async function applyAdminNoticeTemplateSelection({ operatorTelegramUserId, operatorTelegramUsername = null, templateKey }) {
+  if (!isDatabaseConfigured()) {
+    return { persistenceEnabled: false, notice: null, reason: 'DATABASE_URL is not configured' };
+  }
+
+  return withDbTransaction(async (client) => {
+    const operatorUser = await upsertTelegramUser(client, {
+      telegramUserId: operatorTelegramUserId,
+      telegramUsername: operatorTelegramUsername || null
+    });
+    const notice = await applyAdminNoticeTemplate(client, { operatorUserId: operatorUser.id, templateKey });
+    const estimate = notice.body && notice.audienceKey
+      ? await estimateAdminNoticeAudienceCount(client, { audienceKey: notice.audienceKey })
+      : 0;
+    return {
+      persistenceEnabled: true,
+      notice,
+      estimate,
+      reason: 'admin_notice_template_applied'
     };
   });
 }
@@ -333,7 +445,9 @@ export async function loadAdminBroadcastState() {
       persistenceEnabled: false,
       draft: { body: '', audienceKey: 'ALL_CONNECTED' },
       estimate: 0,
+      latestRecord: null,
       audienceOptions: Object.values(ADMIN_BROADCAST_AUDIENCES),
+      templateOptions: Object.values(ADMIN_BROADCAST_TEMPLATES),
       reason: 'DATABASE_URL is not configured'
     };
   }
@@ -343,11 +457,14 @@ export async function loadAdminBroadcastState() {
     const estimate = draft.body && draft.audienceKey
       ? await estimateAdminBroadcastAudienceCount(client, { audienceKey: draft.audienceKey })
       : 0;
+    const latestRecords = await listAdminCommOutbox(client, { limit: 1, eventType: 'broadcast' });
     return {
       persistenceEnabled: true,
       draft,
       estimate,
+      latestRecord: latestRecords[0] || null,
       audienceOptions: Object.values(ADMIN_BROADCAST_AUDIENCES),
+      templateOptions: Object.values(ADMIN_BROADCAST_TEMPLATES),
       reason: 'admin_broadcast_loaded'
     };
   });
@@ -368,7 +485,7 @@ export async function updateAdminBroadcastAudienceSelection({ operatorTelegramUs
       telegramUserId: operatorTelegramUserId,
       telegramUsername: operatorTelegramUsername || null
     });
-    const draft = await updateAdminBroadcastAudience(client, {
+    const draft = await updateAdminBroadcastDraftAudience(client, {
       operatorUserId: operatorUser.id,
       audienceKey
     });
@@ -380,6 +497,29 @@ export async function updateAdminBroadcastAudienceSelection({ operatorTelegramUs
       draft,
       estimate,
       reason: 'admin_broadcast_audience_updated'
+    };
+  });
+}
+
+export async function applyAdminBroadcastTemplateSelection({ operatorTelegramUserId, operatorTelegramUsername = null, templateKey }) {
+  if (!isDatabaseConfigured()) {
+    return { persistenceEnabled: false, draft: null, estimate: 0, reason: 'DATABASE_URL is not configured' };
+  }
+
+  return withDbTransaction(async (client) => {
+    const operatorUser = await upsertTelegramUser(client, {
+      telegramUserId: operatorTelegramUserId,
+      telegramUsername: operatorTelegramUsername || null
+    });
+    const draft = await applyAdminBroadcastTemplate(client, { operatorUserId: operatorUser.id, templateKey });
+    const estimate = draft.body && draft.audienceKey
+      ? await estimateAdminBroadcastAudienceCount(client, { audienceKey: draft.audienceKey })
+      : 0;
+    return {
+      persistenceEnabled: true,
+      draft,
+      estimate,
+      reason: 'admin_broadcast_template_applied'
     };
   });
 }
@@ -405,6 +545,26 @@ export async function clearAdminBroadcastDraftState() {
   return withDbTransaction(async (client) => {
     await clearAdminBroadcastDraft(client);
     return { persistenceEnabled: true, cleared: true, reason: 'admin_broadcast_cleared' };
+  });
+}
+
+
+export async function loadAdminBroadcastFailures({ outboxId, page = 0 } = {}) {
+  if (!isDatabaseConfigured()) {
+    return { persistenceEnabled: false, outboxId, page: 0, items: [], totalCount: 0, hasPrev: false, hasNext: false, record: null, reason: 'DATABASE_URL is not configured' };
+  }
+
+  return withDbClient(async (client) => {
+    const [record, pageState] = await Promise.all([
+      getAdminCommOutboxRecordById(client, { outboxId }),
+      listAdminBroadcastFailurePage(client, { outboxId, page })
+    ]);
+    return {
+      persistenceEnabled: true,
+      record,
+      ...pageState,
+      reason: 'admin_broadcast_failures_loaded'
+    };
   });
 }
 
@@ -458,6 +618,82 @@ export async function applyAdminCommsTextInput({ operatorTelegramUserId, operato
   });
 }
 
+
+
+export async function beginAdminScopedSearchPrompt({ operatorTelegramUserId, scopeKey }) {
+  if (!isDatabaseConfigured()) {
+    return { persistenceEnabled: false, started: false, reason: 'DATABASE_URL is not configured' };
+  }
+  const normalizedScopeKey = normalizeAdminSearchScope(scopeKey);
+  return withDbTransaction(async (client) => ({
+    persistenceEnabled: true,
+    started: true,
+    scopeKey: normalizedScopeKey,
+    session: await beginAdminCommsInputSession(client, {
+      operatorTelegramUserId,
+      inputKind: `search_${normalizedScopeKey}`
+    }),
+    reason: 'admin_search_prompt_started'
+  }));
+}
+
+export async function loadAdminSearchResults({ operatorTelegramUserId, scopeKey, page = null } = {}) {
+  const normalizedScopeKey = normalizeAdminSearchScope(scopeKey);
+  if (!isDatabaseConfigured()) {
+    return {
+      persistenceEnabled: false,
+      scopeKey: normalizedScopeKey,
+      queryText: '',
+      page: 0,
+      pageSize: 8,
+      totalCount: 0,
+      hasPrev: false,
+      hasNext: false,
+      results: [],
+      reason: 'DATABASE_URL is not configured'
+    };
+  }
+
+  return withDbClient(async (client) => {
+    const saved = await getAdminSearchState(client, { operatorTelegramUserId, scopeKey: normalizedScopeKey });
+    const queryText = saved?.queryText || '';
+    const resolvedPage = Number.isFinite(page) && page >= 0 ? page : (saved?.page || 0);
+    if (!queryText) {
+      return {
+        persistenceEnabled: true,
+        scopeKey: normalizedScopeKey,
+        queryText: '',
+        page: 0,
+        pageSize: 8,
+        totalCount: 0,
+        hasPrev: false,
+        hasNext: false,
+        results: [],
+        reason: 'admin_search_missing_query'
+      };
+    }
+
+    let state;
+    if (normalizedScopeKey === 'users') {
+      state = await searchAdminUsersPage(client, { queryText, page: resolvedPage });
+    } else if (normalizedScopeKey === 'intros') {
+      state = await searchAdminIntrosPage(client, { queryText, page: resolvedPage });
+    } else if (normalizedScopeKey === 'delivery') {
+      state = await searchAdminDeliveryPage(client, { queryText, page: resolvedPage });
+    } else if (normalizedScopeKey === 'outbox') {
+      state = await searchAdminOutboxPage(client, { queryText, page: resolvedPage });
+    } else {
+      state = await searchAdminAuditPage(client, { queryText, page: resolvedPage });
+    }
+
+    await upsertAdminSearchState(client, { operatorTelegramUserId, scopeKey: normalizedScopeKey, queryText, page: state.page || 0 });
+    return {
+      persistenceEnabled: true,
+      ...state,
+      reason: 'admin_search_loaded'
+    };
+  });
+}
 
 export async function loadAdminDirectMessageState({ operatorTelegramUserId, targetUserId, segmentKey = 'all', page = 0 } = {}) {
   if (!isDatabaseConfigured()) {
@@ -631,6 +867,7 @@ export async function sendAdminBroadcast({ operatorTelegramUserId, operatorTeleg
     return { persistenceEnabled: false, sent: false, reason: 'DATABASE_URL is not configured' };
   }
 
+  const batchSize = 25;
   const prep = await withDbTransaction(async (client) => {
     const operatorUser = await upsertTelegramUser(client, {
       telegramUserId: operatorTelegramUserId,
@@ -649,71 +886,111 @@ export async function sendAdminBroadcast({ operatorTelegramUserId, operatorTeleg
       eventType: 'broadcast',
       body: draft.body,
       audienceKey: draft.audienceKey,
-      status: 'sending',
+      status: 'queued',
       estimatedRecipientCount: recipients.length,
       deliveredCount: 0,
       failedCount: 0,
-      createdByUserId: operatorUser.id
+      createdByUserId: operatorUser.id,
+      batchSize,
+      cursor: 0
     });
 
-    return { draft, recipients, outboxId, operatorUserId: operatorUser.id };
+    await createAdminBroadcastDeliveryItems(client, { outboxId, recipients });
+    await clearAdminBroadcastDraft(client);
+    await updateAdminCommOutboxRecord(client, {
+      outboxId,
+      status: recipients.length > 0 ? 'sending' : 'sent',
+      estimatedRecipientCount: recipients.length,
+      deliveredCount: 0,
+      failedCount: 0,
+      batchSize,
+      cursor: 0,
+      startedAt: new Date().toISOString(),
+      finishedAt: recipients.length > 0 ? null : new Date().toISOString()
+    });
+
+    return { draft, recipients, outboxId, operatorUserId: operatorUser.id, batchSize };
   });
 
   const { botToken } = getTelegramConfig();
-  let deliveredCount = 0;
-  let failedCount = 0;
+  let lastError = null;
 
-  for (const recipient of prep.recipients) {
-    try {
-      await sendTelegramMessage({
-        botToken,
-        chatId: recipient.telegramUserId,
-        text: prep.draft.body,
-        replyMarkup: null
-      });
-      deliveredCount += 1;
-    } catch (error) {
-      console.warn('[admin broadcast] send failed', recipient.telegramUserId, error?.message || error);
-      failedCount += 1;
+  while (true) {
+    const batch = await withDbClient(async (client) => listAdminBroadcastDeliveryBatch(client, { outboxId: prep.outboxId, limit: prep.batchSize }));
+    if (!batch.length) {
+      break;
     }
+
+    for (const item of batch) {
+      await withDbTransaction(async (client) => {
+        await markAdminBroadcastDeliveryItemSending(client, { itemId: item.id });
+      });
+
+      try {
+        await sendTelegramMessage({
+          botToken,
+          chatId: item.target_telegram_user_id,
+          text: prep.draft.body,
+          replyMarkup: null
+        });
+        await withDbTransaction(async (client) => {
+          await completeAdminBroadcastDeliveryItem(client, { itemId: item.id, status: 'sent' });
+        });
+      } catch (error) {
+        const message = String(error?.message || error);
+        lastError = message;
+        console.warn('[admin broadcast] send failed', item.target_telegram_user_id, message);
+        await withDbTransaction(async (client) => {
+          await completeAdminBroadcastDeliveryItem(client, { itemId: item.id, status: 'failed', errorMessage: message });
+        });
+      }
+    }
+
+    const summary = await withDbClient(async (client) => summarizeAdminBroadcastDelivery(client, { outboxId: prep.outboxId }));
+    const processedCount = (summary?.sent_count || 0) + (summary?.failed_count || 0);
+    await withDbTransaction(async (client) => {
+      await updateAdminCommOutboxRecord(client, {
+        outboxId: prep.outboxId,
+        status: summary?.pending_count > 0 ? 'sending' : ((summary?.failed_count || 0) > 0 ? ((summary?.sent_count || 0) > 0 ? 'sent_with_failures' : 'failed') : 'sent'),
+        estimatedRecipientCount: summary?.total_count || prep.recipients.length,
+        deliveredCount: summary?.sent_count || 0,
+        failedCount: summary?.failed_count || 0,
+        batchSize: prep.batchSize,
+        cursor: processedCount,
+        lastError: lastError || summary?.last_error || null,
+        finishedAt: summary?.pending_count > 0 ? null : new Date().toISOString()
+      });
+    });
   }
 
-  const finalStatus = failedCount > 0
-    ? (deliveredCount > 0 ? 'sent_with_failures' : 'failed')
-    : 'sent';
+  const finalRecord = await withDbClient(async (client) => getAdminCommOutboxRecordById(client, { outboxId: prep.outboxId }));
+  const finalStatus = finalRecord?.status || 'failed';
 
   await withDbTransaction(async (client) => {
-    await updateAdminCommOutboxRecord(client, {
-      outboxId: prep.outboxId,
-      status: finalStatus,
-      estimatedRecipientCount: prep.recipients.length,
-      deliveredCount,
-      failedCount
-    });
     await createAdminAuditEvent(client, {
       eventType: finalStatus === 'failed' ? 'admin_broadcast_failed' : 'admin_broadcast_sent',
       actorUserId: prep.operatorUserId,
       summary: finalStatus === 'failed' ? 'Broadcast failed.' : 'Broadcast sent.',
       detail: {
         audienceKey: prep.draft.audienceKey,
-        estimatedRecipientCount: prep.recipients.length,
-        deliveredCount,
-        failedCount,
+        estimatedRecipientCount: finalRecord?.estimated_recipient_count || prep.recipients.length,
+        deliveredCount: finalRecord?.delivered_count || 0,
+        failedCount: finalRecord?.failed_count || 0,
         outboxId: prep.outboxId,
         status: finalStatus,
-        body: prep.draft.body
+        body: prep.draft.body,
+        batchSize: finalRecord?.batch_size || prep.batchSize
       }
     });
-    await clearAdminBroadcastDraft(client);
   });
 
   return {
     persistenceEnabled: true,
     sent: finalStatus === 'sent' || finalStatus === 'sent_with_failures',
     status: finalStatus,
-    deliveredCount,
-    failedCount,
-    estimatedRecipientCount: prep.recipients.length,
+    deliveredCount: finalRecord?.delivered_count || 0,
+    failedCount: finalRecord?.failed_count || 0,
+    estimatedRecipientCount: finalRecord?.estimated_recipient_count || prep.recipients.length,
     outboxId: prep.outboxId,
     reason: 'admin_broadcast_sent'
   };
@@ -735,7 +1012,7 @@ export async function loadActiveAdminNotice() {
 }
 
 
-export async function loadAdminIntrosPage({ segmentKey = 'all', page = 0 } = {}) {
+export async function loadAdminIntrosPage({ segmentKey = 'all', page = 0, targetUserId = null } = {}) {
   if (!isDatabaseConfigured()) {
     return {
       persistenceEnabled: false,
@@ -751,7 +1028,7 @@ export async function loadAdminIntrosPage({ segmentKey = 'all', page = 0 } = {})
   }
 
   return withDbClient(async (client) => {
-    const pageState = await listAdminIntrosPage(client, { segmentKey, page });
+    const pageState = await listAdminIntrosPage(client, { segmentKey, page, targetUserId });
     return {
       persistenceEnabled: true,
       ...pageState,
@@ -861,7 +1138,7 @@ export async function loadAdminQualityPage({ segmentKey = 'listinc', page = 0 } 
   });
 }
 
-export async function loadAdminAuditPage({ segmentKey = 'all', page = 0 } = {}) {
+export async function loadAdminAuditPage({ segmentKey = 'all', page = 0, targetUserId = null } = {}) {
   if (!isDatabaseConfigured()) {
     return {
       persistenceEnabled: false,
@@ -877,7 +1154,7 @@ export async function loadAdminAuditPage({ segmentKey = 'all', page = 0 } = {}) 
   }
 
   return withDbClient(async (client) => {
-    const pageState = await listAdminAuditPage(client, { segmentKey, page });
+    const pageState = await listAdminAuditPage(client, { segmentKey, page, targetUserId });
     return {
       persistenceEnabled: true,
       ...pageState,

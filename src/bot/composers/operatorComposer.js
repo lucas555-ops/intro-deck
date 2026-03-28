@@ -17,14 +17,19 @@ import {
   loadAdminCommOutbox,
   loadAdminCommOutboxRecord,
   loadAdminCommunicationsState,
+  loadAdminBroadcastFailures,
   loadAdminBroadcastState,
   loadAdminDeliveryPage,
   loadAdminDeliveryRecord,
+  loadAdminDashboardSummary,
   loadAdminDirectMessageState,
+  beginAdminScopedSearchPrompt,
+  loadAdminSearchResults,
   loadAdminIntroDetail,
   loadAdminIntrosPage,
   loadAdminNoticeState,
   loadAdminQualityPage,
+  loadAdminTemplatesLibrary,
   loadAdminUserCard,
   loadAdminUsersPage,
   selectAdminDirectMessageTemplate,
@@ -32,6 +37,8 @@ import {
   sendAdminDirectMessage,
   updateAdminBroadcastAudienceSelection,
   updateAdminNoticeAudienceSelection,
+  applyAdminNoticeTemplateSelection,
+  applyAdminBroadcastTemplateSelection,
   updateAdminUserListingVisibility
 } from '../../lib/storage/adminStore.js';
 import { normalizeAdminAuditSegment, normalizeAdminDeliverySegment, normalizeAdminIntroSegment, normalizeAdminQualitySegment, normalizeAdminUserSegment } from '../../db/adminRepo.js';
@@ -83,11 +90,17 @@ export function createOperatorComposer({
   buildAdminNoticeSurface,
   buildAdminNoticeAudienceSurface,
   buildAdminNoticePreviewSurface,
+  buildAdminNoticeTemplatePickerSurface,
   buildAdminBroadcastSurface,
   buildAdminBroadcastAudienceSurface,
   buildAdminBroadcastPreviewSurface,
+  buildAdminBroadcastTemplatePickerSurface,
+  buildAdminTemplatesSurface,
+  buildAdminBroadcastFailuresSurface,
   buildAdminOutboxSurface,
   buildAdminOutboxRecordSurface,
+  buildAdminSearchPromptSurface,
+  buildAdminSearchResultsSurface,
   buildAdminCommsEditPromptSurface,
   buildAdminPlaceholderSurface,
   buildOperatorOnlySurface
@@ -156,13 +169,13 @@ export function createOperatorComposer({
   }
 
 
-  async function renderAdminIntros(ctx, { segmentKey = 'all', page = 0, notice = null } = {}, method = 'edit') {
+  async function renderAdminIntros(ctx, { segmentKey = 'all', page = 0, targetUserId = null, notice = null } = {}, method = 'edit') {
     if (!isOperatorTelegramUser(ctx.from.id)) {
       await renderOperatorOnly(ctx, method);
       return;
     }
 
-    const state = await loadAdminIntrosPage({ segmentKey, page }).catch((error) => ({
+    const state = await loadAdminIntrosPage({ segmentKey, page, targetUserId }).catch((error) => ({
       persistenceEnabled: true,
       intros: [],
       counts: null,
@@ -171,6 +184,7 @@ export function createOperatorComposer({
       totalCount: 0,
       hasPrev: false,
       hasNext: false,
+      targetUserId,
       reason: String(error?.message || error)
     }));
 
@@ -178,7 +192,7 @@ export function createOperatorComposer({
     await renderSurface(ctx, surface, method);
   }
 
-  async function renderAdminIntroDetail(ctx, { introRequestId, segmentKey = 'all', page = 0, notice = null } = {}, method = 'edit') {
+  async function renderAdminIntroDetail(ctx, { introRequestId, segmentKey = 'all', page = 0, targetUserId = null, backCallback = null, notice = null } = {}, method = 'edit') {
     if (!isOperatorTelegramUser(ctx.from.id)) {
       await renderOperatorOnly(ctx, method);
       return;
@@ -192,12 +206,15 @@ export function createOperatorComposer({
       reason: String(error?.message || error)
     }));
 
+    const resolvedBackCallback = backCallback || (targetUserId
+      ? `adm:intro:user:${targetUserId}:page:${normalizeAdminIntroSegment(segmentKey)}:${parsePage(page)}`
+      : `adm:intro:page:${normalizeAdminIntroSegment(segmentKey)}:${parsePage(page)}`);
+
     const surface = await buildAdminIntroDetailSurface({
       intro: state.intro,
       notificationSummary: state.notificationSummary,
       recentReceipts: state.recentReceipts,
-      segmentKey: normalizeAdminIntroSegment(segmentKey),
-      page: parsePage(page),
+      backCallback: resolvedBackCallback,
       notice
     });
     await renderSurface(ctx, surface, method);
@@ -243,6 +260,58 @@ export function createOperatorComposer({
   }
 
 
+
+  async function renderAdminSearchPrompt(ctx, { scopeKey = 'users', notice = null } = {}, method = 'edit') {
+    if (!isOperatorTelegramUser(ctx.from.id)) {
+      await renderOperatorOnly(ctx, method);
+      return;
+    }
+
+    await clearAllPendingInputs(ctx.from.id);
+    const started = await beginAdminScopedSearchPrompt({
+      operatorTelegramUserId: ctx.from.id,
+      scopeKey
+    }).catch((error) => ({ persistenceEnabled: true, started: false, reason: String(error?.message || error), scopeKey }));
+
+    const surface = await buildAdminSearchPromptSurface({
+      scopeKey: started.scopeKey || scopeKey,
+      currentQuery: '',
+      notice: started.started ? notice : `⚠️ ${formatUserFacingError(started.reason, 'Could not open admin search right now.')}`
+    });
+    if (method === 'reply') {
+      await ctx.reply(surface.text, { reply_markup: surface.reply_markup });
+      return;
+    }
+    await safeEditOrReply(ctx, surface.text, { reply_markup: surface.reply_markup });
+  }
+
+  async function renderAdminSearchResults(ctx, { scopeKey = 'users', page = 0, notice = null } = {}, method = 'edit') {
+    if (!isOperatorTelegramUser(ctx.from.id)) {
+      await renderOperatorOnly(ctx, method);
+      return;
+    }
+
+    const state = await loadAdminSearchResults({
+      operatorTelegramUserId: ctx.from.id,
+      scopeKey,
+      page
+    }).catch((error) => ({
+      persistenceEnabled: true,
+      scopeKey,
+      queryText: '',
+      page: 0,
+      pageSize: 8,
+      totalCount: 0,
+      hasPrev: false,
+      hasNext: false,
+      results: [],
+      reason: String(error?.message || error)
+    }));
+
+    const surface = await buildAdminSearchResultsSurface({ scopeKey, state, notice });
+    await renderSurface(ctx, surface, method);
+  }
+
   async function renderAdminQuality(ctx, { segmentKey = 'listinc', page = 0, notice = null } = {}, method = 'edit') {
     if (!isOperatorTelegramUser(ctx.from.id)) {
       await renderOperatorOnly(ctx, method);
@@ -265,13 +334,13 @@ export function createOperatorComposer({
     await renderSurface(ctx, surface, method);
   }
 
-  async function renderAdminAudit(ctx, { segmentKey = 'all', page = 0, notice = null } = {}, method = 'edit') {
+  async function renderAdminAudit(ctx, { segmentKey = 'all', page = 0, targetUserId = null, notice = null } = {}, method = 'edit') {
     if (!isOperatorTelegramUser(ctx.from.id)) {
       await renderOperatorOnly(ctx, method);
       return;
     }
 
-    const state = await loadAdminAuditPage({ segmentKey, page }).catch((error) => ({
+    const state = await loadAdminAuditPage({ segmentKey, page, targetUserId }).catch((error) => ({
       persistenceEnabled: true,
       records: [],
       counts: null,
@@ -280,6 +349,7 @@ export function createOperatorComposer({
       totalCount: 0,
       hasPrev: false,
       hasNext: false,
+      targetUserId,
       reason: String(error?.message || error)
     }));
 
@@ -313,6 +383,9 @@ export function createOperatorComposer({
       notice: { body: '', audienceKey: 'ALL', isActive: false },
       broadcastDraft: { body: '', audienceKey: 'ALL_CONNECTED' },
       outboxCount: 0,
+      latestBroadcastStatus: 'none',
+      recentDirectMessages: 0,
+      recentOutboxFailures: 0,
       reason: String(error?.message || error)
     }));
 
@@ -413,10 +486,33 @@ export function createOperatorComposer({
       persistenceEnabled: true,
       draft: { body: '', audienceKey: 'ALL_CONNECTED' },
       estimate: 0,
+      latestRecord: null,
       audienceOptions: [],
       reason: String(error?.message || error)
     }));
     const surface = await buildAdminBroadcastPreviewSurface({ state, notice });
+    await renderSurface(ctx, surface, method);
+  }
+
+  async function renderAdminBroadcastFailures(ctx, { outboxId, page = 0, notice = null } = {}, method = 'edit') {
+    if (!isOperatorTelegramUser(ctx.from.id)) {
+      await renderOperatorOnly(ctx, method);
+      return;
+    }
+
+    const state = await loadAdminBroadcastFailures({ outboxId, page }).catch((error) => ({
+      persistenceEnabled: true,
+      record: null,
+      outboxId,
+      page: 0,
+      pageSize: 10,
+      totalCount: 0,
+      hasPrev: false,
+      hasNext: false,
+      items: [],
+      reason: String(error?.message || error)
+    }));
+    const surface = await buildAdminBroadcastFailuresSurface({ state, notice });
     await renderSurface(ctx, surface, method);
   }
 
@@ -456,25 +552,38 @@ export function createOperatorComposer({
       return;
     }
 
+    const dashboard = ['home', 'ops', 'sys'].includes(target)
+      ? await loadAdminDashboardSummary().catch((error) => ({
+        persistenceEnabled: true,
+        summary: {
+          home: { totalUsers: 0, listedUsers: 0, pendingIntros: 0, failedDeliveries: 0, activeNotice: false, latestBroadcastStatus: 'none', newUsers24h: 0, newUsers7d: 0, connected24h: 0, connected7d: 0, listed24h: 0, listed7d: 0, intros24h: 0, intros7d: 0, accepted7d: 0, declined7d: 0, pendingOlder24h: 0, failures24h: 0, failures7d: 0, exhaustedNow: 0, broadcasts7d: 0, directMessages7d: 0 },
+          operations: { totalUsers: 0, readyNotListed: 0, listedIncomplete: 0, pendingIntros: 0, staleIntros: 0, deliveryIssues: 0, connectedNoProfile: 0, readyNoSkills: 0, listedActive: 0, listedInactive: 0, noIntroYet: 0, recentRelinks7d: 0, newIntros24h: 0, accepted7d: 0, declined7d: 0, pendingOlder24h: 0 },
+          communications: { activeNotice: false, draftBroadcastReady: false, latestBroadcastStatus: 'none', recentDirectMessages: 0, recentOutboxFailures: 0, directMessages24h: 0, directMessages7d: 0, broadcasts7d: 0, broadcastDeliveredRecipients7d: 0, broadcastFailedRecipients7d: 0, outboxFailures24h: 0, outboxFailures7d: 0, latestBroadcastRecipients: 0, latestBroadcastDelivered: 0, latestBroadcastFailed: 0 },
+          system: { retryDue: 0, exhausted: 0, recentAuditEvents: 0, failedDeliveries: 0, failures24h: 0, failures7d: 0, delivered24h: 0, delivered7d: 0, operatorActions24h: 0, operatorActions7d: 0, listingChanges7d: 0, relinks7d: 0 }
+        },
+        reason: String(error?.message || error)
+      }))
+      : null;
+
     let surface;
     switch (target) {
       case 'home':
-        surface = await buildAdminHomeSurface();
+        surface = await buildAdminHomeSurface({ summary: dashboard?.summary?.home || null });
         break;
       case 'ops':
-        surface = await buildAdminOperationsSurface();
+        surface = await buildAdminOperationsSurface({ summary: dashboard?.summary?.operations || null });
         break;
       case 'comms':
         await renderAdminCommunications(ctx, {}, method);
         return;
       case 'sys':
-        surface = await buildAdminSystemSurface();
+        surface = await buildAdminSystemSurface({ summary: dashboard?.summary?.system || null });
         break;
       case 'health':
         surface = await buildAdminHealthSurface();
         break;
       case 'opscope':
-        surface = await buildAdminOperatorsSurface();
+        surface = await buildAdminOperatorsSurface({ summary: dashboard?.summary?.system || null });
         break;
       case 'directory':
         await renderAdminQuality(ctx, {}, method);
@@ -491,14 +600,11 @@ export function createOperatorComposer({
       case 'broadcast':
         await renderAdminBroadcast(ctx, {}, method);
         return;
-      case 'templates':
-        surface = await buildAdminPlaceholderSurface({
-          title: '📌 Templates',
-          description: 'Templates library and reuse flow land next under Communications.',
-          backCallback: 'adm:comms',
-          nextStep: 'STEP030'
-        });
+      case 'templates': {
+        const state = await loadAdminTemplatesLibrary().catch(() => ({ persistenceEnabled: true, noticeTemplates: [], broadcastTemplates: [], directTemplates: [] }));
+        surface = await buildAdminTemplatesSurface({ state });
         break;
+      }
       case 'outbox':
         await renderAdminOutbox(ctx, {}, method);
         return;
@@ -585,17 +691,25 @@ export function createOperatorComposer({
     await renderAdminAuditRecord(ctx, { auditId: parsePositiveInt(ctx.match?.[1]), backCallback: `adm:audit:page:${segmentKey}:${page}` }, 'edit');
   });
 
+  composer.callbackQuery(/^adm:audit:user:(\d+):open:(\d+):(all|not|bc|user|relink):(\d+)$/, async (ctx) => {
+    await ctx.answerCallbackQuery();
+    const targetUserId = parsePositiveInt(ctx.match?.[1]);
+    const segmentKey = ctx.match?.[3] || 'all';
+    const page = parsePage(ctx.match?.[4]);
+    await renderAdminAuditRecord(ctx, { auditId: parsePositiveInt(ctx.match?.[2]), backCallback: `adm:audit:user:${targetUserId}:page:${segmentKey}:${page}` }, 'edit');
+  });
+
   composer.callbackQuery('adm:usr:list', async (ctx) => {
     await ctx.answerCallbackQuery();
     await renderAdminUsers(ctx, { segmentKey: 'all', page: 0 }, 'edit');
   });
 
-  composer.callbackQuery(/^adm:usr:seg:(all|conn|inc|ready|listd|pend)$/, async (ctx) => {
+  composer.callbackQuery(/^adm:usr:seg:(all|conn|noprof|inc|noskills|ready|listd|listact|listinact|nointro|pend|relink)$/, async (ctx) => {
     await ctx.answerCallbackQuery();
     await renderAdminUsers(ctx, { segmentKey: ctx.match?.[1] || 'all', page: 0 }, 'edit');
   });
 
-  composer.callbackQuery(/^adm:usr:page:(all|conn|inc|ready|listd|pend):(\d+)$/, async (ctx) => {
+  composer.callbackQuery(/^adm:usr:page:(all|conn|noprof|inc|noskills|ready|listd|listact|listinact|nointro|pend|relink):(\d+)$/, async (ctx) => {
     await ctx.answerCallbackQuery();
     await renderAdminUsers(ctx, {
       segmentKey: ctx.match?.[1] || 'all',
@@ -603,7 +717,7 @@ export function createOperatorComposer({
     }, 'edit');
   });
 
-  composer.callbackQuery(/^adm:usr:open:(\d+):(all|conn|inc|ready|listd|pend):(\d+)$/, async (ctx) => {
+  composer.callbackQuery(/^adm:usr:open:(\d+):(all|conn|noprof|inc|noskills|ready|listd|listact|listinact|nointro|pend|relink):(\d+)$/, async (ctx) => {
     await ctx.answerCallbackQuery();
     await renderAdminUserCard(ctx, {
       targetUserId: parsePositiveInt(ctx.match?.[1]),
@@ -612,7 +726,7 @@ export function createOperatorComposer({
     }, 'edit');
   });
 
-  composer.callbackQuery(/^adm:card:view:(\d+):(all|conn|inc|ready|listd|pend):(\d+)$/, async (ctx) => {
+  composer.callbackQuery(/^adm:card:view:(\d+):(all|conn|noprof|inc|noskills|ready|listd|listact|listinact|nointro|pend|relink):(\d+)$/, async (ctx) => {
     await ctx.answerCallbackQuery();
     const targetUserId = parsePositiveInt(ctx.match?.[1]);
     const segmentKey = ctx.match?.[2] || 'all';
@@ -622,7 +736,7 @@ export function createOperatorComposer({
     await renderSurface(ctx, surface, 'edit');
   });
 
-  composer.callbackQuery(/^adm:card:(hide|unhide):(\d+):(all|conn|inc|ready|listd|pend):(\d+)$/, async (ctx) => {
+  composer.callbackQuery(/^adm:card:(hide|unhide):(\d+):(all|conn|noprof|inc|noskills|ready|listd|listact|listinact|nointro|pend|relink):(\d+)$/, async (ctx) => {
     await ctx.answerCallbackQuery();
     const action = ctx.match?.[1];
     const targetUserId = parsePositiveInt(ctx.match?.[2]);
@@ -658,7 +772,7 @@ export function createOperatorComposer({
     await renderAdminUserCard(ctx, { targetUserId, segmentKey, page, notice }, 'edit');
   });
 
-  composer.callbackQuery(/^adm:card:note:(\d+):(all|conn|inc|ready|listd|pend):(\d+)$/, async (ctx) => {
+  composer.callbackQuery(/^adm:card:note:(\d+):(all|conn|noprof|inc|noskills|ready|listd|listact|listinact|nointro|pend|relink):(\d+)$/, async (ctx) => {
     await ctx.answerCallbackQuery();
     const targetUserId = parsePositiveInt(ctx.match?.[1]);
     const segmentKey = ctx.match?.[2] || 'all';
@@ -696,7 +810,7 @@ export function createOperatorComposer({
     await ctx.reply(surface.text, { reply_markup: surface.reply_markup });
   });
 
-  composer.callbackQuery(/^adm:card:cancelnote:(\d+):(all|conn|inc|ready|listd|pend):(\d+)$/, async (ctx) => {
+  composer.callbackQuery(/^adm:card:cancelnote:(\d+):(all|conn|noprof|inc|noskills|ready|listd|listact|listinact|nointro|pend|relink):(\d+)$/, async (ctx) => {
     await ctx.answerCallbackQuery();
     await cancelAdminUserNoteEdit({ operatorTelegramUserId: ctx.from.id }).catch(() => null);
     await renderAdminUserCard(ctx, {
@@ -706,7 +820,37 @@ export function createOperatorComposer({
     }, 'edit');
   });
 
-  composer.callbackQuery(/^adm:card:msg:(\d+):(all|conn|inc|ready|listd|pend):(\d+)$/, async (ctx) => {
+  composer.callbackQuery(/^adm:card:intros:(\d+)$/, async (ctx) => {
+    await ctx.answerCallbackQuery();
+    await renderAdminIntros(ctx, { targetUserId: parsePositiveInt(ctx.match?.[1]), segmentKey: 'all', page: 0 }, 'edit');
+  });
+
+  composer.callbackQuery(/^adm:card:audit:(\d+)$/, async (ctx) => {
+    await ctx.answerCallbackQuery();
+    await renderAdminAudit(ctx, { targetUserId: parsePositiveInt(ctx.match?.[1]), segmentKey: 'all', page: 0 }, 'edit');
+  });
+
+  composer.callbackQuery(/^adm:intro:user:(\d+):seg:(all|pend|p24|p72|acc|arec|dec|drec|stale|fail|dprob)$/, async (ctx) => {
+    await ctx.answerCallbackQuery();
+    await renderAdminIntros(ctx, { targetUserId: parsePositiveInt(ctx.match?.[1]), segmentKey: ctx.match?.[2] || 'all', page: 0 }, 'edit');
+  });
+
+  composer.callbackQuery(/^adm:intro:user:(\d+):page:(all|pend|p24|p72|acc|arec|dec|drec|stale|fail|dprob):(\d+)$/, async (ctx) => {
+    await ctx.answerCallbackQuery();
+    await renderAdminIntros(ctx, { targetUserId: parsePositiveInt(ctx.match?.[1]), segmentKey: ctx.match?.[2] || 'all', page: parsePage(ctx.match?.[3]) }, 'edit');
+  });
+
+  composer.callbackQuery(/^adm:audit:user:(\d+):seg:(all|not|bc|user|relink)$/, async (ctx) => {
+    await ctx.answerCallbackQuery();
+    await renderAdminAudit(ctx, { targetUserId: parsePositiveInt(ctx.match?.[1]), segmentKey: ctx.match?.[2] || 'all', page: 0 }, 'edit');
+  });
+
+  composer.callbackQuery(/^adm:audit:user:(\d+):page:(all|not|bc|user|relink):(\d+)$/, async (ctx) => {
+    await ctx.answerCallbackQuery();
+    await renderAdminAudit(ctx, { targetUserId: parsePositiveInt(ctx.match?.[1]), segmentKey: ctx.match?.[2] || 'all', page: parsePage(ctx.match?.[3]) }, 'edit');
+  });
+
+  composer.callbackQuery(/^adm:card:msg:(\d+):(all|conn|noprof|inc|noskills|ready|listd|listact|listinact|nointro|pend|relink):(\d+)$/, async (ctx) => {
     await ctx.answerCallbackQuery();
     const targetUserId = parsePositiveInt(ctx.match?.[1]);
     const segmentKey = ctx.match?.[2] || 'all';
@@ -719,7 +863,7 @@ export function createOperatorComposer({
     await renderSurface(ctx, surface, 'edit');
   });
 
-  composer.callbackQuery(/^adm:msg:tpl:(\d+):(all|conn|inc|ready|listd|pend):(\d+)$/, async (ctx) => {
+  composer.callbackQuery(/^adm:msg:tpl:(\d+):(all|conn|noprof|inc|noskills|ready|listd|listact|listinact|nointro|pend|relink):(\d+)$/, async (ctx) => {
     await ctx.answerCallbackQuery();
     const targetUserId = parsePositiveInt(ctx.match?.[1]);
     const segmentKey = ctx.match?.[2] || 'all';
@@ -732,7 +876,7 @@ export function createOperatorComposer({
     await renderSurface(ctx, surface, 'edit');
   });
 
-  composer.callbackQuery(/^adm:msg:tplset:(\d+):(all|conn|inc|ready|listd|pend):(\d+):([a-z]+)$/, async (ctx) => {
+  composer.callbackQuery(/^adm:msg:tplset:(\d+):(all|conn|noprof|inc|noskills|ready|listd|listact|listinact|nointro|pend|relink):(\d+):([a-z]+)$/, async (ctx) => {
     await ctx.answerCallbackQuery();
     const targetUserId = parsePositiveInt(ctx.match?.[1]);
     const segmentKey = ctx.match?.[2] || 'all';
@@ -752,7 +896,7 @@ export function createOperatorComposer({
     await renderSurface(ctx, surface, 'edit');
   });
 
-  composer.callbackQuery(/^adm:msg:edit:(\d+):(all|conn|inc|ready|listd|pend):(\d+)$/, async (ctx) => {
+  composer.callbackQuery(/^adm:msg:edit:(\d+):(all|conn|noprof|inc|noskills|ready|listd|listact|listinact|nointro|pend|relink):(\d+)$/, async (ctx) => {
     await ctx.answerCallbackQuery();
     const targetUserId = parsePositiveInt(ctx.match?.[1]);
     const segmentKey = ctx.match?.[2] || 'all';
@@ -770,7 +914,7 @@ export function createOperatorComposer({
     await ctx.reply(surface.text, { reply_markup: surface.reply_markup });
   });
 
-  composer.callbackQuery(/^adm:msg:preview:(\d+):(all|conn|inc|ready|listd|pend):(\d+)$/, async (ctx) => {
+  composer.callbackQuery(/^adm:msg:preview:(\d+):(all|conn|noprof|inc|noskills|ready|listd|listact|listinact|nointro|pend|relink):(\d+)$/, async (ctx) => {
     await ctx.answerCallbackQuery();
     const targetUserId = parsePositiveInt(ctx.match?.[1]);
     const segmentKey = ctx.match?.[2] || 'all';
@@ -783,7 +927,7 @@ export function createOperatorComposer({
     await renderSurface(ctx, surface, 'edit');
   });
 
-  composer.callbackQuery(/^adm:msg:confirm:(\d+):(all|conn|inc|ready|listd|pend):(\d+)$/, async (ctx) => {
+  composer.callbackQuery(/^adm:msg:confirm:(\d+):(all|conn|noprof|inc|noskills|ready|listd|listact|listinact|nointro|pend|relink):(\d+)$/, async (ctx) => {
     await ctx.answerCallbackQuery();
     const targetUserId = parsePositiveInt(ctx.match?.[1]);
     const segmentKey = ctx.match?.[2] || 'all';
@@ -798,7 +942,7 @@ export function createOperatorComposer({
     await renderSurface(ctx, surface, 'edit');
   });
 
-  composer.callbackQuery(/^adm:msg:clear:(\d+):(all|conn|inc|ready|listd|pend):(\d+)$/, async (ctx) => {
+  composer.callbackQuery(/^adm:msg:clear:(\d+):(all|conn|noprof|inc|noskills|ready|listd|listact|listinact|nointro|pend|relink):(\d+)$/, async (ctx) => {
     await ctx.answerCallbackQuery();
     const targetUserId = parsePositiveInt(ctx.match?.[1]);
     const segmentKey = ctx.match?.[2] || 'all';
@@ -840,17 +984,17 @@ export function createOperatorComposer({
     await renderAdminIntros(ctx, { segmentKey: 'all', page: 0 }, 'edit');
   });
 
-  composer.callbackQuery(/^adm:intro:seg:(all|pend|acc|dec|stale|fail)$/, async (ctx) => {
+  composer.callbackQuery(/^adm:intro:seg:(all|pend|p24|p72|acc|arec|dec|drec|stale|fail|dprob)$/, async (ctx) => {
     await ctx.answerCallbackQuery();
     await renderAdminIntros(ctx, { segmentKey: ctx.match?.[1] || 'all', page: 0 }, 'edit');
   });
 
-  composer.callbackQuery(/^adm:intro:page:(all|pend|acc|dec|stale|fail):(\d+)$/, async (ctx) => {
+  composer.callbackQuery(/^adm:intro:page:(all|pend|p24|p72|acc|arec|dec|drec|stale|fail|dprob):(\d+)$/, async (ctx) => {
     await ctx.answerCallbackQuery();
     await renderAdminIntros(ctx, { segmentKey: ctx.match?.[1] || 'all', page: parsePage(ctx.match?.[2]) }, 'edit');
   });
 
-  composer.callbackQuery(/^adm:intro:open:(\d+):(all|pend|acc|dec|stale|fail):(\d+)$/, async (ctx) => {
+  composer.callbackQuery(/^adm:intro:open:(\d+):(all|pend|p24|p72|acc|arec|dec|drec|stale|fail|dprob):(\d+)$/, async (ctx) => {
     await ctx.answerCallbackQuery();
     await renderAdminIntroDetail(ctx, {
       introRequestId: parsePositiveInt(ctx.match?.[1]),
@@ -908,11 +1052,76 @@ export function createOperatorComposer({
     }, 'edit');
   });
 
+  async function renderAdminTemplates(ctx, { notice = null } = {}, method = 'edit') {
+    if (!isOperatorTelegramUser(ctx.from.id)) {
+      await renderOperatorOnly(ctx, method);
+      return;
+    }
+    const state = await loadAdminTemplatesLibrary().catch(() => ({ persistenceEnabled: true, noticeTemplates: [], broadcastTemplates: [], directTemplates: [] }));
+    const surface = await buildAdminTemplatesSurface({ state, notice });
+    await renderSurface(ctx, surface, method);
+  }
+
+  async function renderAdminNoticeTemplatePicker(ctx, { notice = null } = {}, method = 'edit') {
+    if (!isOperatorTelegramUser(ctx.from.id)) {
+      await renderOperatorOnly(ctx, method);
+      return;
+    }
+    const [state, templates] = await Promise.all([
+      loadAdminNoticeState().catch(() => ({ persistenceEnabled: true, notice: { body: '', audienceKey: 'ALL', isActive: false }, estimate: 0, templateOptions: [] })),
+      loadAdminTemplatesLibrary().catch(() => ({ persistenceEnabled: true, noticeTemplates: [] }))
+    ]);
+    const surface = await buildAdminNoticeTemplatePickerSurface({ state, templates: templates.noticeTemplates || [], notice });
+    await renderSurface(ctx, surface, method);
+  }
+
+  async function renderAdminBroadcastTemplatePicker(ctx, { notice = null } = {}, method = 'edit') {
+    if (!isOperatorTelegramUser(ctx.from.id)) {
+      await renderOperatorOnly(ctx, method);
+      return;
+    }
+    const [state, templates] = await Promise.all([
+      loadAdminBroadcastState().catch(() => ({ persistenceEnabled: true, draft: { body: '', audienceKey: 'ALL_CONNECTED' }, estimate: 0, latestRecord: null, templateOptions: [] })),
+      loadAdminTemplatesLibrary().catch(() => ({ persistenceEnabled: true, broadcastTemplates: [] }))
+    ]);
+    const surface = await buildAdminBroadcastTemplatePickerSurface({ state, templates: templates.broadcastTemplates || [], notice });
+    await renderSurface(ctx, surface, method);
+  }
+
   composer.callbackQuery('adm:tpl', async (ctx) => {
     await ctx.answerCallbackQuery();
-    await renderAdminSurface(ctx, 'templates', 'edit');
+    await renderAdminTemplates(ctx, {}, 'edit');
   });
 
+  composer.callbackQuery('adm:tpl:not', async (ctx) => {
+    await ctx.answerCallbackQuery();
+    await renderAdminNoticeTemplatePicker(ctx, {}, 'edit');
+  });
+
+  composer.callbackQuery('adm:tpl:bc', async (ctx) => {
+    await ctx.answerCallbackQuery();
+    await renderAdminBroadcastTemplatePicker(ctx, {}, 'edit');
+  });
+
+  composer.callbackQuery('adm:tpl:direct', async (ctx) => {
+    await ctx.answerCallbackQuery();
+    await renderAdminTemplates(ctx, { notice: 'Direct message templates are available inside User Card → Message.' }, 'edit');
+  });
+
+
+
+  composer.callbackQuery(/^adm:search:(users|intros|delivery|outbox|audit)$/, async (ctx) => {
+    await ctx.answerCallbackQuery();
+    await renderAdminSearchPrompt(ctx, { scopeKey: ctx.match?.[1] || 'users' }, 'edit');
+  });
+
+  composer.callbackQuery(/^adm:search:(users|intros|delivery|outbox|audit):page:(\d+)$/, async (ctx) => {
+    await ctx.answerCallbackQuery();
+    await renderAdminSearchResults(ctx, {
+      scopeKey: ctx.match?.[1] || 'users',
+      page: parsePage(ctx.match?.[2])
+    }, 'edit');
+  });
 
   composer.callbackQuery('adm:not', async (ctx) => {
     await ctx.answerCallbackQuery();
@@ -930,6 +1139,24 @@ export function createOperatorComposer({
     }
     const surface = await buildAdminCommsEditPromptSurface({ title: '✏️ Notice text', currentValue: state.notice?.body || '', cancelCallback: 'adm:not' });
     await ctx.reply(surface.text, { reply_markup: surface.reply_markup });
+  });
+
+  composer.callbackQuery('adm:not:tpl', async (ctx) => {
+    await ctx.answerCallbackQuery();
+    await renderAdminNoticeTemplatePicker(ctx, {}, 'edit');
+  });
+
+  composer.callbackQuery(/^adm:not:tpl:([a-z_]+)$/, async (ctx) => {
+    await ctx.answerCallbackQuery();
+    const result = await applyAdminNoticeTemplateSelection({
+      operatorTelegramUserId: ctx.from.id,
+      operatorTelegramUsername: ctx.from.username || null,
+      templateKey: ctx.match?.[1] || 'complete_profile'
+    }).catch((error) => ({ persistenceEnabled: true, notice: null, estimate: 0, reason: String(error?.message || error) }));
+    const notice = result.notice
+      ? `✅ Template applied. Audience: ${result.notice.audienceKey}. Estimated visibility: ${result.estimate || 0}.`
+      : `⚠️ ${formatUserFacingError(result.reason, 'Could not apply this notice template right now.')}`;
+    await renderAdminNotice(ctx, { notice }, 'edit');
   });
 
   composer.callbackQuery('adm:not:aud', async (ctx) => {
@@ -984,6 +1211,24 @@ export function createOperatorComposer({
     await ctx.reply(surface.text, { reply_markup: surface.reply_markup });
   });
 
+  composer.callbackQuery('adm:bc:tpl', async (ctx) => {
+    await ctx.answerCallbackQuery();
+    await renderAdminBroadcastTemplatePicker(ctx, {}, 'edit');
+  });
+
+  composer.callbackQuery(/^adm:bc:tpl:([a-z_]+)$/, async (ctx) => {
+    await ctx.answerCallbackQuery();
+    const result = await applyAdminBroadcastTemplateSelection({
+      operatorTelegramUserId: ctx.from.id,
+      operatorTelegramUsername: ctx.from.username || null,
+      templateKey: ctx.match?.[1] || 'complete_profile'
+    }).catch((error) => ({ persistenceEnabled: true, draft: null, estimate: 0, reason: String(error?.message || error) }));
+    const notice = result.draft
+      ? `✅ Template applied. Audience: ${result.draft.audienceKey}. Estimated recipients: ${result.estimate || 0}.`
+      : `⚠️ ${formatUserFacingError(result.reason, 'Could not apply this broadcast template right now.')}`;
+    await renderAdminBroadcast(ctx, { notice }, 'edit');
+  });
+
   composer.callbackQuery('adm:bc:aud', async (ctx) => {
     await ctx.answerCallbackQuery();
     await renderAdminBroadcastAudience(ctx, {}, 'edit');
@@ -1010,11 +1255,26 @@ export function createOperatorComposer({
     await renderAdminBroadcastPreview(ctx, { notice: 'Review the preview, then confirm the send.' }, 'edit');
   });
 
+  composer.callbackQuery('adm:bc:refresh', async (ctx) => {
+    await ctx.answerCallbackQuery();
+    await renderAdminBroadcast(ctx, { notice: '🔄 Broadcast status refreshed.' }, 'edit');
+  });
+
+  composer.callbackQuery(/^adm:bc:fail:(\d+):(\d+)$/, async (ctx) => {
+    await ctx.answerCallbackQuery();
+    await renderAdminBroadcastFailures(ctx, {
+      outboxId: parsePositiveInt(ctx.match?.[1]),
+      page: parsePage(ctx.match?.[2])
+    }, 'edit');
+  });
+
   composer.callbackQuery('adm:bc:confirm', async (ctx) => {
     await ctx.answerCallbackQuery();
     const result = await sendAdminBroadcast({ operatorTelegramUserId: ctx.from.id, operatorTelegramUsername: ctx.from.username || null }).catch((error) => ({ persistenceEnabled: true, sent: false, reason: String(error?.message || error) }));
     const notice = result.sent
-      ? (result.failedCount > 0 ? `✅ Broadcast sent with some failures. Delivered ${result.deliveredCount}, failed ${result.failedCount}.` : `✅ Broadcast sent to ${result.deliveredCount} recipients.`)
+      ? (result.failedCount > 0
+          ? `✅ Broadcast completed with failures. Delivered ${result.deliveredCount}, failed ${result.failedCount}. Open Failures for the recipient trail.`
+          : `✅ Broadcast sent to ${result.deliveredCount} recipients in batches.`)
       : `⚠️ ${formatUserFacingError(result.reason, 'Could not send this broadcast right now.')}`;
     await renderAdminBroadcast(ctx, { notice }, 'edit');
   });

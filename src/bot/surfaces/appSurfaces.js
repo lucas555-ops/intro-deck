@@ -65,18 +65,33 @@ function noticeMatchesProfile(notice, profileSnapshot) {
   }
 
   const hasLinkedIn = Boolean(profileSnapshot?.linkedin_sub);
+  const profileId = profileSnapshot?.profile_id || null;
   const profileState = profileSnapshot?.profile_state || null;
   const visibilityStatus = profileSnapshot?.visibility_status || 'hidden';
+  const skillsReady = Boolean(profileSnapshot?.completion?.hasRequiredSkills);
+  const lastSeenAt = profileSnapshot?.last_seen_at ? new Date(profileSnapshot.last_seen_at) : null;
+  const isListedActive = visibilityStatus === 'listed' && lastSeenAt && !Number.isNaN(lastSeenAt.getTime())
+    ? lastSeenAt.getTime() >= Date.now() - (14 * 24 * 60 * 60 * 1000)
+    : false;
+  const isListedInactive = visibilityStatus === 'listed' && !isListedActive;
 
   switch (notice.audienceKey) {
     case 'CONNECTED':
       return hasLinkedIn ? notice.body : null;
     case 'NOT_CONNECTED':
       return hasLinkedIn ? null : notice.body;
+    case 'CONNECTED_NO_PROFILE':
+      return hasLinkedIn && !profileId ? notice.body : null;
     case 'PROFILE_INCOMPLETE':
       return hasLinkedIn && profileState !== 'active' ? notice.body : null;
+    case 'COMPLETE_NO_SKILLS':
+      return profileState === 'active' && !skillsReady ? notice.body : null;
     case 'READY_NOT_LISTED':
       return profileState === 'active' && visibilityStatus !== 'listed' ? notice.body : null;
+    case 'LISTED_ACTIVE':
+      return profileState === 'active' && isListedActive ? notice.body : null;
+    case 'LISTED_INACTIVE':
+      return profileState === 'active' && isListedInactive ? notice.body : null;
     case 'LISTED':
       return profileState === 'active' && visibilityStatus === 'listed' ? notice.body : null;
     case 'ALL':

@@ -1,6 +1,6 @@
 # LinkedIn Telegram Directory Bot
 
-STEP033 baseline for a Telegram-native professional directory with LinkedIn OIDC identity bootstrap, clean user-facing Telegram surfaces, durable notification receipts, explicit LinkedIn callback diagnostics, confirmed LinkedIn relink transfer flow, a first operator admin shell, operator Users + User Card surfaces, a first Communications layer with Notice / Broadcast / Outbox, and operator Intros + Delivery read surfaces, and direct operator messaging from User Card with unified Outbox records.
+STEP038 baseline for a Telegram-native professional directory with LinkedIn OIDC identity bootstrap, clean user-facing Telegram surfaces, durable notification receipts, explicit LinkedIn callback diagnostics, confirmed LinkedIn relink transfer flow, a first operator admin shell, operator Users + User Card surfaces, a first Communications layer with Notice / Broadcast / Outbox, operator Intros + Delivery read surfaces, direct operator messaging from User Card with unified Outbox records, refined admin segmentation/productivity shortcuts, and compact admin analytics + trend counters, refined notice/broadcast targeting, and a real admin templates layer.
 
 ## What this repo is
 
@@ -14,6 +14,7 @@ A Telegram-first professional directory:
 - durable notification receipts with retry and operator diagnostics
 - operator shell with communications controls
 - operator intro and delivery visibility
+- compact admin counters, refined segmentation, faster operator shortcuts, and compact admin trend summaries
 
 Not:
 - a LinkedIn clone
@@ -44,6 +45,13 @@ Not:
 - STEP029 — Users + User Card with operator segments, listing controls, and DB-backed operator notes
 - STEP030 — Notice + Broadcast baseline with singleton notice, bounded send flow, and outbox history
 - STEP031 — Intros + Delivery operator surfaces with intro board/detail and receipt drilldown
+- STEP032 — Directory Quality board + Audit detail
+- STEP033 — Direct operator messaging from User Card with unified Outbox records
+- STEP034 — Broadcast batching + delivery hardening with recipient materialization and failures trail
+- STEP035 — Admin polish + compact counters across hub screens and operator lists
+- STEP036 — Segmentation refinement + operator productivity pass across Users / Intros / Communications / Audit
+- STEP037 — Compact admin analytics + trend counters across Admin / Operations / Communications / System hubs
+- STEP038 — Broadcast/notice targeting refinement + templates polish
 
 ## Current code baseline
 
@@ -72,6 +80,7 @@ Not:
 - Outbox history with per-record drilldown for notice/broadcast events
 - protected retry diagnostics surface still available inside the System section and via legacy `ops:*` callbacks
 - operator Intros list with segment filters, Intro Detail, Delivery list, and Delivery Detail drilldown
+- compact 24h / 7d admin trend summaries across Admin / Operations / Communications / System hubs
 - public `/`, `/privacy`, and `/terms` static surfaces for Vercel + LinkedIn app setup
 - Node 20.x deploy baseline, root `.npmrc`, and public npm lockfile hygiene
 - migrations `012`, `013`, and `014` for LinkedIn URL edit sessions, operator notes, and communications baseline

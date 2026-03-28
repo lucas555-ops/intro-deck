@@ -1,0 +1,14 @@
+api/health.js
+doc/00_CURRENT_STATE.md
+doc/70_STEP039_IMPLEMENT_CARD.md
+doc/process/07_WORK_HISTORY_STEP039.md
+migrations/018_admin_scoped_search.sql
+package.json
+scripts/smoke_admin_search_contract.js
+scripts/smoke_admin_search_results_contract.js
+src/bot/composers/operatorComposer.js
+src/bot/composers/textComposer.js
+src/bot/createBot.js
+src/bot/surfaces/adminSurfaces.js
+src/db/adminRepo.js
+src/lib/storage/adminStore.js

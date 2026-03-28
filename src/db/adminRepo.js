@@ -4,10 +4,16 @@ import { upsertTelegramUser } from './usersRepo.js';
 export const ADMIN_USER_SEGMENTS = {
   all: { key: 'all', label: 'All' },
   conn: { key: 'conn', label: 'Connected' },
+  noprof: { key: 'noprof', label: 'Connected, no profile' },
   inc: { key: 'inc', label: 'Incomplete' },
+  noskills: { key: 'noskills', label: 'Ready, no skills' },
   ready: { key: 'ready', label: 'Ready not listed' },
   listd: { key: 'listd', label: 'Listed' },
-  pend: { key: 'pend', label: 'Pending intros' }
+  listact: { key: 'listact', label: 'Listed active' },
+  listinact: { key: 'listinact', label: 'Listed inactive' },
+  nointro: { key: 'nointro', label: 'No intros yet' },
+  pend: { key: 'pend', label: 'Pending intros' },
+  relink: { key: 'relink', label: 'Recent relinks' }
 };
 
 export function normalizeAdminUserSegment(segmentKey) {
@@ -19,14 +25,26 @@ function buildSegmentWhereClause(segmentKey) {
   switch (normalizeAdminUserSegment(segmentKey)) {
     case 'conn':
       return 'has_linkedin';
+    case 'noprof':
+      return 'has_linkedin and profile_id is null';
     case 'inc':
       return "profile_state is distinct from 'active'";
+    case 'noskills':
+      return "profile_state = 'active' and coalesce(skills_count, 0) = 0";
     case 'ready':
       return "profile_state = 'active' and coalesce(visibility_status, 'hidden') = 'hidden'";
     case 'listd':
       return "profile_state = 'active' and visibility_status = 'listed'";
+    case 'listact':
+      return "profile_state = 'active' and visibility_status = 'listed' and last_seen_at >= now() - interval '14 days'";
+    case 'listinact':
+      return "profile_state = 'active' and visibility_status = 'listed' and (last_seen_at is null or last_seen_at < now() - interval '14 days')";
+    case 'nointro':
+      return 'has_linkedin and intro_sent_count = 0 and intro_received_count = 0';
     case 'pend':
       return 'pending_intro_count > 0';
+    case 'relink':
+      return "user_id in (select distinct coalesce(target_user_id, secondary_target_user_id, actor_user_id) from admin_audit_events where event_type = 'linkedin_relink_transferred')";
     case 'all':
     default:
       return 'true';
@@ -48,6 +66,7 @@ function buildUsersBaseCte() {
         mp.id as profile_id,
         mp.display_name,
         mp.headline_user,
+        mp.company_user,
         mp.linkedin_public_url,
         mp.visibility_status,
         mp.profile_state,
@@ -93,7 +112,13 @@ export async function listAdminUsersPage(client, { segmentKey = 'all', page = 0,
        count(*) filter (where profile_state is distinct from 'active')::int as incomplete_count,
        count(*) filter (where profile_state = 'active' and coalesce(visibility_status, 'hidden') = 'hidden')::int as ready_not_listed_count,
        count(*) filter (where profile_state = 'active' and visibility_status = 'listed')::int as listed_count,
-       count(*) filter (where pending_intro_count > 0)::int as pending_intro_count
+       count(*) filter (where profile_state = 'active' and visibility_status = 'listed' and last_seen_at >= now() - interval '14 days')::int as listed_active_count,
+       count(*) filter (where profile_state = 'active' and visibility_status = 'listed' and (last_seen_at is null or last_seen_at < now() - interval '14 days'))::int as listed_inactive_count,
+       count(*) filter (where has_linkedin and profile_id is null)::int as connected_no_profile_count,
+       count(*) filter (where profile_state = 'active' and coalesce(skills_count, 0) = 0)::int as ready_no_skills_count,
+       count(*) filter (where has_linkedin and coalesce(intro_sent_count, 0) = 0 and coalesce(intro_received_count, 0) = 0)::int as no_intro_yet_count,
+       count(*) filter (where pending_intro_count > 0)::int as pending_intro_count,
+       count(*) filter (where user_id in (select distinct coalesce(target_user_id, secondary_target_user_id, actor_user_id) from admin_audit_events where event_type = 'linkedin_relink_transferred'))::int as relink_count
      from user_base`
   );
 
@@ -134,7 +159,13 @@ export async function listAdminUsersPage(client, { segmentKey = 'all', page = 0,
       incomplete: totalCounts.incomplete_count || 0,
       readyNotListed: totalCounts.ready_not_listed_count || 0,
       listed: totalCounts.listed_count || 0,
-      pendingIntros: totalCounts.pending_intro_count || 0
+      listedActive: totalCounts.listed_active_count || 0,
+      listedInactive: totalCounts.listed_inactive_count || 0,
+      connectedNoProfile: totalCounts.connected_no_profile_count || 0,
+      readyNoSkills: totalCounts.ready_no_skills_count || 0,
+      noIntroYet: totalCounts.no_intro_yet_count || 0,
+      pendingIntros: totalCounts.pending_intro_count || 0,
+      relinks: totalCounts.relink_count || 0
     },
     users: rows.map((row) => ({
       userId: row.user_id,
@@ -405,18 +436,27 @@ export const ADMIN_NOTICE_AUDIENCES = {
   ALL: { key: 'ALL', label: 'All users' },
   CONNECTED: { key: 'CONNECTED', label: 'Connected' },
   NOT_CONNECTED: { key: 'NOT_CONNECTED', label: 'Not connected' },
+  CONNECTED_NO_PROFILE: { key: 'CONNECTED_NO_PROFILE', label: 'Connected, no profile' },
   PROFILE_INCOMPLETE: { key: 'PROFILE_INCOMPLETE', label: 'Profile incomplete' },
+  COMPLETE_NO_SKILLS: { key: 'COMPLETE_NO_SKILLS', label: 'Ready, no skills' },
   READY_NOT_LISTED: { key: 'READY_NOT_LISTED', label: 'Ready not listed' },
+  LISTED_ACTIVE: { key: 'LISTED_ACTIVE', label: 'Listed active' },
+  LISTED_INACTIVE: { key: 'LISTED_INACTIVE', label: 'Listed inactive' },
   LISTED: { key: 'LISTED', label: 'Listed' }
 };
 
 export const ADMIN_INTRO_SEGMENTS = {
   all: { key: 'all', label: 'All' },
   pend: { key: 'pend', label: 'Pending' },
+  p24: { key: 'p24', label: 'Pending >24h' },
+  p72: { key: 'p72', label: 'Pending >72h' },
   acc: { key: 'acc', label: 'Accepted' },
+  arec: { key: 'arec', label: 'Accepted recent' },
   dec: { key: 'dec', label: 'Declined' },
+  drec: { key: 'drec', label: 'Declined recent' },
   stale: { key: 'stale', label: 'Stale' },
-  fail: { key: 'fail', label: 'Failed notify' }
+  fail: { key: 'fail', label: 'Failed notify' },
+  dprob: { key: 'dprob', label: 'Delivery problem' }
 };
 
 export function normalizeAdminIntroSegment(segmentKey) {
@@ -486,13 +526,22 @@ function buildIntroSegmentWhereClause(segmentKey) {
   switch (normalizeAdminIntroSegment(segmentKey)) {
     case 'pend':
       return "status = 'pending'";
+    case 'p24':
+      return "status = 'pending' and created_at <= now() - interval '24 hours'";
+    case 'p72':
+      return "status = 'pending' and created_at <= now() - interval '72 hours'";
     case 'acc':
       return "status = 'accepted'";
+    case 'arec':
+      return "status = 'accepted' and updated_at >= now() - interval '7 days'";
     case 'dec':
       return "status = 'declined'";
+    case 'drec':
+      return "status = 'declined' and updated_at >= now() - interval '7 days'";
     case 'stale':
       return "status = 'pending' and created_at <= now() - interval '72 hours'";
     case 'fail':
+    case 'dprob':
       return 'delivery_problem_count > 0';
     case 'all':
     default:
@@ -546,11 +595,19 @@ function buildIntroBaseCte() {
 export const ADMIN_BROADCAST_AUDIENCES = {
   ALL_CONNECTED: { key: 'ALL_CONNECTED', label: 'All connected' },
   ALL_LISTED: { key: 'ALL_LISTED', label: 'All listed' },
+  LISTED_ACTIVE: { key: 'LISTED_ACTIVE', label: 'Listed active' },
+  LISTED_INACTIVE: { key: 'LISTED_INACTIVE', label: 'Listed inactive' },
   NOT_CONNECTED: { key: 'NOT_CONNECTED', label: 'Not connected' },
+  CONNECTED_NO_PROFILE: { key: 'CONNECTED_NO_PROFILE', label: 'Connected, no profile' },
   PROFILE_INCOMPLETE: { key: 'PROFILE_INCOMPLETE', label: 'Profile incomplete' },
+  COMPLETE_NO_SKILLS: { key: 'COMPLETE_NO_SKILLS', label: 'Ready, no skills' },
   READY_NOT_LISTED: { key: 'READY_NOT_LISTED', label: 'Ready not listed' },
   LISTED_NO_INTROS_YET: { key: 'LISTED_NO_INTROS_YET', label: 'Listed, no intros yet' },
-  PENDING_INTROS: { key: 'PENDING_INTROS', label: 'Pending intros' }
+  PENDING_INTROS: { key: 'PENDING_INTROS', label: 'Pending intros' },
+  RECENT_PENDING_INTROS: { key: 'RECENT_PENDING_INTROS', label: 'Recent pending intros' },
+  ACCEPTED_RECENT: { key: 'ACCEPTED_RECENT', label: 'Accepted recent' },
+  DECLINED_RECENT: { key: 'DECLINED_RECENT', label: 'Declined recent' },
+  RECENT_RELINKS: { key: 'RECENT_RELINKS', label: 'Recent relinks' }
 };
 
 export function normalizeAdminNoticeAudience(value) {
@@ -563,11 +620,24 @@ export function normalizeAdminBroadcastAudience(value) {
   return ADMIN_BROADCAST_AUDIENCES[key] ? key : 'ALL_CONNECTED';
 }
 
+export const ADMIN_SEARCH_SCOPES = {
+  users: { key: 'users', label: 'Search users' },
+  intros: { key: 'intros', label: 'Search intros' },
+  delivery: { key: 'delivery', label: 'Search delivery' },
+  outbox: { key: 'outbox', label: 'Search outbox' },
+  audit: { key: 'audit', label: 'Search audit' }
+};
+
+export function normalizeAdminSearchScope(value) {
+  const key = typeof value === 'string' ? value.trim().toLowerCase() : 'users';
+  return ADMIN_SEARCH_SCOPES[key] ? key : 'users';
+}
+
 export const ADMIN_DIRECT_MESSAGE_TEMPLATES = {
   connect: { key: 'connect', label: 'Connect LinkedIn', body: 'Quick nudge: connect your LinkedIn in Intro Deck so your identity is verified inside Telegram and your profile can go live.' },
   complete: { key: 'complete', label: 'Complete profile', body: 'Quick nudge: finish your Intro Deck profile so other members can understand what you do and send higher-quality intros.' },
   skills: { key: 'skills', label: 'Add skills', body: 'Quick nudge: add a few relevant skills in Intro Deck so your profile is easier to understand and easier to match.' },
-  list: { key: 'list', label: 'List your profile', body: 'Your Intro Deck profile looks ready. Put it live in the directory so people can discover you and send intros.' },
+  list: { key: 'list', label: 'List your profile', body: "Your Intro Deck profile looks ready. Put it live in the directory so people can discover you and send intros." },
   inbox: { key: 'inbox', label: 'Check intro inbox', body: 'You have activity waiting in your Intro Deck inbox. Open the bot and review your latest intro updates.' },
   blank: { key: 'blank', label: 'Blank message', body: '' }
 };
@@ -577,6 +647,34 @@ export function normalizeAdminDirectMessageTemplate(value) {
   return ADMIN_DIRECT_MESSAGE_TEMPLATES[key] ? key : 'blank';
 }
 
+export const ADMIN_NOTICE_TEMPLATES = {
+  connect_profile: { key: 'connect_profile', label: 'Connect + start profile', audienceKey: 'CONNECTED_NO_PROFILE', body: "You're connected in Intro Deck. Add your basic profile details so people can understand what you do and where you fit." },
+  complete_profile: { key: 'complete_profile', label: 'Complete profile', audienceKey: 'PROFILE_INCOMPLETE', body: "Your Intro Deck profile is almost there. Finish the missing fields so your card is easier to trust and easier to match." },
+  add_skills: { key: 'add_skills', label: 'Add skills', audienceKey: 'COMPLETE_NO_SKILLS', body: "Add a few relevant skills in Intro Deck so your profile is easier to scan and easier to match." },
+  list_profile: { key: 'list_profile', label: 'List your profile', audienceKey: 'READY_NOT_LISTED', body: "Your Intro Deck profile looks ready. Put it live in the directory so people can discover you and send intros." },
+  reengage_listed: { key: 'reengage_listed', label: 'Re-engage listed members', audienceKey: 'LISTED_INACTIVE', body: "Your Intro Deck profile is live, but it has been quiet lately. Open the bot, refresh your card, and check whether new intros are waiting." }
+};
+
+export const ADMIN_BROADCAST_TEMPLATES = {
+  launch_directory: { key: 'launch_directory', label: 'Launch directory', audienceKey: 'ALL_CONNECTED', body: "Intro Deck directory is live. Complete your profile, add skills, and list yourself so the right people can find you." },
+  complete_profile: { key: 'complete_profile', label: 'Complete profile', audienceKey: 'PROFILE_INCOMPLETE', body: "Quick nudge from Intro Deck: finish your profile so other members can understand your focus and send better intros." },
+  add_skills: { key: 'add_skills', label: 'Add skills', audienceKey: 'COMPLETE_NO_SKILLS', body: "Profiles with a few clear skills are easier to understand and easier to match. Add your skills in Intro Deck today." },
+  list_profile: { key: 'list_profile', label: 'List ready profiles', audienceKey: 'READY_NOT_LISTED', body: "Your profile looks ready. List it in the Intro Deck directory so other members can discover you and send intros." },
+  revive_listed: { key: 'revive_listed', label: 'Revive listed inactive', audienceKey: 'LISTED_INACTIVE', body: "Your Intro Deck profile is live, but it has been quiet lately. Open the bot, refresh your card, and check for new activity." },
+  accepted_followup: { key: 'accepted_followup', label: 'Accepted intros follow-up', audienceKey: 'ACCEPTED_RECENT', body: "Accepted intros moved recently in Intro Deck. Open the bot, follow through quickly, and keep your profile current." },
+  recent_relinks: { key: 'recent_relinks', label: 'Recent relinks', audienceKey: 'RECENT_RELINKS', body: "Your Intro Deck identity was recently reconnected. Open the bot to confirm your profile and keep your directory presence accurate." }
+};
+
+export function normalizeAdminNoticeTemplate(value) {
+  const key = typeof value === 'string' ? value.trim().toLowerCase() : 'complete_profile';
+  return ADMIN_NOTICE_TEMPLATES[key] ? key : 'complete_profile';
+}
+
+export function normalizeAdminBroadcastTemplate(value) {
+  const key = typeof value === 'string' ? value.trim().toLowerCase() : 'complete_profile';
+  return ADMIN_BROADCAST_TEMPLATES[key] ? key : 'complete_profile';
+}
+
 
 function buildNoticeAudienceWhereClause(audienceKey) {
   switch (normalizeAdminNoticeAudience(audienceKey)) {
@@ -584,10 +682,18 @@ function buildNoticeAudienceWhereClause(audienceKey) {
       return 'has_linkedin';
     case 'NOT_CONNECTED':
       return 'not has_linkedin';
+    case 'CONNECTED_NO_PROFILE':
+      return 'has_linkedin and profile_id is null';
     case 'PROFILE_INCOMPLETE':
       return "has_linkedin and profile_state is distinct from 'active'";
+    case 'COMPLETE_NO_SKILLS':
+      return "profile_state = 'active' and coalesce(skills_count, 0) = 0";
     case 'READY_NOT_LISTED':
       return "profile_state = 'active' and coalesce(visibility_status, 'hidden') = 'hidden'";
+    case 'LISTED_ACTIVE':
+      return "profile_state = 'active' and visibility_status = 'listed' and last_seen_at >= now() - interval '14 days'";
+    case 'LISTED_INACTIVE':
+      return "profile_state = 'active' and visibility_status = 'listed' and (last_seen_at is null or last_seen_at < now() - interval '14 days')";
     case 'LISTED':
       return "profile_state = 'active' and visibility_status = 'listed'";
     case 'ALL':
@@ -600,16 +706,32 @@ function buildBroadcastAudienceWhereClause(audienceKey) {
   switch (normalizeAdminBroadcastAudience(audienceKey)) {
     case 'ALL_LISTED':
       return "profile_state = 'active' and visibility_status = 'listed'";
+    case 'LISTED_ACTIVE':
+      return "profile_state = 'active' and visibility_status = 'listed' and last_seen_at >= now() - interval '14 days'";
+    case 'LISTED_INACTIVE':
+      return "profile_state = 'active' and visibility_status = 'listed' and (last_seen_at is null or last_seen_at < now() - interval '14 days')";
     case 'NOT_CONNECTED':
       return 'not has_linkedin';
+    case 'CONNECTED_NO_PROFILE':
+      return 'has_linkedin and profile_id is null';
     case 'PROFILE_INCOMPLETE':
       return "has_linkedin and profile_state is distinct from 'active'";
+    case 'COMPLETE_NO_SKILLS':
+      return "profile_state = 'active' and coalesce(skills_count, 0) = 0";
     case 'READY_NOT_LISTED':
       return "profile_state = 'active' and coalesce(visibility_status, 'hidden') = 'hidden'";
     case 'LISTED_NO_INTROS_YET':
       return "profile_state = 'active' and visibility_status = 'listed' and coalesce(intro_sent_count, 0) = 0 and coalesce(intro_received_count, 0) = 0";
     case 'PENDING_INTROS':
       return 'pending_intro_count > 0';
+    case 'RECENT_PENDING_INTROS':
+      return "pending_intro_count > 0 and last_seen_at >= now() - interval '14 days'";
+    case 'ACCEPTED_RECENT':
+      return "user_id in (select distinct requester_user_id from intro_requests where status = 'accepted' and updated_at >= now() - interval '7 days' union select distinct target_user_id from intro_requests where status = 'accepted' and updated_at >= now() - interval '7 days')";
+    case 'DECLINED_RECENT':
+      return "user_id in (select distinct requester_user_id from intro_requests where status = 'declined' and updated_at >= now() - interval '7 days' union select distinct target_user_id from intro_requests where status = 'declined' and updated_at >= now() - interval '7 days')";
+    case 'RECENT_RELINKS':
+      return "user_id in (select distinct coalesce(target_user_id, secondary_target_user_id, actor_user_id) from admin_audit_events where event_type = 'linkedin_relink_transferred' and created_at >= now() - interval '7 days')";
     case 'ALL_CONNECTED':
     default:
       return 'has_linkedin';
@@ -675,6 +797,21 @@ export async function updateAdminNoticeAudience(client, { operatorUserId, audien
     [normalizedAudienceKey, operatorUserId]
   );
 
+  return getAdminNoticeState(client);
+}
+
+export async function applyAdminNoticeTemplate(client, { operatorUserId, templateKey }) {
+  const template = ADMIN_NOTICE_TEMPLATES[normalizeAdminNoticeTemplate(templateKey)] || ADMIN_NOTICE_TEMPLATES.complete_profile;
+  const normalizedBody = template.body.trim();
+  await client.query(
+    `
+      insert into admin_notice_state (singleton_id, body, audience_key, is_active, updated_at, updated_by_user_id)
+      values (1, $1, $2, false, now(), $3)
+      on conflict (singleton_id)
+      do update set body = excluded.body, audience_key = excluded.audience_key, updated_at = now(), updated_by_user_id = excluded.updated_by_user_id
+    `,
+    [normalizedBody, template.audienceKey, operatorUserId]
+  );
   return getAdminNoticeState(client);
 }
 
@@ -821,8 +958,35 @@ export async function updateAdminBroadcastDraftAudience(client, { operatorUserId
   return getAdminBroadcastDraft(client);
 }
 
+export async function applyAdminBroadcastTemplate(client, { operatorUserId, templateKey }) {
+  const template = ADMIN_BROADCAST_TEMPLATES[normalizeAdminBroadcastTemplate(templateKey)] || ADMIN_BROADCAST_TEMPLATES.complete_profile;
+  const normalizedBody = template.body.trim();
+  await client.query(
+    `
+      insert into admin_broadcast_drafts (singleton_id, body, audience_key, updated_at, updated_by_user_id)
+      values (1, $1, $2, now(), $3)
+      on conflict (singleton_id)
+      do update set body = excluded.body, audience_key = excluded.audience_key, updated_at = now(), updated_by_user_id = excluded.updated_by_user_id
+    `,
+    [normalizedBody, template.audienceKey, operatorUserId]
+  );
+
+  return getAdminBroadcastDraft(client);
+}
+
 export async function clearAdminBroadcastDraft(client) {
   await client.query(`delete from admin_broadcast_drafts where singleton_id = 1`);
+}
+
+export async function estimateAdminNoticeAudienceCount(client, { audienceKey }) {
+  const whereClause = buildNoticeAudienceWhereClause(audienceKey);
+  const result = await client.query(
+    `${buildAudienceBaseCte()}
+     select count(*)::int as total_count
+     from user_base
+     where telegram_user_id is not null and ${whereClause}`
+  );
+  return result.rows[0]?.total_count || 0;
 }
 
 export async function estimateAdminBroadcastAudienceCount(client, { audienceKey }) {
@@ -863,7 +1027,12 @@ export async function createAdminCommOutboxRecord(client, {
   estimatedRecipientCount = null,
   deliveredCount = null,
   failedCount = null,
-  createdByUserId = null
+  createdByUserId = null,
+  batchSize = null,
+  cursor = 0,
+  startedAt = null,
+  finishedAt = null,
+  lastError = null
 }) {
   const result = await client.query(
     `
@@ -876,15 +1045,26 @@ export async function createAdminCommOutboxRecord(client, {
         estimated_recipient_count,
         delivered_count,
         failed_count,
+        batch_size,
+        cursor,
+        started_at,
+        finished_at,
+        last_error,
         created_at,
         updated_at,
         sent_at,
         created_by_user_id
       )
-      values ($1, $2, $3, $4, $5, $6, $7, $8, now(), now(), case when $5 in ('sent', 'failed', 'sent_with_failures', 'disabled') then now() else null end, $9)
+      values (
+        $1, $2, $3, $4, $5, $6, $7, $8,
+        $9, coalesce($10, 0), $11, $12, $13,
+        now(), now(),
+        case when $5 in ('sent', 'failed', 'sent_with_failures', 'disabled') then now() else null end,
+        $14
+      )
       returning id
     `,
-    [eventType, body, audienceKey, targetUserId, status, estimatedRecipientCount, deliveredCount, failedCount, createdByUserId]
+    [eventType, body, audienceKey, targetUserId, status, estimatedRecipientCount, deliveredCount, failedCount, batchSize, cursor, startedAt, finishedAt, lastError, createdByUserId]
   );
 
   return result.rows[0]?.id || null;
@@ -895,7 +1075,12 @@ export async function updateAdminCommOutboxRecord(client, {
   status,
   estimatedRecipientCount = null,
   deliveredCount = null,
-  failedCount = null
+  failedCount = null,
+  batchSize = null,
+  cursor = null,
+  startedAt = null,
+  finishedAt = null,
+  lastError = null
 }) {
   const result = await client.query(
     `
@@ -905,65 +1090,228 @@ export async function updateAdminCommOutboxRecord(client, {
         estimated_recipient_count = coalesce($3, estimated_recipient_count),
         delivered_count = coalesce($4, delivered_count),
         failed_count = coalesce($5, failed_count),
+        batch_size = coalesce($6, batch_size),
+        cursor = coalesce($7, cursor),
+        started_at = coalesce($8, started_at),
+        finished_at = case when $9 is not null then $9 when $2 in ('sent', 'failed', 'sent_with_failures', 'disabled') then coalesce(finished_at, now()) else finished_at end,
+        last_error = case when $10 is not null then $10 else last_error end,
         updated_at = now(),
         sent_at = case when $2 in ('sent', 'failed', 'sent_with_failures', 'disabled') then coalesce(sent_at, now()) else sent_at end
       where id = $1
       returning id
     `,
-    [outboxId, status, estimatedRecipientCount, deliveredCount, failedCount]
+    [outboxId, status, estimatedRecipientCount, deliveredCount, failedCount, batchSize, cursor, startedAt, finishedAt, lastError]
   );
   return result.rows[0]?.id || null;
 }
 
-export async function listAdminCommOutbox(client, { limit = 12 } = {}) {
-  const safeLimit = Number.isFinite(limit) && limit > 0 ? Math.min(limit, 30) : 12;
+export async function createAdminBroadcastDeliveryItems(client, { outboxId, recipients = [] }) {
+  if (!Array.isArray(recipients) || !recipients.length) {
+    return 0;
+  }
+
+  const values = [];
+  const params = [];
+  recipients.forEach((recipient, index) => {
+    const offset = index * 3;
+    values.push(`($${offset + 1}, $${offset + 2}, $${offset + 3}, 'pending', 0, null, null, null, now(), now())`);
+    params.push(outboxId, recipient.userId, recipient.telegramUserId);
+  });
+
   const result = await client.query(
     `
-      select o.id, o.event_type, o.body, o.audience_key, o.target_user_id, o.status,
-             o.estimated_recipient_count, o.delivered_count, o.failed_count,
-             o.created_at, o.updated_at, o.sent_at,
-             u.telegram_user_id as created_by_telegram_user_id,
-             u.telegram_username as created_by_telegram_username,
-             target.telegram_user_id as target_telegram_user_id,
-             target.telegram_username as target_telegram_username,
-             target_profile.display_name as target_display_name
-      from admin_comm_outbox o
-      left join users u on u.id = o.created_by_user_id
-      left join users target on target.id = o.target_user_id
-      left join member_profiles target_profile on target_profile.user_id = target.id
-      order by o.created_at desc, o.id desc
-      limit $1
+      insert into admin_broadcast_delivery_items (
+        outbox_id,
+        target_user_id,
+        target_telegram_user_id,
+        status,
+        attempts,
+        last_error,
+        retry_due_at,
+        sent_at,
+        created_at,
+        updated_at
+      )
+      values ${values.join(', ')}
+      on conflict (outbox_id, target_user_id)
+      do nothing
     `,
-    [safeLimit]
+    params
+  );
+
+  return result.rowCount || 0;
+}
+
+export async function listAdminBroadcastDeliveryBatch(client, { outboxId, limit = 25 } = {}) {
+  const safeLimit = Number.isFinite(limit) && limit > 0 ? Math.min(limit, 100) : 25;
+  const result = await client.query(
+    `
+      select id, outbox_id, target_user_id, target_telegram_user_id, status, attempts, last_error, retry_due_at, sent_at
+      from admin_broadcast_delivery_items
+      where outbox_id = $1 and status in ('pending', 'retry_due')
+      order by id asc
+      limit $2
+    `,
+    [outboxId, safeLimit]
   );
   return result.rows || [];
 }
 
-export async function getAdminCommOutboxRecordById(client, { outboxId }) {
+export async function markAdminBroadcastDeliveryItemSending(client, { itemId }) {
+  await client.query(
+    `update admin_broadcast_delivery_items set status = 'sending', updated_at = now() where id = $1`,
+    [itemId]
+  );
+}
+
+export async function completeAdminBroadcastDeliveryItem(client, { itemId, status, errorMessage = null }) {
+  const normalizedStatus = ['sent', 'failed', 'retry_due', 'exhausted'].includes(status) ? status : 'failed';
+  await client.query(
+    `
+      update admin_broadcast_delivery_items
+      set
+        status = $2,
+        attempts = attempts + 1,
+        last_error = $3,
+        retry_due_at = case when $2 = 'retry_due' then now() + interval '5 minutes' else null end,
+        sent_at = case when $2 = 'sent' then now() else sent_at end,
+        updated_at = now()
+      where id = $1
+    `,
+    [itemId, normalizedStatus, errorMessage]
+  );
+}
+
+export async function summarizeAdminBroadcastDelivery(client, { outboxId }) {
   const result = await client.query(
     `
-      select o.id, o.event_type, o.body, o.audience_key, o.target_user_id, o.status,
-             o.estimated_recipient_count, o.delivered_count, o.failed_count,
-             o.created_at, o.updated_at, o.sent_at,
-             u.telegram_user_id as created_by_telegram_user_id,
-             u.telegram_username as created_by_telegram_username,
-             target.telegram_user_id as target_telegram_user_id,
-             target.telegram_username as target_telegram_username,
-             target_profile.display_name as target_display_name
-      from admin_comm_outbox o
-      left join users u on u.id = o.created_by_user_id
-      left join users target on target.id = o.target_user_id
-      left join member_profiles target_profile on target_profile.user_id = target.id
-      where o.id = $1
-      limit 1
+      select
+        count(*)::int as total_count,
+        count(*) filter (where status = 'sent')::int as sent_count,
+        count(*) filter (where status in ('failed', 'retry_due', 'exhausted'))::int as failed_count,
+        count(*) filter (where status in ('pending', 'sending', 'retry_due'))::int as pending_count,
+        count(*) filter (where status = 'retry_due')::int as retry_due_count,
+        count(*) filter (where status = 'exhausted')::int as exhausted_count,
+        max(last_error) filter (where coalesce(last_error, '') <> '') as last_error
+      from admin_broadcast_delivery_items
+      where outbox_id = $1
     `,
     [outboxId]
   );
   return result.rows[0] || null;
 }
 
+export async function listAdminBroadcastFailurePage(client, { outboxId, page = 0, pageSize = 10 } = {}) {
+  const normalizedPage = Number.isFinite(page) && page >= 0 ? page : 0;
+  const normalizedPageSize = Number.isFinite(pageSize) && pageSize > 0 ? Math.min(pageSize, 25) : 10;
+  const offset = normalizedPage * normalizedPageSize;
+
+  const countResult = await client.query(
+    `
+      select count(*)::int as total_count
+      from admin_broadcast_delivery_items
+      where outbox_id = $1 and status in ('failed', 'retry_due', 'exhausted')
+    `,
+    [outboxId]
+  );
+
+  const result = await client.query(
+    `
+      select
+        item.id,
+        item.outbox_id,
+        item.target_user_id,
+        item.target_telegram_user_id,
+        item.status,
+        item.attempts,
+        item.last_error,
+        item.retry_due_at,
+        item.sent_at,
+        target.telegram_username as target_telegram_username,
+        target_profile.display_name as target_display_name
+      from admin_broadcast_delivery_items item
+      left join users target on target.id = item.target_user_id
+      left join member_profiles target_profile on target_profile.user_id = target.id
+      where item.outbox_id = $1 and item.status in ('failed', 'retry_due', 'exhausted')
+      order by item.id asc
+      limit $2 offset $3
+    `,
+    [outboxId, normalizedPageSize + 1, offset]
+  );
+
+  const rows = (result.rows || []).slice(0, normalizedPageSize);
+  const totalCount = countResult.rows[0]?.total_count || 0;
+  return {
+    outboxId,
+    page: normalizedPage,
+    pageSize: normalizedPageSize,
+    totalCount,
+    hasPrev: normalizedPage > 0,
+    hasNext: offset + normalizedPageSize < totalCount,
+    items: rows
+  };
+}
+
+function buildOutboxRecordSelect() {
+  return `
+      select o.id, o.event_type, o.body, o.audience_key, o.target_user_id, o.status,
+             o.estimated_recipient_count, o.delivered_count, o.failed_count,
+             o.batch_size, o.cursor, o.started_at, o.finished_at, o.last_error,
+             o.created_at, o.updated_at, o.sent_at,
+             u.telegram_user_id as created_by_telegram_user_id,
+             u.telegram_username as created_by_telegram_username,
+             target.telegram_user_id as target_telegram_user_id,
+             target.telegram_username as target_telegram_username,
+             target_profile.display_name as target_display_name,
+             coalesce(stats.pending_count, 0)::int as pending_count,
+             coalesce(stats.retry_due_count, 0)::int as retry_due_count,
+             coalesce(stats.exhausted_count, 0)::int as exhausted_count
+      from admin_comm_outbox o
+      left join users u on u.id = o.created_by_user_id
+      left join users target on target.id = o.target_user_id
+      left join member_profiles target_profile on target_profile.user_id = target.id
+      left join lateral (
+        select
+          count(*) filter (where item.status in ('pending', 'sending', 'retry_due'))::int as pending_count,
+          count(*) filter (where item.status = 'retry_due')::int as retry_due_count,
+          count(*) filter (where item.status = 'exhausted')::int as exhausted_count
+        from admin_broadcast_delivery_items item
+        where item.outbox_id = o.id
+      ) stats on true
+  `;
+}
+
+export async function listAdminCommOutbox(client, { limit = 12, eventType = null } = {}) {
+  const safeLimit = Number.isFinite(limit) && limit > 0 ? Math.min(limit, 30) : 12;
+  const filters = [];
+  const params = [];
+  if (eventType) {
+    params.push(eventType);
+    filters.push(`o.event_type = $${params.length}`);
+  }
+  const whereClause = filters.length ? `where ${filters.join(' and ')}` : '';
+  const result = await client.query(
+    `${buildOutboxRecordSelect()}
+      ${whereClause}
+      order by o.created_at desc, o.id desc
+      limit $${params.length + 1}`,
+    [...params, safeLimit]
+  );
+  return result.rows || [];
+}
+
+export async function getAdminCommOutboxRecordById(client, { outboxId }) {
+  const result = await client.query(
+    `${buildOutboxRecordSelect()}
+      where o.id = $1
+      limit 1`,
+    [outboxId]
+  );
+  return result.rows[0] || null;
+}
+
 export async function beginAdminCommsInputSession(client, { operatorTelegramUserId, inputKind, targetUserId = null, segmentKey = 'all', page = 0 }) {
-  if (!['notice_body', 'broadcast_body', 'direct_body'].includes(inputKind)) {
+  if (!['notice_body', 'broadcast_body', 'direct_body', 'search_users', 'search_intros', 'search_delivery', 'search_outbox', 'search_audit'].includes(inputKind)) {
     throw new Error('Unsupported admin communications input kind');
   }
 
@@ -986,6 +1334,48 @@ export async function beginAdminCommsInputSession(client, { operatorTelegramUser
   );
 
   return { operatorTelegramUserId, inputKind, targetUserId, segmentKey: normalizedSegmentKey, page: normalizedPage };
+}
+
+
+export async function upsertAdminSearchState(client, { operatorTelegramUserId, scopeKey, queryText, page = 0 }) {
+  const normalizedScopeKey = normalizeAdminSearchScope(scopeKey);
+  const normalizedQueryText = typeof queryText === 'string' ? queryText.trim() : '';
+  const normalizedPage = Number.isFinite(page) && page >= 0 ? page : 0;
+
+  await client.query(
+    `
+      insert into admin_search_states (operator_telegram_user_id, scope_key, query_text, page, created_at, updated_at)
+      values ($1, $2, $3, $4, now(), now())
+      on conflict (operator_telegram_user_id, scope_key)
+      do update set
+        query_text = excluded.query_text,
+        page = excluded.page,
+        updated_at = now()
+    `,
+    [operatorTelegramUserId, normalizedScopeKey, normalizedQueryText, normalizedPage]
+  );
+
+  return { operatorTelegramUserId, scopeKey: normalizedScopeKey, queryText: normalizedQueryText, page: normalizedPage };
+}
+
+export async function getAdminSearchState(client, { operatorTelegramUserId, scopeKey }) {
+  const normalizedScopeKey = normalizeAdminSearchScope(scopeKey);
+  const result = await client.query(
+    `select operator_telegram_user_id, scope_key, query_text, page, created_at, updated_at from admin_search_states where operator_telegram_user_id = $1 and scope_key = $2 limit 1`,
+    [operatorTelegramUserId, normalizedScopeKey]
+  );
+  const row = result.rows[0] || null;
+  if (!row) {
+    return null;
+  }
+  return {
+    operatorTelegramUserId: row.operator_telegram_user_id,
+    scopeKey: row.scope_key,
+    queryText: row.query_text || '',
+    page: row.page || 0,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at
+  };
 }
 
 export async function getAdminCommsInputSession(client, operatorTelegramUserId) {
@@ -1035,7 +1425,7 @@ export async function saveAdminCommsTextFromSession(client, {
   } else if (session.inputKind === 'broadcast_body') {
     result = await upsertAdminBroadcastDraftBody(client, { operatorUserId: operatorUser.id, body: text });
     reason = 'admin_broadcast_body_saved';
-  } else {
+  } else if (session.inputKind === 'direct_body') {
     result = await upsertAdminDirectMessageDraft(client, {
       operatorTelegramUserId,
       operatorUserId: operatorUser.id,
@@ -1046,6 +1436,15 @@ export async function saveAdminCommsTextFromSession(client, {
       page: session.page
     });
     reason = 'admin_direct_body_saved';
+  } else {
+    const scopeKey = session.inputKind.replace(/^search_/, '');
+    result = await upsertAdminSearchState(client, {
+      operatorTelegramUserId,
+      scopeKey,
+      queryText: text,
+      page: 0
+    });
+    reason = `admin_search_${scopeKey}_saved`;
   }
 
   await cancelAdminCommsInputSession(client, operatorTelegramUserId);
@@ -1318,6 +1717,381 @@ function buildQualitySegmentWhereClause(segmentKey) {
   }
 }
 
+
+export async function getAdminDashboardSummary(client) {
+  const [usersResult, qualityResult, introsResult, deliveryResult, noticeState, broadcastDraft, latestBroadcastRows, recentDirectResult, recentOutboxFailuresResult, recentAuditResult, trendUsersResult, trendProfilesResult, trendIntrosResult, trendDeliveryResult, trendCommsResult, trendAuditResult] = await Promise.all([
+    client.query(
+      `${buildUsersBaseCte()}
+       select
+         count(*)::int as total_users,
+         count(*) filter (where profile_state = 'active' and visibility_status = 'listed')::int as listed_users,
+         count(*) filter (where profile_state = 'active' and coalesce(visibility_status, 'hidden') = 'hidden')::int as ready_not_listed,
+         count(*) filter (where has_linkedin)::int as connected_users
+       from user_base`
+    ),
+    client.query(
+      `${buildQualityBaseCte()}
+       select
+         count(*) filter (where listed_incomplete)::int as listed_incomplete,
+         count(*) filter (where missing_critical)::int as missing_critical,
+         count(*) filter (where profile_state = 'active' and coalesce(skills_count, 0) = 0)::int as ready_no_skills_count,
+         count(*) filter (where profile_state = 'active' and visibility_status = 'listed' and last_seen_at >= now() - interval '14 days')::int as listed_active_count,
+         count(*) filter (where profile_state = 'active' and visibility_status = 'listed' and (last_seen_at is null or last_seen_at < now() - interval '14 days'))::int as listed_inactive_count,
+         count(*) filter (where has_linkedin and coalesce(intro_sent_count, 0) = 0 and coalesce(intro_received_count, 0) = 0)::int as no_intro_yet_count
+       from quality_base`
+    ),
+    client.query(
+      `${buildIntroBaseCte()}
+       select
+         count(*) filter (where status = 'pending')::int as pending_intros,
+         count(*) filter (where status = 'accepted')::int as accepted_intros,
+         count(*) filter (where status = 'declined')::int as declined_intros,
+         count(*) filter (where status = 'pending' and created_at <= now() - interval '72 hours')::int as stale_intros
+       from intro_base`
+    ),
+    client.query(
+      `${buildDeliveryBaseCte()}
+       select
+         count(*) filter (where operator_bucket in ('failed', 'retry_due', 'exhausted'))::int as delivery_issues,
+         count(*) filter (where operator_bucket = 'retry_due')::int as retry_due,
+         count(*) filter (where operator_bucket = 'exhausted')::int as exhausted,
+         count(*) filter (where operator_bucket = 'failed')::int as failed_deliveries
+       from delivery_base`
+    ),
+    getAdminNoticeState(client),
+    getAdminBroadcastDraft(client),
+    listAdminCommOutbox(client, { limit: 1, eventType: 'broadcast' }),
+    client.query(
+      `select count(*)::int as recent_direct_messages
+       from admin_comm_outbox
+       where event_type = 'direct' and created_at >= now() - interval '7 days'`
+    ),
+    client.query(
+      `select count(*)::int as recent_outbox_failures
+       from admin_comm_outbox
+       where created_at >= now() - interval '7 days'
+         and (
+           coalesce(failed_count, 0) > 0
+           or status in ('failed', 'sent_with_failures', 'partial')
+           or coalesce(last_error, '') <> ''
+         )`
+    ),
+    client.query(
+      `select count(*)::int as recent_audit_events
+       from admin_audit_events
+       where created_at >= now() - interval '7 days'`
+    ),
+    client.query(
+      `select
+         count(*) filter (where first_seen_at >= now() - interval '24 hours')::int as new_users_24h,
+         count(*) filter (where first_seen_at >= now() - interval '7 days')::int as new_users_7d,
+         count(*) filter (where linked_at >= now() - interval '24 hours')::int as connected_24h,
+         count(*) filter (where linked_at >= now() - interval '7 days')::int as connected_7d
+       from linkedin_accounts
+       full outer join users on linkedin_accounts.user_id = users.id`
+    ),
+    client.query(
+      `select
+         count(*) filter (where visibility_status = 'listed' and profile_state = 'active' and created_at >= now() - interval '24 hours')::int as listed_24h,
+         count(*) filter (where visibility_status = 'listed' and profile_state = 'active' and created_at >= now() - interval '7 days')::int as listed_7d,
+         count(*) filter (where profile_state = 'active' and coalesce(visibility_status, 'hidden') = 'hidden' and created_at >= now() - interval '7 days')::int as ready_hidden_7d
+       from member_profiles`
+    ),
+    client.query(
+      `select
+         count(*) filter (where created_at >= now() - interval '24 hours')::int as intros_24h,
+         count(*) filter (where created_at >= now() - interval '7 days')::int as intros_7d,
+         count(*) filter (where status = 'accepted' and updated_at >= now() - interval '24 hours')::int as accepted_24h,
+         count(*) filter (where status = 'accepted' and updated_at >= now() - interval '7 days')::int as accepted_7d,
+         count(*) filter (where status = 'declined' and updated_at >= now() - interval '24 hours')::int as declined_24h,
+         count(*) filter (where status = 'declined' and updated_at >= now() - interval '7 days')::int as declined_7d,
+         count(*) filter (where status = 'pending' and created_at <= now() - interval '24 hours')::int as pending_older_24h,
+         count(*) filter (where status = 'pending' and created_at <= now() - interval '72 hours')::int as pending_older_72h
+       from intro_requests`
+    ),
+    client.query(
+      `${buildDeliveryBaseCte()}
+       select
+         count(*) filter (where operator_bucket in ('failed', 'retry_due', 'exhausted') and created_at >= now() - interval '24 hours')::int as failures_24h,
+         count(*) filter (where operator_bucket in ('failed', 'retry_due', 'exhausted') and created_at >= now() - interval '7 days')::int as failures_7d,
+         count(*) filter (where delivered_at is not null and delivered_at >= now() - interval '24 hours')::int as delivered_24h,
+         count(*) filter (where delivered_at is not null and delivered_at >= now() - interval '7 days')::int as delivered_7d
+       from delivery_base`
+    ),
+    client.query(
+      `select
+         count(*) filter (where event_type = 'broadcast' and coalesce(sent_at, created_at) >= now() - interval '7 days')::int as broadcasts_7d,
+         coalesce(sum(delivered_count) filter (where event_type = 'broadcast' and coalesce(sent_at, created_at) >= now() - interval '7 days'), 0)::int as broadcast_delivered_7d,
+         coalesce(sum(failed_count) filter (where event_type = 'broadcast' and coalesce(sent_at, created_at) >= now() - interval '7 days'), 0)::int as broadcast_failed_7d,
+         count(*) filter (where event_type = 'direct' and created_at >= now() - interval '24 hours')::int as direct_24h,
+         count(*) filter (where event_type = 'direct' and created_at >= now() - interval '7 days')::int as direct_7d,
+         count(*) filter (
+           where created_at >= now() - interval '24 hours'
+             and (
+               coalesce(failed_count, 0) > 0
+               or status in ('failed', 'sent_with_failures', 'partial')
+               or coalesce(last_error, '') <> ''
+             )
+         )::int as outbox_failures_24h,
+         count(*) filter (
+           where created_at >= now() - interval '7 days'
+             and (
+               coalesce(failed_count, 0) > 0
+               or status in ('failed', 'sent_with_failures', 'partial')
+               or coalesce(last_error, '') <> ''
+             )
+         )::int as outbox_failures_7d
+       from admin_comm_outbox`
+    ),
+    client.query(
+      `select
+         count(*) filter (where created_at >= now() - interval '24 hours')::int as operator_actions_24h,
+         count(*) filter (where created_at >= now() - interval '7 days')::int as operator_actions_7d,
+         count(*) filter (where event_type in ('admin_listing_hidden', 'admin_listing_unhidden') and created_at >= now() - interval '7 days')::int as listing_changes_7d,
+         count(*) filter (where event_type = 'linkedin_relink_transferred' and created_at >= now() - interval '7 days')::int as relinks_7d
+       from admin_audit_events`
+    )
+  ]);
+
+  const users = usersResult.rows[0] || {};
+  const quality = qualityResult.rows[0] || {};
+  const intros = introsResult.rows[0] || {};
+  const delivery = deliveryResult.rows[0] || {};
+  const latestBroadcast = Array.isArray(latestBroadcastRows) ? (latestBroadcastRows[0] || null) : null;
+  const recentDirectMessages = recentDirectResult.rows[0]?.recent_direct_messages || 0;
+  const recentOutboxFailures = recentOutboxFailuresResult.rows[0]?.recent_outbox_failures || 0;
+  const recentAuditEvents = recentAuditResult.rows[0]?.recent_audit_events || 0;
+  const userTrends = trendUsersResult.rows[0] || {};
+  const profileTrends = trendProfilesResult.rows[0] || {};
+  const introTrends = trendIntrosResult.rows[0] || {};
+  const deliveryTrends = trendDeliveryResult.rows[0] || {};
+  const commsTrends = trendCommsResult.rows[0] || {};
+  const auditTrends = trendAuditResult.rows[0] || {};
+
+  return {
+    home: {
+      totalUsers: users.total_users || 0,
+      listedUsers: users.listed_users || 0,
+      pendingIntros: intros.pending_intros || 0,
+      failedDeliveries: delivery.failed_deliveries || 0,
+      activeNotice: Boolean(noticeState?.isActive),
+      latestBroadcastStatus: latestBroadcast?.status || 'none',
+      newUsers24h: userTrends.new_users_24h || 0,
+      newUsers7d: userTrends.new_users_7d || 0,
+      connected24h: userTrends.connected_24h || 0,
+      connected7d: userTrends.connected_7d || 0,
+      listed24h: profileTrends.listed_24h || 0,
+      listed7d: profileTrends.listed_7d || 0,
+      intros24h: introTrends.intros_24h || 0,
+      intros7d: introTrends.intros_7d || 0,
+      accepted7d: introTrends.accepted_7d || 0,
+      declined7d: introTrends.declined_7d || 0,
+      pendingOlder24h: introTrends.pending_older_24h || 0,
+      failures24h: deliveryTrends.failures_24h || 0,
+      failures7d: deliveryTrends.failures_7d || 0,
+      exhaustedNow: delivery.exhausted || 0,
+      broadcasts7d: commsTrends.broadcasts_7d || 0,
+      directMessages7d: commsTrends.direct_7d || 0
+    },
+    operations: {
+      totalUsers: users.total_users || 0,
+      readyNotListed: users.ready_not_listed || 0,
+      listedIncomplete: quality.listed_incomplete || 0,
+      pendingIntros: intros.pending_intros || 0,
+      staleIntros: intros.stale_intros || 0,
+      deliveryIssues: delivery.delivery_issues || 0,
+      connectedNoProfile: totalCountsOr(users.connected_no_profile_count),
+      readyNoSkills: totalCountsOr(quality.ready_no_skills_count),
+      listedActive: totalCountsOr(quality.listed_active_count),
+      listedInactive: totalCountsOr(quality.listed_inactive_count),
+      noIntroYet: totalCountsOr(quality.no_intro_yet_count),
+      recentRelinks7d: auditTrends.relinks_7d || 0,
+      newIntros24h: introTrends.intros_24h || 0,
+      accepted7d: introTrends.accepted_7d || 0,
+      declined7d: introTrends.declined_7d || 0,
+      pendingOlder24h: introTrends.pending_older_24h || 0
+    },
+    communications: {
+      activeNotice: Boolean(noticeState?.isActive),
+      draftBroadcastReady: Boolean(broadcastDraft?.body),
+      latestBroadcastStatus: latestBroadcast?.status || 'none',
+      recentDirectMessages,
+      recentOutboxFailures,
+      directMessages24h: commsTrends.direct_24h || 0,
+      directMessages7d: commsTrends.direct_7d || 0,
+      broadcasts7d: commsTrends.broadcasts_7d || 0,
+      broadcastDeliveredRecipients7d: commsTrends.broadcast_delivered_7d || 0,
+      broadcastFailedRecipients7d: commsTrends.broadcast_failed_7d || 0,
+      outboxFailures24h: commsTrends.outbox_failures_24h || 0,
+      outboxFailures7d: commsTrends.outbox_failures_7d || 0,
+      latestBroadcastRecipients: latestBroadcast?.estimated_recipient_count || 0,
+      latestBroadcastDelivered: latestBroadcast?.delivered_count || 0,
+      latestBroadcastFailed: latestBroadcast?.failed_count || 0
+    },
+    system: {
+      retryDue: delivery.retry_due || 0,
+      exhausted: delivery.exhausted || 0,
+      recentAuditEvents,
+      failedDeliveries: delivery.failed_deliveries || 0,
+      failures24h: deliveryTrends.failures_24h || 0,
+      failures7d: deliveryTrends.failures_7d || 0,
+      delivered24h: deliveryTrends.delivered_24h || 0,
+      delivered7d: deliveryTrends.delivered_7d || 0,
+      operatorActions24h: auditTrends.operator_actions_24h || 0,
+      operatorActions7d: auditTrends.operator_actions_7d || 0,
+      listingChanges7d: auditTrends.listing_changes_7d || 0,
+      relinks7d: auditTrends.relinks_7d || 0
+    }
+  };
+}
+
+
+function buildSearchLike(value) {
+  const normalized = typeof value === 'string' ? value.trim().toLowerCase() : '';
+  return `%${normalized.replace(/\s+/g, ' ')}%`;
+}
+
+function buildSearchId(value) {
+  const parsed = Number.parseInt(String(value || '').trim(), 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+}
+
+export async function searchAdminUsersPage(client, { queryText, page = 0, pageSize = 8 } = {}) {
+  const normalizedPage = Number.isFinite(page) && page >= 0 ? page : 0;
+  const normalizedPageSize = Number.isFinite(pageSize) && pageSize > 0 ? Math.min(pageSize, 20) : 8;
+  const query = typeof queryText === 'string' ? queryText.trim() : '';
+  const like = buildSearchLike(query);
+  const exactId = buildSearchId(query);
+  const searchWhere = `($1::bigint is not null and (user_id = $1 or telegram_user_id = $1)) or lower(coalesce(telegram_username, '')) like $2 or lower(coalesce(display_name, '')) like $2 or lower(coalesce(linkedin_name, '')) like $2 or lower(coalesce(headline_user, '')) like $2 or lower(coalesce(linkedin_public_url, '')) like $2 or lower(coalesce(company_user, '')) like $2`;
+  const countResult = await client.query(`${buildUsersBaseCte()} select count(*)::int as total_count from user_base where ${searchWhere}`, [exactId, like]);
+  const totalCount = countResult.rows[0]?.total_count || 0;
+  const offset = normalizedPage * normalizedPageSize;
+  const result = await client.query(`${buildUsersBaseCte()} select * from user_base where ${searchWhere} order by last_seen_at desc nulls last, user_id desc limit $3 offset $4`, [exactId, like, normalizedPageSize + 1, offset]);
+  const rows = (result.rows || []).slice(0, normalizedPageSize);
+  return {
+    scopeKey: 'users',
+    queryText: query,
+    page: normalizedPage,
+    pageSize: normalizedPageSize,
+    totalCount,
+    hasPrev: normalizedPage > 0,
+    hasNext: offset + normalizedPageSize < totalCount,
+    results: rows.map((row) => ({
+      userId: row.user_id,
+      telegramUserId: row.telegram_user_id,
+      telegramUsername: row.telegram_username,
+      hasLinkedIn: Boolean(row.has_linkedin),
+      displayName: row.display_name,
+      linkedinName: row.linkedin_name,
+      visibilityStatus: row.visibility_status,
+      profileState: row.profile_state,
+      headlineUser: row.headline_user,
+      companyUser: row.company_user,
+      pendingIntroCount: row.pending_intro_count || 0
+    }))
+  };
+}
+
+export async function searchAdminIntrosPage(client, { queryText, page = 0, pageSize = 8 } = {}) {
+  const normalizedPage = Number.isFinite(page) && page >= 0 ? page : 0;
+  const normalizedPageSize = Number.isFinite(pageSize) && pageSize > 0 ? Math.min(pageSize, 20) : 8;
+  const query = typeof queryText === 'string' ? queryText.trim() : '';
+  const like = buildSearchLike(query);
+  const exactId = buildSearchId(query);
+  const searchWhere = `($1::bigint is not null and intro_request_id = $1) or lower(coalesce(requester_display_name, '')) like $2 or lower(coalesce(target_display_name, '')) like $2 or lower(coalesce(requester_headline_user, '')) like $2 or lower(coalesce(target_headline_user, '')) like $2`;
+  const countResult = await client.query(`${buildIntroBaseCte()} select count(*)::int as total_count from intro_base where ${searchWhere}`, [exactId, like]);
+  const totalCount = countResult.rows[0]?.total_count || 0;
+  const offset = normalizedPage * normalizedPageSize;
+  const result = await client.query(`${buildIntroBaseCte()} select * from intro_base where ${searchWhere} order by updated_at desc, intro_request_id desc limit $3 offset $4`, [exactId, like, normalizedPageSize + 1, offset]);
+  const rows = (result.rows || []).slice(0, normalizedPageSize);
+  return {
+    scopeKey: 'intros', queryText: query, page: normalizedPage, pageSize: normalizedPageSize, totalCount,
+    hasPrev: normalizedPage > 0, hasNext: offset + normalizedPageSize < totalCount,
+    results: rows.map((row) => ({
+      introRequestId: row.intro_request_id,
+      requesterUserId: row.requester_user_id,
+      targetUserId: row.target_user_id,
+      requesterDisplayName: row.requester_display_name,
+      targetDisplayName: row.target_display_name,
+      status: row.status,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at,
+      deliveryProblemCount: row.delivery_problem_count || 0
+    }))
+  };
+}
+
+export async function searchAdminDeliveryPage(client, { queryText, page = 0, pageSize = 8 } = {}) {
+  const normalizedPage = Number.isFinite(page) && page >= 0 ? page : 0;
+  const normalizedPageSize = Number.isFinite(pageSize) && pageSize > 0 ? Math.min(pageSize, 20) : 8;
+  const query = typeof queryText === 'string' ? queryText.trim() : '';
+  const like = buildSearchLike(query);
+  const exactId = buildSearchId(query);
+  const searchWhere = `($1::bigint is not null and (notification_receipt_id = $1 or intro_request_id = $1 or recipient_telegram_user_id = $1)) or lower(coalesce(recipient_display_name, '')) like $2 or lower(coalesce(requester_display_name, '')) like $2 or lower(coalesce(target_display_name, '')) like $2 or lower(coalesce(last_error_code, '')) like $2 or lower(coalesce(error_message, '')) like $2`;
+  const countResult = await client.query(`${buildDeliveryBaseCte()} select count(*)::int as total_count from delivery_base where ${searchWhere}`, [exactId, like]);
+  const totalCount = countResult.rows[0]?.total_count || 0;
+  const offset = normalizedPage * normalizedPageSize;
+  const result = await client.query(`${buildDeliveryBaseCte()} select * from delivery_base where ${searchWhere} order by coalesce(last_attempt_at, delivered_at, created_at) desc, notification_receipt_id desc limit $3 offset $4`, [exactId, like, normalizedPageSize + 1, offset]);
+  const rows = (result.rows || []).slice(0, normalizedPageSize);
+  return {
+    scopeKey: 'delivery', queryText: query, page: normalizedPage, pageSize: normalizedPageSize, totalCount,
+    hasPrev: normalizedPage > 0, hasNext: offset + normalizedPageSize < totalCount,
+    results: rows.map((row) => ({
+      notificationReceiptId: row.notification_receipt_id,
+      introRequestId: row.intro_request_id,
+      recipientUserId: row.recipient_user_id,
+      recipientDisplayName: row.recipient_display_name,
+      operatorBucket: row.operator_bucket,
+      attemptCount: row.attempt_count || 0,
+      maxAttempts: row.max_attempts || 0,
+      lastErrorCode: row.last_error_code,
+      errorMessage: row.error_message,
+      requesterDisplayName: row.requester_display_name,
+      targetDisplayName: row.target_display_name
+    }))
+  };
+}
+
+export async function searchAdminOutboxPage(client, { queryText, page = 0, pageSize = 8 } = {}) {
+  const normalizedPage = Number.isFinite(page) && page >= 0 ? page : 0;
+  const normalizedPageSize = Number.isFinite(pageSize) && pageSize > 0 ? Math.min(pageSize, 20) : 8;
+  const query = typeof queryText === 'string' ? queryText.trim() : '';
+  const like = buildSearchLike(query);
+  const exactId = buildSearchId(query);
+  const searchWhere = `($1::bigint is not null and o.id = $1) or lower(coalesce(o.event_type, '')) like $2 or lower(coalesce(o.audience_key, '')) like $2 or lower(coalesce(o.body, '')) like $2 or lower(coalesce(target_profile.display_name, '')) like $2 or lower(coalesce(target.telegram_username, '')) like $2 or lower(coalesce(o.status, '')) like $2`;
+  const select = `${buildOutboxRecordSelect()} where ${searchWhere}`;
+  const countResult = await client.query(`select count(*)::int as total_count from (${select}) q`, [exactId, like]);
+  const totalCount = countResult.rows[0]?.total_count || 0;
+  const offset = normalizedPage * normalizedPageSize;
+  const result = await client.query(`${select} order by o.created_at desc, o.id desc limit $3 offset $4`, [exactId, like, normalizedPageSize + 1, offset]);
+  const rows = (result.rows || []).slice(0, normalizedPageSize);
+  return { scopeKey: 'outbox', queryText: query, page: normalizedPage, pageSize: normalizedPageSize, totalCount, hasPrev: normalizedPage > 0, hasNext: offset + normalizedPageSize < totalCount, results: rows };
+}
+
+export async function searchAdminAuditPage(client, { queryText, page = 0, pageSize = 8 } = {}) {
+  const normalizedPage = Number.isFinite(page) && page >= 0 ? page : 0;
+  const normalizedPageSize = Number.isFinite(pageSize) && pageSize > 0 ? Math.min(pageSize, 20) : 8;
+  const query = typeof queryText === 'string' ? queryText.trim() : '';
+  const like = buildSearchLike(query);
+  const exactId = buildSearchId(query);
+  const from = `from admin_audit_events e
+      left join users actor on actor.id = e.actor_user_id
+      left join member_profiles actor_profile on actor_profile.user_id = actor.id
+      left join users target on target.id = e.target_user_id
+      left join member_profiles target_profile on target_profile.user_id = target.id`;
+  const where = `where (($1::bigint is not null and (e.id = $1 or e.target_user_id = $1 or e.actor_user_id = $1 or e.intro_request_id = $1 or e.notification_receipt_id = $1)) or lower(coalesce(e.event_type, '')) like $2 or lower(coalesce(e.summary, '')) like $2 or lower(coalesce(actor.telegram_username, '')) like $2 or lower(coalesce(actor_profile.display_name, '')) like $2 or lower(coalesce(target.telegram_username, '')) like $2 or lower(coalesce(target_profile.display_name, '')) like $2)`;
+  const countResult = await client.query(`select count(*)::int as total_count ${from} ${where}`, [exactId, like]);
+  const totalCount = countResult.rows[0]?.total_count || 0;
+  const offset = normalizedPage * normalizedPageSize;
+  const result = await client.query(`select e.id, e.event_type, e.summary, e.created_at, e.target_user_id, e.intro_request_id, e.notification_receipt_id, actor.telegram_username as actor_telegram_username, actor_profile.display_name as actor_display_name, target.telegram_username as target_telegram_username, target_profile.display_name as target_display_name ${from} ${where} order by e.created_at desc, e.id desc limit $3 offset $4`, [exactId, like, normalizedPageSize + 1, offset]);
+  const rows = (result.rows || []).slice(0, normalizedPageSize);
+  return { scopeKey: 'audit', queryText: query, page: normalizedPage, pageSize: normalizedPageSize, totalCount, hasPrev: normalizedPage > 0, hasNext: offset + normalizedPageSize < totalCount, results: rows };
+}
+
+function totalCountsOr(value) {
+  return value || 0;
+}
+
 export async function listAdminQualityPage(client, { segmentKey = 'listinc', page = 0, pageSize = 8 } = {}) {
   const segment = normalizeAdminQualitySegment(segmentKey);
   const normalizedPage = Number.isFinite(page) && page >= 0 ? page : 0;
@@ -1440,14 +2214,19 @@ export async function createAdminAuditEvent(client, {
   return result.rows[0]?.id || null;
 }
 
-export async function listAdminAuditPage(client, { segmentKey = 'all', page = 0, pageSize = 10 } = {}) {
+export async function listAdminAuditPage(client, { segmentKey = 'all', page = 0, pageSize = 10, targetUserId = null } = {}) {
   const segment = normalizeAdminAuditSegment(segmentKey);
   const normalizedPage = Number.isFinite(page) && page >= 0 ? page : 0;
   const normalizedPageSize = Number.isFinite(pageSize) && pageSize > 0 ? Math.min(pageSize, 20) : 10;
   const whereClause = buildAuditSegmentWhereClause(segment);
+  const targetUserFilter = Number.isFinite(targetUserId) && targetUserId > 0 ? targetUserId : null;
 
   const totalCountResult = await client.query(
-    `select count(*)::int as total_count from admin_audit_events where ${whereClause}`
+    `select count(*)::int as total_count
+     from admin_audit_events
+     where ${whereClause}
+       and ($1::bigint is null or actor_user_id = $1 or target_user_id = $1 or secondary_target_user_id = $1)`,
+    [targetUserFilter]
   );
   const totalCount = totalCountResult.rows[0]?.total_count || 0;
   const offset = normalizedPage * normalizedPageSize;
@@ -1482,16 +2261,18 @@ export async function listAdminAuditPage(client, { segmentKey = 'all', page = 0,
       left join users secondary on secondary.id = e.secondary_target_user_id
       left join member_profiles secondary_profile on secondary_profile.user_id = secondary.id
       where ${whereClause}
+        and ($3::bigint is null or e.actor_user_id = $3 or e.target_user_id = $3 or e.secondary_target_user_id = $3)
       order by e.created_at desc, e.id desc
       limit $1 offset $2
     `,
-    [normalizedPageSize + 1, offset]
+    [normalizedPageSize + 1, offset, targetUserFilter]
   );
   const rows = (result.rows || []).slice(0, normalizedPageSize);
   return {
     segmentKey: segment,
     page: normalizedPage,
     pageSize: normalizedPageSize,
+    targetUserId: targetUserFilter,
     totalCount,
     hasPrev: normalizedPage > 0,
     hasNext: offset + normalizedPageSize < totalCount,
@@ -1540,22 +2321,28 @@ export async function getAdminAuditRecordById(client, { auditId }) {
   return result.rows[0] || null;
 }
 
-export async function listAdminIntrosPage(client, { segmentKey = 'all', page = 0, pageSize = 8 } = {}) {
+export async function listAdminIntrosPage(client, { segmentKey = 'all', page = 0, pageSize = 8, targetUserId = null } = {}) {
   const segment = normalizeAdminIntroSegment(segmentKey);
   const normalizedPage = Number.isFinite(page) && page >= 0 ? page : 0;
   const normalizedPageSize = Number.isFinite(pageSize) && pageSize > 0 ? Math.min(pageSize, 20) : 8;
   const whereClause = buildIntroSegmentWhereClause(segment);
+  const targetUserFilter = Number.isFinite(targetUserId) && targetUserId > 0 ? targetUserId : null;
 
   const countsResult = await client.query(
     `${buildIntroBaseCte()}
      select
        count(*)::int as total_count,
        count(*) filter (where status = 'pending')::int as pending_count,
+       count(*) filter (where status = 'pending' and created_at <= now() - interval '24 hours')::int as pending_24h_count,
        count(*) filter (where status = 'accepted')::int as accepted_count,
+       count(*) filter (where status = 'accepted' and updated_at >= now() - interval '7 days')::int as accepted_recent_count,
        count(*) filter (where status = 'declined')::int as declined_count,
+       count(*) filter (where status = 'declined' and updated_at >= now() - interval '7 days')::int as declined_recent_count,
        count(*) filter (where status = 'pending' and created_at <= now() - interval '72 hours')::int as stale_count,
        count(*) filter (where delivery_problem_count > 0)::int as failed_notify_count
-     from intro_base`
+     from intro_base
+     where ($1::bigint is null or requester_user_id = $1 or target_user_id = $1)`,
+    [targetUserFilter]
   );
   const counts = countsResult.rows[0] || {};
 
@@ -1563,7 +2350,9 @@ export async function listAdminIntrosPage(client, { segmentKey = 'all', page = 0
     `${buildIntroBaseCte()}
      select count(*)::int as total_count
      from intro_base
-     where ${whereClause}`
+     where ($1::bigint is null or requester_user_id = $1 or target_user_id = $1)
+       and ${whereClause}`,
+    [targetUserFilter]
   );
   const totalCount = totalCountResult.rows[0]?.total_count || 0;
   const offset = normalizedPage * normalizedPageSize;
@@ -1572,10 +2361,11 @@ export async function listAdminIntrosPage(client, { segmentKey = 'all', page = 0
     `${buildIntroBaseCte()}
      select *
      from intro_base
-     where ${whereClause}
+     where ($3::bigint is null or requester_user_id = $3 or target_user_id = $3)
+       and ${whereClause}
      order by updated_at desc, intro_request_id desc
      limit $1 offset $2`,
-    [normalizedPageSize + 1, offset]
+    [normalizedPageSize + 1, offset, targetUserFilter]
   );
 
   const rows = (result.rows || []).slice(0, normalizedPageSize);
@@ -1583,14 +2373,18 @@ export async function listAdminIntrosPage(client, { segmentKey = 'all', page = 0
     segmentKey: segment,
     page: normalizedPage,
     pageSize: normalizedPageSize,
+    targetUserId: targetUserFilter,
     totalCount,
     hasPrev: normalizedPage > 0,
     hasNext: offset + normalizedPageSize < totalCount,
     counts: {
       total: counts.total_count || 0,
       pending: counts.pending_count || 0,
+      pending24h: counts.pending_24h_count || 0,
       accepted: counts.accepted_count || 0,
+      acceptedRecent: counts.accepted_recent_count || 0,
       declined: counts.declined_count || 0,
+      declinedRecent: counts.declined_recent_count || 0,
       stale: counts.stale_count || 0,
       failedNotify: counts.failed_notify_count || 0
     },
@@ -1700,6 +2494,7 @@ export async function listAdminDeliveryPage(client, { segmentKey = 'all', page =
     page: normalizedPage,
     pageSize: normalizedPageSize,
     introRequestId: introFilter,
+    targetUserId: targetUserFilter,
     totalCount,
     hasPrev: normalizedPage > 0,
     hasNext: offset + normalizedPageSize < totalCount,

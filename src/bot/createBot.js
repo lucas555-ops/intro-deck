@@ -27,7 +27,7 @@ export async function createBot() {
   const bot = new Bot(botToken);
 
   const surfaces = createSurfaceBuilders({ appBaseUrl });
-  const adminSurfaces = createAdminSurfaceBuilders({ currentStep: 'STEP033' });
+  const adminSurfaces = createAdminSurfaceBuilders({ currentStep: 'STEP039' });
 
   bot.use(createHomeComposer({
     appBaseUrl,
@@ -65,7 +65,8 @@ export async function createBot() {
     buildAdminUserCardSurface: adminSurfaces.buildAdminUserCardSurface,
     buildAdminUserMessageSurface: adminSurfaces.buildAdminUserMessageSurface,
     buildAdminNoticeSurface: adminSurfaces.buildAdminNoticeSurface,
-    buildAdminBroadcastSurface: adminSurfaces.buildAdminBroadcastSurface
+    buildAdminBroadcastSurface: adminSurfaces.buildAdminBroadcastSurface,
+    buildAdminSearchResultsSurface: adminSurfaces.buildAdminSearchResultsSurface
   }));
 
   bot.use(createOperatorComposer({
@@ -94,11 +95,17 @@ export async function createBot() {
     buildAdminNoticeSurface: adminSurfaces.buildAdminNoticeSurface,
     buildAdminNoticeAudienceSurface: adminSurfaces.buildAdminNoticeAudienceSurface,
     buildAdminNoticePreviewSurface: adminSurfaces.buildAdminNoticePreviewSurface,
+    buildAdminNoticeTemplatePickerSurface: adminSurfaces.buildAdminNoticeTemplatePickerSurface,
     buildAdminBroadcastSurface: adminSurfaces.buildAdminBroadcastSurface,
     buildAdminBroadcastAudienceSurface: adminSurfaces.buildAdminBroadcastAudienceSurface,
     buildAdminBroadcastPreviewSurface: adminSurfaces.buildAdminBroadcastPreviewSurface,
+    buildAdminBroadcastTemplatePickerSurface: adminSurfaces.buildAdminBroadcastTemplatePickerSurface,
+    buildAdminTemplatesSurface: adminSurfaces.buildAdminTemplatesSurface,
+    buildAdminBroadcastFailuresSurface: adminSurfaces.buildAdminBroadcastFailuresSurface,
     buildAdminOutboxSurface: adminSurfaces.buildAdminOutboxSurface,
     buildAdminOutboxRecordSurface: adminSurfaces.buildAdminOutboxRecordSurface,
+    buildAdminSearchPromptSurface: adminSurfaces.buildAdminSearchPromptSurface,
+    buildAdminSearchResultsSurface: adminSurfaces.buildAdminSearchResultsSurface,
     buildAdminCommsEditPromptSurface: adminSurfaces.buildAdminCommsEditPromptSurface,
     buildAdminPlaceholderSurface: adminSurfaces.buildAdminPlaceholderSurface,
     buildOperatorOnlySurface: adminSurfaces.buildOperatorOnlySurface

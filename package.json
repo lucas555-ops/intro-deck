@@ -1,6 +1,6 @@
 {
   "name": "linkedin-telegram-directory-bot",
-  "version": "0.33.0",
+  "version": "0.39.0",
   "private": true,
   "type": "module",
   "packageManager": "npm@10.8.2",
@@ -57,7 +57,18 @@
     "smoke:admin-delivery": "node scripts/smoke_admin_delivery_contract.js",
     "smoke:admin-quality": "node scripts/smoke_admin_quality_contract.js",
     "smoke:audit-detail": "node scripts/smoke_audit_detail_contract.js",
-    "smoke:direct-message": "node scripts/smoke_direct_message_contract.js"
+    "smoke:direct-message": "node scripts/smoke_direct_message_contract.js",
+    "smoke:broadcast-batching": "node scripts/smoke_broadcast_batching_contract.js",
+    "smoke:broadcast-idempotency": "node scripts/smoke_broadcast_idempotency_contract.js",
+    "smoke:admin-polish": "node scripts/smoke_admin_polish_contract.js",
+    "smoke:admin-counters": "node scripts/smoke_admin_counters_contract.js",
+    "smoke:admin-segmentation": "node scripts/smoke_admin_segmentation_contract.js",
+    "smoke:admin-productivity": "node scripts/smoke_admin_productivity_contract.js",
+    "smoke:admin-trends": "node scripts/smoke_admin_trends_contract.js",
+    "smoke:notice-targeting": "node scripts/smoke_notice_targeting_contract.js",
+    "smoke:admin-templates": "node scripts/smoke_admin_templates_contract.js",
+    "smoke:admin-search": "node scripts/smoke_admin_search_contract.js",
+    "smoke:admin-search-results": "node scripts/smoke_admin_search_results_contract.js"
   },
   "dependencies": {
     "grammy": "1.41.1",

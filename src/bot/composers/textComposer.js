@@ -1,11 +1,11 @@
 import { Composer } from 'grammy';
 import { renderProfilePreviewKeyboard, renderProfileSavedNotice } from '../../lib/telegram/render.js';
 import { applyDirectoryFilterInputForTelegramUser } from '../../lib/storage/directoryFilterStore.js';
-import { applyAdminCommsTextInput, applyAdminUserNoteInput, loadAdminBroadcastState, loadAdminDirectMessageState, loadAdminNoticeState } from '../../lib/storage/adminStore.js';
+import { applyAdminCommsTextInput, applyAdminUserNoteInput, loadAdminBroadcastState, loadAdminDirectMessageState, loadAdminNoticeState, loadAdminSearchResults } from '../../lib/storage/adminStore.js';
 import { applyProfileFieldInput } from '../../lib/storage/profileEditStore.js';
 import { formatUserFacingError } from '../utils/notices.js';
 
-export function createTextComposer({ buildDirectoryFiltersSurface, buildAdminUserCardSurface, buildAdminUserMessageSurface, buildAdminNoticeSurface, buildAdminBroadcastSurface }) {
+export function createTextComposer({ buildDirectoryFiltersSurface, buildAdminUserCardSurface, buildAdminUserMessageSurface, buildAdminNoticeSurface, buildAdminBroadcastSurface, buildAdminSearchResultsSurface }) {
   const composer = new Composer();
 
   composer.on('message:text', async (ctx, next) => {
@@ -49,6 +49,22 @@ export function createTextComposer({ buildDirectoryFiltersSurface, buildAdminUse
           segmentKey: adminCommsResult.session?.segmentKey || 'all',
           page: adminCommsResult.session?.page || 0,
           notice: '✅ Direct message text saved.'
+        });
+        await ctx.reply(surface.text, { reply_markup: surface.reply_markup });
+        return;
+      }
+
+      if (String(adminCommsResult.session?.inputKind || '').startsWith('search_')) {
+        const scopeKey = String(adminCommsResult.session?.inputKind || '').replace(/^search_/, '');
+        const searchState = await loadAdminSearchResults({
+          operatorTelegramUserId: ctx.from.id,
+          scopeKey,
+          page: 0
+        }).catch(() => ({ persistenceEnabled: true, scopeKey, queryText: ctx.message.text, results: [], totalCount: 0, page: 0, pageSize: 8, hasPrev: false, hasNext: false }));
+        const surface = await buildAdminSearchResultsSurface({
+          scopeKey,
+          state: searchState,
+          notice: `✅ Search saved for “${ctx.message.text.trim()}”.`
         });
         await ctx.reply(surface.text, { reply_markup: surface.reply_markup });
         return;
