@@ -3,10 +3,10 @@
 ## Snapshot
 
 - Project: LinkedIn Telegram Directory Bot
-- Current STEP: STEP043.2
-- Phase: working product baseline + mature operator/admin layer + launch/ops runbook + freeze + live verification / rehearsal guidance
-- Primary mode: HARDENING / HANDOFF / LAUNCH-READINESS
-- Runtime status: source-clean STEP043.2 baseline with user-facing member flow, operator control plane, STEP040 analytics drilldowns, STEP041 guarded bulk actions, STEP042 read-only launch/freeze guidance, and STEP043.2 read-only live-verification / launch-rehearsal guidance; live status not confirmed — manual verification required
+- Current STEP: STEP045
+- Phase: identity uplift baseline + contact/DM monetization foundation planning
+- Primary mode: PRODUCT HARDENING / IDENTITY UPLIFT / MONETIZATION FOUNDATION
+- Runtime status: source-clean STEP045 baseline with LinkedIn OIDC identity auto-seed uplift layered on top of the existing member flow and operator/admin plane; live status not confirmed — manual verification required
 
 ## What exists now
 
@@ -17,15 +17,16 @@
 - Users, User Card, Notice, Broadcast, Outbox, Intros, Delivery, Quality, Audit
 - compact admin counters, trend summaries, funnel drilldowns
 - guarded bulk actions from user segments into Notice / Broadcast prep
-- read-only launch runbook and freeze guidance from the System hub
-- read-only live-verification and launch-rehearsal guidance from the System hub
+- STEP045 LinkedIn identity auto-seed uplift for name / given / family / picture / locale persistence
+- honest user-facing LinkedIn import summary and manual-fields reminder
 
 ## Current truth
 
-- LinkedIn login is identity bootstrap, not full professional import
+- LinkedIn login is still identity bootstrap, not full professional import
+- STEP045 auto-seeds only the safe identity layer and only seeds profile display name when the local card name is still empty
+- existing manual Telegram profile fields are preserved on reconnect
 - public browse still depends on listed + active truth
-- communications and bulk-prep flows are real in source, but deployment proof is not refreshed here
-- STEP042/STEP043.2 are operating/verification steps, not new product-domain steps
+- contact unlock / member DM / pricing analytics remain planned follow-up steps, not shipped in STEP045
 
 ## What must not break
 
@@ -40,8 +41,8 @@
 
 ## Next recommended step
 
-- execute the manual STEP043.2 verification + rehearsal pass on the deployed baseline
-- record an honest go / no-go note before any new feature scope
+- implement STEP046 — private Telegram handle + paid contact unlock v1
+- keep the rollout narrow: hidden handle, contact policy, paid request, owner approve/decline, controlled reveal
 
 ## STEP039.1 delta
 
@@ -65,9 +66,16 @@
 - System hub now exposes `Регламент запуска` and `Freeze`
 - release-readiness / handoff / roadmap / start-new-chat prompt aligned to STEP042
 
-## STEP043.2 delta
+## STEP043.1 delta
 
 - live-verification guidance added
 - launch-rehearsal guidance added
 - System hub now exposes `Live verification` and `Репетиция запуска`
 - verification playbook / rehearsal checklist / go-no-go template added
+
+## STEP045 delta
+
+- LinkedIn OIDC claims now normalize and persist basic identity fields more explicitly
+- profile draft seeding now fills display name only when the local card name is still empty/blank
+- callback success surfaces now state clearly that only the basic identity layer was imported
+- hidden/manual professional fields remain Telegram-managed and are not auto-scraped from LinkedIn

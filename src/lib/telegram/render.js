@@ -62,6 +62,21 @@ function readinessLine(profileSnapshot) {
   return 'Directory readiness: ready • currently hidden';
 }
 
+function linkedinIdentityImportLine(profileSnapshot) {
+  if (!profileSnapshot?.linkedin_sub) {
+    return null;
+  }
+
+  const imported = [];
+  if (profileSnapshot?.linkedin_name) imported.push('name');
+  if (profileSnapshot?.linkedin_picture_url) imported.push('photo');
+  if (profileSnapshot?.linkedin_locale) imported.push(`locale=${profileSnapshot.linkedin_locale}`);
+
+  return imported.length
+    ? `LinkedIn import: basic identity synced (${imported.join(' • ')})`
+    : 'LinkedIn import: basic identity synced';
+}
+
 function buildFieldStatusLines(profileSnapshot) {
   const completion = profileSnapshot?.completion;
   if (!completion?.fields?.length) {
@@ -398,6 +413,10 @@ export function renderHomeText({ profileSnapshot = null, persistenceEnabled = fa
   } else {
     const displayName = profileSnapshot.display_name || profileSnapshot.linkedin_name || 'Profile linked';
     lines.push(`Connected as: ${displayName}`);
+    const linkedInImportLine = linkedinIdentityImportLine(profileSnapshot);
+    if (linkedInImportLine) {
+      lines.push(linkedInImportLine);
+    }
     lines.push(`Profile status: ${profileSnapshot.profile_state || 'draft'} • ${profileSnapshot.visibility_status || 'hidden'}`);
     lines.push(completionLine(profileSnapshot));
     lines.push(readinessLine(profileSnapshot));
@@ -490,6 +509,10 @@ export function renderProfileMenuText({ profileSnapshot = null, persistenceEnabl
     lines.push('Connect LinkedIn first, then return here to complete your profile.');
   } else {
     lines.push(`Connected as: ${profileSnapshot.linkedin_name || profileSnapshot.display_name || 'LinkedIn user'}`);
+    const linkedInImportLine = linkedinIdentityImportLine(profileSnapshot);
+    if (linkedInImportLine) {
+      lines.push(linkedInImportLine);
+    }
     lines.push(`Card name: ${toDisplayValue(profileSnapshot.display_name)}`);
     lines.push(`Profile status: ${profileSnapshot.profile_state || 'draft'}`);
     lines.push(`Visibility: ${profileSnapshot.visibility_status || 'hidden'}`);

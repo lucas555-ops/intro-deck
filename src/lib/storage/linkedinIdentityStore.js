@@ -7,7 +7,7 @@ import {
   refreshLinkedInAccountBySub,
   upsertLinkedInAccount
 } from '../../db/linkedinRepo.js';
-import { ensureProfileDraft, hideProfileListingByUserId } from '../../db/profileRepo.js';
+import { ensureProfileDraft, getProfileSnapshotByUserId, hideProfileListingByUserId } from '../../db/profileRepo.js';
 import { createAdminAuditEvent } from '../../db/adminRepo.js';
 
 function buildRawIdentityPayload({ identity, rawTokenPayload, rawUserInfo, source = 'linkedin_oidc' }) {
@@ -16,6 +16,37 @@ function buildRawIdentityPayload({ identity, rawTokenPayload, rawUserInfo, sourc
     identity,
     token: rawTokenPayload || null,
     userinfo: rawUserInfo || null
+  };
+}
+
+function hasNonEmptyText(value) {
+  return typeof value === 'string' && value.trim().length > 0;
+}
+
+function collectIdentityImportedFields(identity = {}) {
+  const imported = [];
+  if (hasNonEmptyText(identity.linkedinSub)) imported.push('linkedin_sub');
+  if (hasNonEmptyText(identity.name)) imported.push('full_name');
+  if (hasNonEmptyText(identity.givenName)) imported.push('given_name');
+  if (hasNonEmptyText(identity.familyName)) imported.push('family_name');
+  if (hasNonEmptyText(identity.pictureUrl)) imported.push('picture_url');
+  if (hasNonEmptyText(identity.locale)) imported.push('locale');
+  if (hasNonEmptyText(identity.email)) imported.push('email');
+  return imported;
+}
+
+function buildProfileSeedMeta({ beforeProfile, afterProfile, identity }) {
+  const expectedDisplayName = typeof identity?.name === 'string' && identity.name.trim()
+    ? identity.name.trim()
+    : [identity?.givenName, identity?.familyName].filter((part) => typeof part === 'string' && part.trim()).join(' ').trim() || null;
+
+  const beforeDisplayName = hasNonEmptyText(beforeProfile?.display_name);
+  const afterDisplayName = hasNonEmptyText(afterProfile?.display_name) ? afterProfile.display_name.trim() : null;
+  const displayNameSeeded = !beforeDisplayName && Boolean(expectedDisplayName) && afterDisplayName === expectedDisplayName;
+
+  return {
+    displayNameSeeded,
+    seededFields: displayNameSeeded ? ['display_name'] : []
   };
 }
 
@@ -53,6 +84,7 @@ export async function persistLinkedInIdentity({
       source: transferMode === 'confirm' ? 'linkedin_oidc_transfer_confirmed' : 'linkedin_oidc'
     });
 
+    const identityImportedFields = collectIdentityImportedFields(identity);
     const existingBySub = await getLinkedInAccountBySub(client, identity.linkedinSub);
 
     if (existingBySub && String(existingBySub.user_id) !== String(user.id)) {
@@ -63,6 +95,7 @@ export async function persistLinkedInIdentity({
           transferRequired: true,
           user,
           identity,
+          identityImportedFields,
           conflict: {
             linkedinSub: existingBySub.linkedin_sub,
             fullName: existingBySub.full_name,
@@ -78,6 +111,7 @@ export async function persistLinkedInIdentity({
         await deleteLinkedInAccountByUserId(client, user.id);
       }
 
+      const profileBeforeSeed = await getProfileSnapshotByUserId(client, user.id);
       await hideProfileListingByUserId(client, existingBySub.user_id);
 
       const linkedinAccount = await refreshLinkedInAccountBySub(client, {
@@ -91,6 +125,11 @@ export async function persistLinkedInIdentity({
         userId: user.id,
         identity
       });
+      const profileSeed = buildProfileSeedMeta({
+        beforeProfile: profileBeforeSeed,
+        afterProfile: profileDraft,
+        identity
+      });
 
       await createAdminAuditEvent(client, {
         eventType: 'linkedin_relink_transferred',
@@ -100,11 +139,13 @@ export async function persistLinkedInIdentity({
         summary: 'LinkedIn connection moved to a new Telegram account.',
         detail: {
           linkedinSub: identity.linkedinSub,
-          fullName: identity.fullName || existingBySub.full_name || null,
+          fullName: identity.name || existingBySub.full_name || null,
           previousTelegramUserId: existingBySub.telegram_user_id || null,
           previousTelegramUsername: existingBySub.telegram_username || null,
           newTelegramUserId: telegramUserId,
-          newTelegramUsername: telegramUsername || null
+          newTelegramUsername: telegramUsername || null,
+          identityImportedFields,
+          profileSeed
         }
       });
 
@@ -115,6 +156,8 @@ export async function persistLinkedInIdentity({
         user,
         linkedinAccount,
         profileDraft,
+        profileSeed,
+        identityImportedFields,
         previousOwner: {
           userId: existingBySub.user_id,
           telegramUserId: existingBySub.telegram_user_id,
@@ -123,6 +166,8 @@ export async function persistLinkedInIdentity({
         }
       };
     }
+
+    const profileBeforeSeed = await getProfileSnapshotByUserId(client, user.id);
 
     const linkedinAccount = existingBySub
       ? await refreshLinkedInAccountBySub(client, {
@@ -141,6 +186,11 @@ export async function persistLinkedInIdentity({
       userId: user.id,
       identity
     });
+    const profileSeed = buildProfileSeedMeta({
+      beforeProfile: profileBeforeSeed,
+      afterProfile: profileDraft,
+      identity
+    });
 
     return {
       persisted: true,
@@ -149,7 +199,9 @@ export async function persistLinkedInIdentity({
         : 'LinkedIn identity persisted and profile draft ensured',
       user,
       linkedinAccount,
-      profileDraft
+      profileDraft,
+      profileSeed,
+      identityImportedFields
     };
   });
 }

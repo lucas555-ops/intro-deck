@@ -32,7 +32,8 @@ Source baseline already includes the corridor through:
 - STEP040 Russian admin analytics drilldowns + funnel readouts
 - STEP041 safe bulk actions for segment-based Notice/Broadcast prep
 - STEP042 launch/operator runbook + freeze discipline
-- STEP043.2 live-verification + launch-rehearsal guidance
+- STEP043.1 live-verification + launch-rehearsal guidance
+- STEP045 LinkedIn identity auto-seed uplift
 
 ## What must not break
 
@@ -47,10 +48,15 @@ Source baseline already includes the corridor through:
 
 ## Current layer
 
-The project is now in a **launch-readiness / verification** layer.
+The project is now in a **product hardening / identity uplift / monetization foundation** layer.
 Do not jump into broad new product scope.
-The immediate move is not a new feature STEP.
-The immediate move is to execute the manual STEP043.2 verification/rehearsal pass and record an honest go/no-go.
+The immediate move after STEP045 is to keep shipping narrowly:
+- STEP046 private handle + paid contact unlock
+- STEP047 gated DM relay
+- STEP048 pricing / analytics / ops
+
+Do not introduce broad LinkedIn scraping.
+Keep LinkedIn as identity bootstrap and keep manual profile fields Telegram-managed unless a new contract says otherwise.
 
 ## First useful reply format
 

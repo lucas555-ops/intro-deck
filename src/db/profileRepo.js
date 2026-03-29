@@ -99,7 +99,10 @@ export async function ensureProfileDraft(client, { userId, identity }) {
       values ($1, $2, $3, $4, $5)
       on conflict (user_id)
       do update set
-        display_name = coalesce(member_profiles.display_name, excluded.display_name),
+        display_name = case
+          when nullif(btrim(member_profiles.display_name), '') is null then excluded.display_name
+          else member_profiles.display_name
+        end,
         updated_at = now()
     `,
     [userId, seed.displayName, seed.visibilityStatus, seed.contactMode, seed.profileState]
@@ -120,8 +123,12 @@ export async function getProfileSnapshotByUserId(client, userId) {
         u.last_seen_at,
         la.linkedin_sub,
         la.full_name as linkedin_name,
+        la.given_name as linkedin_given_name,
+        la.family_name as linkedin_family_name,
         la.email as linkedin_email,
         la.picture_url as linkedin_picture_url,
+        la.locale as linkedin_locale,
+        la.last_refresh_at as linkedin_last_refresh_at,
         mp.id as profile_id,
         mp.display_name,
         mp.headline_user,
@@ -158,8 +165,12 @@ export async function getProfileSnapshotByTelegramUserId(client, telegramUserId)
         u.last_seen_at,
         la.linkedin_sub,
         la.full_name as linkedin_name,
+        la.given_name as linkedin_given_name,
+        la.family_name as linkedin_family_name,
         la.email as linkedin_email,
         la.picture_url as linkedin_picture_url,
+        la.locale as linkedin_locale,
+        la.last_refresh_at as linkedin_last_refresh_at,
         mp.id as profile_id,
         mp.display_name,
         mp.headline_user,

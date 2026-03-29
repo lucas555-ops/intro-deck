@@ -9,6 +9,8 @@ import {
 } from '../../../src/lib/linkedin/oidc.js';
 import {
   buildConnectedSummary,
+  buildIdentityImportSummary,
+  buildManualProfileFieldsReminder,
   buildPersistenceSummary,
   pickLinkedInIdentityClaims
 } from '../../../src/lib/linkedin/profile.js';
@@ -153,10 +155,15 @@ async function notifyTelegramConnectionResult({ statePayload, identity, persistR
       successText,
       '',
       buildConnectedSummary(identity) || 'Minimal identity extracted.',
+      buildIdentityImportSummary(identity),
       buildPersistenceSummary(persistResult),
+      persistResult?.profileSeed?.displayNameSeeded
+        ? 'Display name was seeded from your LinkedIn identity because your card name was still empty.'
+        : 'Existing manual card fields were kept as-is.',
+      buildManualProfileFieldsReminder(),
       persistResult?.transferred
         ? 'The previous Telegram account was disconnected, and its public listing was hidden.'
-        : 'Open the profile editor in Telegram to complete your card.'
+        : 'Open the profile editor in Telegram to review and finish your card.'
     ].join('\n'),
     replyMarkup: {
       inline_keyboard: [
@@ -192,17 +199,21 @@ async function notifyPreviousOwnerIfTransferred({ persistResult }) {
 function renderPersistenceSuccessPage({ identity, persistResult }) {
   const summary = buildConnectedSummary(identity) || 'Minimal identity extracted';
   const persistenceSummary = buildPersistenceSummary(persistResult);
+  const importSummary = buildIdentityImportSummary(identity);
+  const manualFieldsReminder = buildManualProfileFieldsReminder();
   const title = persistResult?.transferred ? 'LinkedIn connection moved' : 'LinkedIn connected';
   const bodyText = persistResult?.transferred
     ? '<p>You can return to Telegram now. The previous Telegram account was disconnected and hidden from the public directory.</p>'
-    : '<p>You can return to Telegram now and finish your profile.</p>';
+    : '<p>You can return to Telegram now and review your profile in Telegram.</p>';
 
   return renderHtml({
     title,
     body: `
       <h1>${escapeHtml(title)}</h1>
       <p>${escapeHtml(summary)}</p>
+      <p>${escapeHtml(importSummary)}</p>
       <p>${escapeHtml(persistenceSummary)}</p>
+      <p>${escapeHtml(manualFieldsReminder)}</p>
       ${bodyText}
     `
   });

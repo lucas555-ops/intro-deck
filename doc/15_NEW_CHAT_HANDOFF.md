@@ -3,9 +3,9 @@
 ## Executive summary
 
 - Project: LinkedIn Telegram Directory Bot
-- Current baseline: STEP043.2
-- Current mode: HARDENING / HANDOFF / LAUNCH-READINESS
-- Current focus: execute manual live verification + launch rehearsal on the deployed baseline without widening scope
+- Current baseline: STEP045
+- Current mode: PRODUCT HARDENING / IDENTITY UPLIFT / MONETIZATION FOUNDATION
+- Current focus: keep LinkedIn identity bootstrap clean, preserve manual profile edits, and use STEP045 as the narrow base for STEP046 paid contact unlock
 - Must not break: LinkedIn OIDC truth, webhook secret guard, router contract, listed/active browse truth, intro persistence, communications/outbox truth, operator allowlist gating
 
 ## Source-confirmed
@@ -14,34 +14,39 @@
 - STEP040 Russian admin analytics drilldowns exist in source
 - STEP041 safe bulk actions exist in source
 - STEP042 launch runbook and freeze policy exist in source
-- STEP043.2 live-verification and rehearsal guidance now exist in source
-- System hub exposes read-only `adm:runbook`, `adm:freeze`, `adm:verify`, and `adm:rehearse`
+- STEP043.1 live-verification and rehearsal guidance exist in source
+- STEP045 LinkedIn identity auto-seed uplift now exists in source
+- LinkedIn callback/user notification copy now explicitly says only the basic identity layer was imported
+- profile draft seeding now preserves existing manual display name values on reconnect
 
 ## Live-confirmed
 
 - syntax/smoke can be run from repo
 - docs canon exists
-- public landing is reachable at the production domain when checked externally
+- source-level STEP045 checks pass locally
 
 ## Inference
 
-- the next safe move is a manual verification pass and honest go/no-go, not a new feature step
+- the next safe product step is STEP046 private handle + paid contact unlock, not broad LinkedIn scraping
+- the strongest monetization rail remains gated outbound contact access, not public contact dumping
 
 ## Blocked / unconfirmed
 
 - fresh production `/api/health` / `/api/health?full=1` verification is not closed here
-- real deployed LinkedIn callback verification is not closed here
-- real deployed direct message / notice / broadcast rehearsal is not closed here
+- real deployed LinkedIn callback verification for STEP045 copy/seed behavior is not closed here
+- direct paid contact unlock / member DM / subscription analytics are not implemented yet
 
 ## Required wording
 
 When deployment proof is missing, say exactly:
 - **live status not confirmed — manual verification required**
 
-## Verification/freeze source docs
+When contract certainty is missing, say exactly:
+- **contract not confirmed — SPIKE required**
 
-- `doc/73_LAUNCH_OPS_RUNBOOK_V1.md`
-- `doc/74_LAUNCH_FREEZE_POLICY_V1.md`
-- `doc/76_LIVE_VERIFICATION_PLAYBOOK_V1.md`
-- `doc/77_LAUNCH_REHEARSAL_CHECKLIST_V1.md`
-- `doc/78_GO_NO_GO_VERDICT_TEMPLATE_V1.md`
+## Key source docs
+
+- `doc/00_CURRENT_STATE.md`
+- `doc/spec/STEP045_LINKEDIN_IDENTITY_AUTO_SEED_UPLIFT.md`
+- `doc/process/07_WORK_HISTORY_STEP045.md`
+- `doc/17_START_NEW_CHAT_PROMPT_LINKEDIN_DIRECTORY_BOT.md`
