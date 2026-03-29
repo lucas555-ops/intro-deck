@@ -7,13 +7,7 @@ import {
   validateIdToken,
   verifySignedState
 } from '../../../src/lib/linkedin/oidc.js';
-import {
-  buildConnectedSummary,
-  buildIdentityImportSummary,
-  buildManualProfileFieldsReminder,
-  buildPersistenceSummary,
-  pickLinkedInIdentityClaims
-} from '../../../src/lib/linkedin/profile.js';
+import { pickLinkedInIdentityClaims } from '../../../src/lib/linkedin/profile.js';
 import { persistLinkedInIdentity } from '../../../src/lib/storage/linkedinIdentityStore.js';
 import { sendTelegramMessage } from '../../../src/lib/telegram/botApi.js';
 
@@ -142,29 +136,116 @@ function buildTransferConfirmationBody({ transferUrl, identity, previousTelegram
   `;
 }
 
-async function notifyTelegramConnectionResult({ statePayload, identity, persistResult }) {
-  const { botToken } = getTelegramConfig();
-  const successText = persistResult?.transferred
+
+function buildIdentityDetailLines(identity) {
+  const lines = [];
+
+  if (identity?.name) {
+    lines.push(`• Name: ${identity.name}`);
+  }
+  if (identity?.givenName) {
+    lines.push(`• Given name: ${identity.givenName}`);
+  }
+  if (identity?.familyName) {
+    lines.push(`• Family name: ${identity.familyName}`);
+  }
+  if (identity?.pictureUrl) {
+    lines.push('• Photo: imported');
+  }
+  if (identity?.locale) {
+    lines.push(`• Locale: ${identity.locale}`);
+  }
+  if (identity?.email) {
+    lines.push(`• Email: ${identity.email}`);
+  }
+
+  return lines;
+}
+
+function buildPersistenceDetailLines(persistResult) {
+  const lines = ['• Identity binding: saved'];
+
+  if (Array.isArray(persistResult?.identityImportedFields) && persistResult.identityImportedFields.length > 0) {
+    lines.push(`• Imported fields: ${persistResult.identityImportedFields.length}`);
+  }
+  if (persistResult?.profileDraft?.profile_state) {
+    lines.push(`• Profile state: ${persistResult.profileDraft.profile_state}`);
+  }
+  if (persistResult?.profileDraft?.visibility_status) {
+    lines.push(`• Visibility: ${persistResult.profileDraft.visibility_status}`);
+  }
+  if (persistResult?.profileSeed?.displayNameSeeded) {
+    lines.push('• Display name: seeded from LinkedIn because your card name was still empty');
+  } else {
+    lines.push('• Manual card fields: kept as-is');
+  }
+
+  return lines;
+}
+
+function buildEditableFieldsLines() {
+  return [
+    '• Headline',
+    '• Company',
+    '• City',
+    '• Industry',
+    '• About',
+    '• Skills',
+    '• Public LinkedIn URL'
+  ];
+}
+
+function buildTelegramConnectionResultText({ identity, persistResult }) {
+  const header = persistResult?.transferred
     ? '✅ LinkedIn connection moved to this Telegram account.'
     : '✅ LinkedIn connected.';
+
+  const nextStepLine = persistResult?.transferred
+    ? '• The previous Telegram account was disconnected, and its public listing was hidden.'
+    : '• Open the profile editor in Telegram to review and finish your card.';
+
+  return [
+    header,
+    '',
+    '🔗 LinkedIn import',
+    ...buildIdentityDetailLines(identity),
+    '',
+    '💾 Saved in Intro Deck',
+    ...buildPersistenceDetailLines(persistResult),
+    '',
+    '✍️ Still editable in Telegram',
+    ...buildEditableFieldsLines(),
+    '',
+    '➡️ Next',
+    nextStepLine
+  ].join('\n');
+}
+
+function buildPreviousOwnerTransferText() {
+  return [
+    '⚠️ Your LinkedIn connection was moved to another Telegram account.',
+    '',
+    'What changed',
+    '• This Telegram account no longer holds that LinkedIn identity.',
+    '• Your previous public directory listing was hidden on this account.',
+    '',
+    '➡️ Next',
+    '• Return to Home if you want to reconnect a different LinkedIn account.'
+  ].join('\n');
+}
+
+function buildHtmlList(lines) {
+  return `<ul>${lines.map((line) => `<li>${escapeHtml(line)}</li>`).join('')}</ul>`;
+}
+
+async function notifyTelegramConnectionResult({ statePayload, identity, persistResult }) {
+  const { botToken } = getTelegramConfig();
 
   await sendTelegramMessage({
     botToken,
     chatId: statePayload.telegramUserId,
-    text: [
-      successText,
-      '',
-      buildConnectedSummary(identity) || 'Minimal identity extracted.',
-      buildIdentityImportSummary(identity),
-      buildPersistenceSummary(persistResult),
-      persistResult?.profileSeed?.displayNameSeeded
-        ? 'Display name was seeded from your LinkedIn identity because your card name was still empty.'
-        : 'Existing manual card fields were kept as-is.',
-      buildManualProfileFieldsReminder(),
-      persistResult?.transferred
-        ? 'The previous Telegram account was disconnected, and its public listing was hidden.'
-        : 'Open the profile editor in Telegram to review and finish your card.'
-    ].join('\n'),
+    text: buildTelegramConnectionResultText({ identity, persistResult }),
+    parseMode: null,
     replyMarkup: {
       inline_keyboard: [
         [{ text: '🧩 Complete profile', callback_data: 'p:menu' }],
@@ -183,11 +264,8 @@ async function notifyPreviousOwnerIfTransferred({ persistResult }) {
   await sendTelegramMessage({
     botToken,
     chatId: persistResult.previousOwner.telegramUserId,
-    text: [
-      '⚠️ Your LinkedIn connection was moved to another Telegram account.',
-      '',
-      'Your previous directory listing was hidden on this Telegram account.'
-    ].join('\n'),
+    text: buildPreviousOwnerTransferText(),
+    parseMode: null,
     replyMarkup: {
       inline_keyboard: [
         [{ text: '🏠 Home', callback_data: 'home:root' }]
@@ -197,24 +275,29 @@ async function notifyPreviousOwnerIfTransferred({ persistResult }) {
 }
 
 function renderPersistenceSuccessPage({ identity, persistResult }) {
-  const summary = buildConnectedSummary(identity) || 'Minimal identity extracted';
-  const persistenceSummary = buildPersistenceSummary(persistResult);
-  const importSummary = buildIdentityImportSummary(identity);
-  const manualFieldsReminder = buildManualProfileFieldsReminder();
   const title = persistResult?.transferred ? 'LinkedIn connection moved' : 'LinkedIn connected';
-  const bodyText = persistResult?.transferred
-    ? '<p>You can return to Telegram now. The previous Telegram account was disconnected and hidden from the public directory.</p>'
-    : '<p>You can return to Telegram now and review your profile in Telegram.</p>';
+  const importedLines = buildIdentityDetailLines(identity);
+  const persistenceLines = buildPersistenceDetailLines(persistResult);
+  const editableLines = buildEditableFieldsLines();
+  const nextLines = persistResult?.transferred
+    ? [
+        'The previous Telegram account was disconnected and hidden from the public directory.',
+        'You can return to Telegram now.'
+      ]
+    : ['You can return to Telegram now and review your profile in Telegram.'];
 
   return renderHtml({
     title,
     body: `
       <h1>${escapeHtml(title)}</h1>
-      <p>${escapeHtml(summary)}</p>
-      <p>${escapeHtml(importSummary)}</p>
-      <p>${escapeHtml(persistenceSummary)}</p>
-      <p>${escapeHtml(manualFieldsReminder)}</p>
-      ${bodyText}
+      <h2>LinkedIn import</h2>
+      ${buildHtmlList(importedLines.length ? importedLines : ['Basic LinkedIn identity imported'])}
+      <h2>Saved in Intro Deck</h2>
+      ${buildHtmlList(persistenceLines)}
+      <h2>Still editable in Telegram</h2>
+      ${buildHtmlList(editableLines)}
+      <h2>Next</h2>
+      ${buildHtmlList(nextLines)}
     `
   });
 }

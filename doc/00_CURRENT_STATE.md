@@ -3,10 +3,10 @@
 ## Snapshot
 
 - Project: LinkedIn Telegram Directory Bot
-- Current STEP: STEP048
+- Current STEP: STEP048.2
 - Phase: pricing / analytics / ops baseline
 - Primary mode: PRODUCT HARDENING / IDENTITY UPLIFT / MONETIZATION FOUNDATION
-- Runtime status: source-clean STEP048 baseline with LinkedIn OIDC identity auto-seed uplift, paid direct-contact unlock, gated member DM relay, Pro pricing surface, receipt persistence, and admin monetization counters layered on top of the existing member flow and operator/admin plane; live status not confirmed — manual verification required
+- Runtime status: source-clean STEP048.2 baseline with LinkedIn OIDC identity auto-seed uplift, paid direct-contact unlock, gated member DM relay, Pro pricing surface, receipt persistence, admin monetization counters, and structured LinkedIn transfer/connect copy layered on top of the existing member flow and operator/admin plane; live status not confirmed — manual verification required
 
 ## What exists now
 
@@ -33,6 +33,7 @@
 - STEP046 ships hidden Telegram handle + paid direct contact requests with owner approval
 - STEP047 now ships the narrow DM request + active thread path
 - STEP048 pricing / analytics / ops now ships in source: Pro subscription invoice path, receipt persistence, entitlement checks, and admin monetization counters
+- STEP048.2 adds structured LinkedIn transfer/connect copy for Telegram and callback confirmation surfaces
 
 ## What must not break
 
@@ -47,7 +48,8 @@
 
 ## Next recommended step
 
-- run manual live verification for STEP048 end-to-end
+- run manual live verification for STEP048 monetization flows end-to-end
+- verify LinkedIn transfer/connect copy on both Telegram and callback confirmation surfaces
 - verify production Telegram Stars flows for: Pro monthly, paid direct contact, paid DM, and Pro-covered no-invoice paths
 - keep rollout narrow: verify counters, receipts, and admin monetization truth before any new pricing expansion
 
@@ -111,3 +113,10 @@
 - `member_subscriptions` + `purchase_receipts` persistence added
 - active Pro now covers direct-contact and DM outbound action fees while subscription is active
 - compact Russian admin monetization hub added with revenue, funnel, abuse, and recent receipt visibility
+
+
+## STEP048.2 delta
+
+- reorganized LinkedIn connection result copy into clear sections for Telegram notifications
+- reorganized callback success page into structured blocks: import, saved state, editable fields, next
+- preserved existing connect/transfer behavior without changing identity or transfer rules

@@ -3,9 +3,9 @@
 ## Executive summary
 
 - Project: LinkedIn Telegram Directory Bot
-- Current baseline: STEP048
+- Current baseline: STEP048.2
 - Current mode: PRODUCT HARDENING / IDENTITY UPLIFT / CONTACT + DM MONETIZATION + OPS BASELINE
-- Current focus: keep LinkedIn identity bootstrap clean, preserve manual profile edits, and verify the newly shipped STEP048 pricing / analytics / ops layer honestly in production
+- Current focus: keep LinkedIn identity bootstrap clean, preserve manual profile edits, and verify the shipped STEP048 pricing / analytics / ops layer honestly in production and keep the new LinkedIn transfer/connect copy surfaces clean
 - Must not break: LinkedIn OIDC truth, webhook secret guard, router contract, listed/active browse truth, intro persistence, communications/outbox truth, operator allowlist gating
 
 ## Source-confirmed
@@ -19,6 +19,7 @@
 - STEP046 private handle + paid contact unlock now exists in source
 - STEP047 gated member DM relay now exists in source
 - STEP048 Pro pricing surface, receipt persistence, entitlement checks, and admin monetization hub now exist in source
+- STEP048.2 copy polish now structures LinkedIn connect/transfer results cleanly in Telegram and callback confirmation pages
 - LinkedIn callback/user notification copy now explicitly says only the basic identity layer was imported
 - profile draft seeding now preserves existing manual display name values on reconnect
 - profile-level hidden Telegram username and direct-contact approval flow now exist in source
@@ -27,11 +28,11 @@
 
 - syntax/smoke can be run from repo
 - docs canon exists
-- source-level STEP048 checks pass locally
+- source-level STEP048.2 checks pass locally
 
 ## Inference
 
-- the next safe step is not another broad feature block but live verification and controlled rollout of STEP048
+- the next safe step is not another broad feature block but live verification and controlled rollout of STEP048 monetization + transfer flows
 - the strongest monetization rails now are: Pro monthly, paid direct-contact requests, and gated DM initiation
 
 ## Blocked / unconfirmed
@@ -63,4 +64,5 @@ When contract certainty is missing, say exactly:
 - `doc/process/07_WORK_HISTORY_STEP046.md`
 - `doc/process/07_WORK_HISTORY_STEP047.md`
 - `doc/process/07_WORK_HISTORY_STEP048.md`
+- `doc/process/07_WORK_HISTORY_STEP048_2.md`
 - `doc/17_START_NEW_CHAT_PROMPT_LINKEDIN_DIRECTORY_BOT.md`

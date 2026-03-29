@@ -1,6 +1,6 @@
 {
   "name": "linkedin-telegram-directory-bot",
-  "version": "0.48.0",
+  "version": "0.48.2",
   "private": true,
   "type": "module",
   "packageManager": "npm@10.8.2",
@@ -82,7 +82,8 @@
     "smoke:dm-relay": "node scripts/smoke_dm_relay_contract.js",
     "smoke:dm-payments": "node scripts/smoke_dm_payments_contract.js",
     "smoke:pricing": "node scripts/smoke_pricing_contract.js",
-    "smoke:admin-monetization": "node scripts/smoke_admin_monetization_contract.js"
+    "smoke:admin-monetization": "node scripts/smoke_admin_monetization_contract.js",
+    "smoke:linkedin-transfer-copy": "node scripts/smoke_linkedin_transfer_copy_contract.js"
   },
   "dependencies": {
     "grammy": "1.41.1",

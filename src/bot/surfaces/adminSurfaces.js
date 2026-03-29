@@ -1813,7 +1813,7 @@ function buildAdminBulkActionsKeyboard({ state = null, page = 0 } = {}) {
   return buildInlineKeyboard(rows);
 }
 
-export function createAdminSurfaceBuilders({ currentStep = 'STEP048' } = {}) {
+export function createAdminSurfaceBuilders({ currentStep = 'STEP048.2' } = {}) {
   return {
     buildAdminHomeSurface: async ({ summary = null } = {}) => ({
       text: buildAdminHomeText({ summary }),

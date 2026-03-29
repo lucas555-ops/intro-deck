@@ -30,7 +30,7 @@ export async function createBot() {
   const bot = new Bot(botToken);
 
   const surfaces = createSurfaceBuilders({ appBaseUrl });
-  const adminSurfaces = createAdminSurfaceBuilders({ currentStep: 'STEP048' });
+  const adminSurfaces = createAdminSurfaceBuilders({ currentStep: 'STEP048.2' });
 
   bot.use(createHomeComposer({
     appBaseUrl,
