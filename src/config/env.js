@@ -11,6 +11,7 @@ const DEFAULT_NOTIFICATION_RETRY_CLAIM_TIMEOUT_SECONDS = 60;
 const DEFAULT_NOTIFICATION_MAX_ATTEMPTS = 3;
 const DEFAULT_NOTIFICATION_RECEIPT_DIAGNOSTICS_LIMIT = 20;
 const DEFAULT_CONTACT_UNLOCK_PRICE_STARS = 75;
+const DEFAULT_DM_OPEN_PRICE_STARS = 100;
 
 function readEnv(name, fallback = undefined) {
   const value = process.env[name] ?? fallback;
@@ -132,7 +133,8 @@ export function getNotificationOpsConfig() {
 
 export function getPricingConfig() {
   return {
-    contactUnlockPriceStars: readIntegerEnv('CONTACT_UNLOCK_PRICE_STARS', DEFAULT_CONTACT_UNLOCK_PRICE_STARS)
+    contactUnlockPriceStars: readIntegerEnv('CONTACT_UNLOCK_PRICE_STARS', DEFAULT_CONTACT_UNLOCK_PRICE_STARS),
+    dmOpenPriceStars: readIntegerEnv('DM_OPEN_PRICE_STARS', DEFAULT_DM_OPEN_PRICE_STARS)
   };
 }
 
@@ -203,6 +205,7 @@ export function getPublicFlags() {
     notificationOpsConfigured: dbConfig.configured && Boolean(readEnv('NOTIFICATION_OPS_SECRET')),
     operatorDiagnosticsSurfaceConfigured: dbConfig.configured && Boolean(readEnv('NOTIFICATION_OPS_SECRET')) && getOperatorConfig().operatorTelegramUserIds.length > 0
 ,
-    contactUnlockConfigured: dbConfig.configured && Boolean(readEnv('TELEGRAM_BOT_TOKEN'))
+    contactUnlockConfigured: dbConfig.configured && Boolean(readEnv('TELEGRAM_BOT_TOKEN')),
+    dmRelayConfigured: dbConfig.configured && Boolean(readEnv('TELEGRAM_BOT_TOKEN'))
   };
 }

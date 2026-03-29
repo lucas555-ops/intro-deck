@@ -2,6 +2,7 @@ import { Bot } from 'grammy';
 import { getAppConfig, getTelegramConfig } from '../config/env.js';
 import { createContactUnlockComposer } from './composers/contactUnlockComposer.js';
 import { createDirectoryComposer } from './composers/directoryComposer.js';
+import { createDmComposer } from './composers/dmComposer.js';
 import { createHomeComposer } from './composers/homeComposer.js';
 import { createIntroComposer } from './composers/introComposer.js';
 import { createOperatorComposer } from './composers/operatorComposer.js';
@@ -28,7 +29,7 @@ export async function createBot() {
   const bot = new Bot(botToken);
 
   const surfaces = createSurfaceBuilders({ appBaseUrl });
-  const adminSurfaces = createAdminSurfaceBuilders({ currentStep: 'STEP046' });
+  const adminSurfaces = createAdminSurfaceBuilders({ currentStep: 'STEP047' });
 
   bot.use(createHomeComposer({
     appBaseUrl,
@@ -42,6 +43,12 @@ export async function createBot() {
     clearAllPendingInputs,
     buildContactUnlockDetailSurface: surfaces.buildContactUnlockDetailSurface,
     buildIntroInboxSurface: surfaces.buildIntroInboxSurface
+  }));
+
+  bot.use(createDmComposer({
+    clearAllPendingInputs,
+    buildDmInboxSurface: surfaces.buildDmInboxSurface,
+    buildDmThreadSurface: surfaces.buildDmThreadSurface
   }));
 
   bot.use(createIntroComposer({
@@ -74,7 +81,8 @@ export async function createBot() {
     buildAdminUserMessageSurface: adminSurfaces.buildAdminUserMessageSurface,
     buildAdminNoticeSurface: adminSurfaces.buildAdminNoticeSurface,
     buildAdminBroadcastSurface: adminSurfaces.buildAdminBroadcastSurface,
-    buildAdminSearchResultsSurface: adminSurfaces.buildAdminSearchResultsSurface
+    buildAdminSearchResultsSurface: adminSurfaces.buildAdminSearchResultsSurface,
+    buildDmThreadSurface: surfaces.buildDmThreadSurface
   }));
 
   bot.use(createOperatorComposer({

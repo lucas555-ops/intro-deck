@@ -34,6 +34,9 @@ Source baseline already includes the corridor through:
 - STEP042 launch/operator runbook + freeze discipline
 - STEP043.1 live-verification + launch-rehearsal guidance
 - STEP045 LinkedIn identity auto-seed uplift
+- STEP046 hidden Telegram handle + paid direct contact unlock
+- STEP047 gated member DM relay
+- STEP045 LinkedIn identity auto-seed uplift
 - STEP046 private handle + paid contact unlock
 
 ## What must not break

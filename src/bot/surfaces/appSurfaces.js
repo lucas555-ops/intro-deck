@@ -3,6 +3,7 @@ import { loadDirectoryCard, loadDirectoryPage } from '../../lib/storage/director
 import { loadDirectoryFilterState } from '../../lib/storage/directoryFilterStore.js';
 import { loadIntroInboxState, loadIntroRequestDetailForTelegramUser } from '../../lib/storage/introRequestStore.js';
 import { loadContactUnlockInboxState, loadContactUnlockRequestDetailForTelegramUser } from '../../lib/storage/contactUnlockStore.js';
+import { loadDmInboxState, loadDmThreadDetailForTelegramUser } from '../../lib/storage/dmStore.js';
 import { touchTelegramUserAndLoadProfile } from '../../lib/storage/profileStore.js';
 import { loadNotificationOperatorSurface } from '../../lib/storage/notificationStore.js';
 import { loadProfileEditorState } from '../../lib/storage/profileEditStore.js';
@@ -14,12 +15,13 @@ function fallbackRenderHelpText() {
   return [
     '❓ Help',
     '',
-    'Use Intro Deck to connect your LinkedIn identity, complete a concise profile inside Telegram, browse listed professionals, and manage your intro inbox.',
+    'Use Intro Deck to connect your LinkedIn identity, complete a concise profile inside Telegram, browse listed professionals, manage your intro inbox, and review gated DM requests.',
     '',
     'Shortcuts:',
     '• /profile — open your profile',
     '• /browse — browse the directory',
     '• /inbox — open your intro inbox',
+    '• /dm — open your DM inbox',
     '• /menu — return home'
   ].join('\n');
 }
@@ -30,6 +32,7 @@ function fallbackRenderHelpKeyboard() {
       [{ text: '🧩 Profile', callback_data: 'p:menu' }],
       [{ text: '🌐 Browse directory', callback_data: 'dir:list:0' }],
       [{ text: '📥 Intro inbox', callback_data: 'intro:inbox' }],
+      [{ text: '💬 DM inbox', callback_data: 'dm:inbox' }],
       [{ text: '🏠 Home', callback_data: 'home:root' }]
     ]
   };
@@ -48,6 +51,10 @@ const renderIntroDetailText = render.renderIntroDetailText;
 const renderIntroInboxKeyboard = render.renderIntroInboxKeyboard;
 const renderIntroInboxText = render.renderIntroInboxText;
 const renderDirectoryListKeyboard = render.renderDirectoryListKeyboard;
+const renderDmInboxKeyboard = render.renderDmInboxKeyboard;
+const renderDmInboxText = render.renderDmInboxText;
+const renderDmThreadKeyboard = render.renderDmThreadKeyboard;
+const renderDmThreadText = render.renderDmThreadText;
 const renderDirectoryListText = render.renderDirectoryListText;
 const renderHomeKeyboard = render.renderHomeKeyboard;
 const renderHomeText = render.renderHomeText;
@@ -400,6 +407,59 @@ async function buildDirectoryCardSurface(ctx, profileId, page = 0, notice = null
     };
   }
 
+
+  async function buildDmInboxSurface(ctx, notice = null) {
+    const state = await loadDmInboxState({
+      telegramUserId: ctx.from.id,
+      telegramUsername: ctx.from.username || null
+    }).catch((error) => {
+      console.warn('[dm inbox] load failed', error?.message || error);
+      return {
+        persistenceEnabled: false,
+        inbox: null,
+        reason: 'dm_inbox_load_failed'
+      };
+    });
+
+    return {
+      text: renderDmInboxText({
+        persistenceEnabled: state.persistenceEnabled,
+        inboxState: state.inbox,
+        notice
+      }),
+      reply_markup: renderDmInboxKeyboard({
+        inboxState: state.inbox
+      })
+    };
+  }
+
+  async function buildDmThreadSurface(ctx, threadId, notice = null) {
+    const state = await loadDmThreadDetailForTelegramUser({
+      telegramUserId: ctx.from.id,
+      telegramUsername: ctx.from.username || null,
+      threadId
+    }).catch((error) => {
+      console.warn('[dm thread] load failed', error?.message || error);
+      return {
+        persistenceEnabled: false,
+        thread: null,
+        reason: 'dm_thread_load_failed'
+      };
+    });
+
+    return {
+      text: renderDmThreadText({
+        persistenceEnabled: state.persistenceEnabled,
+        thread: state.thread,
+        viewerTelegramUserId: ctx.from.id,
+        notice
+      }),
+      reply_markup: renderDmThreadKeyboard({
+        thread: state.thread
+      })
+    };
+  }
+
   async function buildOperatorDiagnosticsSurface(ctx, { bucket = null, introRequestId = null, notice = null } = {}) {
     const allowed = isOperatorTelegramUser(ctx.from.id);
     if (!allowed) {
@@ -493,6 +553,8 @@ async function buildDirectoryCardSurface(ctx, profileId, page = 0, notice = null
     buildIntroDetailSurface,
     buildContactUnlockDetailSurface,
     buildIntroInboxSurface,
+    buildDmInboxSurface,
+    buildDmThreadSurface,
     buildOperatorDiagnosticsSurface
   };
 }

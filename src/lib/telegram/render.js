@@ -148,6 +148,24 @@ function canViewerRequestDirectContact(profileSnapshot) {
   return Boolean(!profileSnapshot?.is_viewer && profileSnapshot?.profile_id && profileSnapshot?.contact_mode === 'paid_unlock_requires_approval');
 }
 
+function canViewerRequestDm(profileSnapshot) {
+  return Boolean(!profileSnapshot?.is_viewer && profileSnapshot?.profile_id);
+}
+
+function renderDmThreadLine(item, index) {
+  const name = toDisplayValue(item?.display_name, 'Unknown member');
+  const headline = truncate(item?.headline_user, 36);
+  const paidHint = Number.isFinite(Number(item?.price_stars_snapshot)) ? ` • ${item.price_stars_snapshot}⭐` : '';
+  return `${index + 1}. ${name} — ${headline} • ${item?.status || 'pending'}${paidHint} • ${formatDateShort(item?.last_message_at || item?.updated_at || item?.created_at)}`;
+}
+
+function renderDmMessageLine(message, viewerUserId) {
+  const direction = String(message?.sender_user_id) === String(viewerUserId) ? 'You' : 'Them';
+  const kind = message?.message_kind === 'request' ? 'request' : 'message';
+  return `${direction} • ${kind} • ${formatDateTimeShort(message?.created_at)}
+${truncate(message?.message_text, 280)}`;
+}
+
 function renderContactUnlockLine(item, index) {
   const name = toDisplayValue(item?.display_name, 'Unknown member');
   const headline = truncate(item?.headline_user, 36);
@@ -496,6 +514,7 @@ export function renderHomeKeyboard({ appBaseUrl, telegramUserId, profileSnapshot
 
   if (persistenceEnabled && profileSnapshot?.linkedin_sub) {
     rows.push([{ text: '📥 Intro inbox', callback_data: 'intro:inbox' }]);
+    rows.push([{ text: '💬 DM inbox', callback_data: 'dm:inbox' }]);
   }
 
   rows.push([{ text: '❓ Help', callback_data: 'help:root' }]);
@@ -511,13 +530,14 @@ export function renderHelpText() {
   return [
     '❓ Help',
     '',
-    'Use Intro Deck to connect your LinkedIn identity, complete a concise profile inside Telegram, browse trusted professionals, and send warm intros.',
+    'Use Intro Deck to connect your LinkedIn identity, complete a concise profile inside Telegram, browse trusted professionals, send warm intros, and open gated DM requests.',
     '',
     'Start here:',
     '• connect LinkedIn',
     '• complete your profile',
     '• browse the directory',
-    '• check your intro inbox'
+    '• check your intro inbox',
+    '• review your DM inbox'
   ].join('\n');
 }
 
@@ -526,6 +546,7 @@ export function renderHelpKeyboard() {
     [{ text: '🧩 Profile', callback_data: 'p:menu' }],
     [{ text: '🌐 Browse directory', callback_data: 'dir:list:0' }],
     [{ text: '📥 Intro inbox', callback_data: 'intro:inbox' }],
+    [{ text: '💬 DM inbox', callback_data: 'dm:inbox' }],
     [{ text: '🏠 Home', callback_data: 'home:root' }]
   ]);
 }
@@ -894,6 +915,10 @@ export function renderDirectoryCardKeyboard({ profileSnapshot = null, page = 0 }
     rows.push([{ text: '⭐ Request direct contact', callback_data: `dir:unlock:${profileSnapshot.profile_id}:${page}` }]);
   }
 
+  if (canViewerRequestDm(profileSnapshot)) {
+    rows.push([{ text: '💬 DM request', callback_data: `dir:dm:${profileSnapshot.profile_id}:${page}` }]);
+  }
+
   rows.push([{ text: '↩️ Back to directory', callback_data: `dir:list:${page}` }]);
   rows.push([{ text: '🎯 Filters', callback_data: 'dir:flt' }]);
   rows.push([{ text: '🏠 Home', callback_data: 'home:root' }]);
@@ -1028,6 +1053,7 @@ export function renderIntroInboxKeyboard({ inboxState = null, contactUnlockInbox
   }
 
   rows.push([{ text: '🔄 Refresh', callback_data: 'intro:inbox' }]);
+  rows.push([{ text: '💬 DM inbox', callback_data: 'dm:inbox' }]);
   rows.push([{ text: '🌐 Browse directory', callback_data: 'dir:list:0' }]);
   rows.push([{ text: '🏠 Home', callback_data: 'home:root' }]);
 
@@ -1179,6 +1205,138 @@ export function renderContactUnlockDetailKeyboard({ request = null } = {}) {
   }
 
   rows.push([{ text: '↩️ Back to inbox', callback_data: 'intro:inbox' }]);
+  rows.push([{ text: '🏠 Home', callback_data: 'home:root' }]);
+  return buildInlineKeyboard(rows);
+}
+
+
+export function renderDmInboxText({ persistenceEnabled = false, inboxState = null, notice = null } = {}) {
+  const lines = [
+    '💬 DM inbox',
+    '',
+    'Review incoming DM requests and continue active member conversations.'
+  ];
+
+  if (!persistenceEnabled) {
+    lines.push('', 'DM inbox is unavailable right now.');
+  } else {
+    const counts = inboxState?.counts || { received_pending: 0, received_total: 0, sent_pending: 0, sent_total: 0, active_total: 0 };
+    const receivedItems = Array.isArray(inboxState?.received) ? inboxState.received : [];
+    const sentItems = Array.isArray(inboxState?.sent) ? inboxState.sent : [];
+    lines.push('');
+    lines.push(`Received DM requests: ${counts.received_pending}/${counts.received_total} pending/total`);
+    lines.push(`Sent DM requests: ${counts.sent_pending}/${counts.sent_total} pending/total`);
+    lines.push(`Active conversations: ${counts.active_total || 0}`);
+
+    if (receivedItems.length) {
+      lines.push('', 'Incoming DM requests / threads:');
+      receivedItems.forEach((item, index) => lines.push(renderDmThreadLine(item, index)));
+    }
+
+    if (sentItems.length) {
+      lines.push('', 'Sent DM requests / threads:');
+      sentItems.forEach((item, index) => lines.push(renderDmThreadLine(item, index)));
+    }
+
+    if (!(receivedItems.length || sentItems.length)) {
+      lines.push('', 'No DM requests yet. Open a listed profile card to start one.');
+    }
+  }
+
+  if (notice) {
+    lines.push('', notice);
+  }
+
+  return lines.join('\n');
+}
+
+export function renderDmInboxKeyboard({ inboxState = null } = {}) {
+  const rows = [];
+  const receivedItems = Array.isArray(inboxState?.received) ? inboxState.received : [];
+  const sentItems = Array.isArray(inboxState?.sent) ? inboxState.sent : [];
+
+  for (const [index, item] of receivedItems.entries()) {
+    const label = truncate(toDisplayValue(item?.display_name, `Incoming ${index + 1}`), 20);
+    rows.push([{ text: `📨 ${index + 1}. ${label}`, callback_data: `dm:view:${item?.dm_thread_id || 0}` }]);
+    if (item?.status === 'pending_recipient') {
+      rows.push([
+        { text: '✅ Accept', callback_data: `dm:acc:${item?.dm_thread_id || 0}` },
+        { text: '❌ Decline', callback_data: `dm:dec:${item?.dm_thread_id || 0}` }
+      ]);
+    }
+  }
+
+  for (const [index, item] of sentItems.entries()) {
+    const label = truncate(toDisplayValue(item?.display_name, `Sent ${index + 1}`), 20);
+    rows.push([{ text: `💬 ${index + 1}. ${label}`, callback_data: `dm:view:${item?.dm_thread_id || 0}` }]);
+  }
+
+  rows.push([{ text: '🔄 Refresh', callback_data: 'dm:inbox' }]);
+  rows.push([{ text: '🌐 Browse directory', callback_data: 'dir:list:0' }]);
+  rows.push([{ text: '🏠 Home', callback_data: 'home:root' }]);
+  return buildInlineKeyboard(rows);
+}
+
+export function renderDmThreadText({ persistenceEnabled = false, thread = null, viewerTelegramUserId = null, notice = null } = {}) {
+  const lines = [
+    '🧾 DM thread',
+    '',
+    'Review the current DM request state and continue the conversation when active.'
+  ];
+
+  if (!persistenceEnabled) {
+    lines.push('', 'DM thread detail is unavailable right now.');
+  } else if (!thread?.dm_thread_id) {
+    lines.push('', 'DM thread not found.');
+  } else {
+    lines.push('');
+    lines.push(`Perspective: ${thread.role === 'received' ? 'Received DM request' : 'Sent DM request'}`);
+    lines.push(`Member: ${toDisplayValue(thread.display_name, 'Unknown member')}`);
+    lines.push(`Headline: ${truncate(thread.headline_user, 120)}`);
+    lines.push(`Status: ${toDisplayValue(thread.status)}`);
+    lines.push(`Payment: ${toDisplayValue(thread.payment_state)}`);
+    lines.push(`Price: ${Number.isFinite(Number(thread.price_stars_snapshot)) ? `${thread.price_stars_snapshot}⭐` : '—'}`);
+    lines.push(`Created: ${formatDateShort(thread.created_at)}`);
+    if (thread.first_message_text) {
+      lines.push('', `First message: ${truncate(thread.first_message_text, 280)}`);
+    }
+    const messages = Array.isArray(thread.messages) ? thread.messages : [];
+    if (messages.length) {
+      lines.push('', 'Conversation:');
+      messages.slice(-8).forEach((message) => lines.push(renderDmMessageLine(message, viewerTelegramUserId)));
+    }
+  }
+
+  if (notice) {
+    lines.push('', notice);
+  }
+
+  return lines.join('\n');
+}
+
+export function renderDmThreadKeyboard({ thread = null } = {}) {
+  const rows = [];
+
+  if (thread?.role === 'received' && thread?.status === 'pending_recipient') {
+    rows.push([
+      { text: '✅ Accept', callback_data: `dm:acc:${thread.dm_thread_id}` },
+      { text: '❌ Decline', callback_data: `dm:dec:${thread.dm_thread_id}` }
+    ]);
+    rows.push([
+      { text: '⛔ Block', callback_data: `dm:blk:${thread.dm_thread_id}` },
+      { text: '🚩 Report', callback_data: `dm:rpt:${thread.dm_thread_id}` }
+    ]);
+  }
+
+  if (thread?.role === 'sent' && thread?.status === 'payment_pending') {
+    rows.push([{ text: '⭐ Pay and deliver request', callback_data: `dm:pay:${thread.dm_thread_id}` }]);
+  }
+
+  if (thread?.status === 'active') {
+    rows.push([{ text: '✉️ Send message', callback_data: `dm:send:${thread.dm_thread_id}` }]);
+  }
+
+  rows.push([{ text: '↩️ Back to DM inbox', callback_data: 'dm:inbox' }]);
   rows.push([{ text: '🏠 Home', callback_data: 'home:root' }]);
   return buildInlineKeyboard(rows);
 }

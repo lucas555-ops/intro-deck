@@ -3,10 +3,10 @@
 ## Snapshot
 
 - Project: LinkedIn Telegram Directory Bot
-- Current STEP: STEP046
-- Phase: private handle + paid contact unlock baseline
+- Current STEP: STEP047
+- Phase: gated member DM relay baseline
 - Primary mode: PRODUCT HARDENING / IDENTITY UPLIFT / MONETIZATION FOUNDATION
-- Runtime status: source-clean STEP046 baseline with LinkedIn OIDC identity auto-seed uplift layered on top of the existing member flow and operator/admin plane; live status not confirmed — manual verification required
+- Runtime status: source-clean STEP047 baseline with LinkedIn OIDC identity auto-seed uplift, paid direct-contact unlock, and gated member DM relay layered on top of the existing member flow and operator/admin plane; live status not confirmed — manual verification required
 
 ## What exists now
 
@@ -19,6 +19,7 @@
 - guarded bulk actions from user segments into Notice / Broadcast prep
 - STEP045 LinkedIn identity auto-seed uplift for name / given / family / picture / locale persistence
 - STEP046 hidden Telegram username + paid direct-contact request flow with owner approval
+- STEP047 gated member DM relay with first-message payment + recipient accept/decline/block/report
 - honest user-facing LinkedIn import summary and manual-fields reminder
 
 ## Current truth
@@ -28,7 +29,8 @@
 - existing manual Telegram profile fields are preserved on reconnect
 - public browse still depends on listed + active truth
 - STEP046 ships hidden Telegram handle + paid direct contact requests with owner approval
-- member DM relay / pricing analytics remain planned follow-up steps, not shipped in STEP046
+- STEP047 now ships the narrow DM request + active thread path
+- STEP048 pricing / analytics / ops remains the next follow-up step, not shipped in STEP047
 
 ## What must not break
 
@@ -43,8 +45,8 @@
 
 ## Next recommended step
 
-- implement STEP047 — member DM relay v1
-- keep the rollout narrow: first-message gating, accept/decline/block/report, controlled thread activation
+- implement STEP048 — pricing / analytics / ops
+- keep the rollout narrow: entitlement truth, receipts, funnel counters, abuse counters, compact admin funnel
 
 ## STEP039.1 delta
 
@@ -89,3 +91,12 @@
 - Telegram Stars one-time invoice path added for direct-contact requests
 - owner approve/decline + controlled reveal flow added
 - inbox/detail surfaces extended to include direct-contact requests
+
+
+## STEP047 delta
+
+- member DM request entity + compose session + message/event storage added
+- first-message payment gate added for DM request delivery
+- recipient review controls added: accept / decline / block / report
+- active text-only bot-mediated DM thread replies added
+- `/dm` inbox and DM thread detail surfaces added

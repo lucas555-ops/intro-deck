@@ -3,9 +3,10 @@ import { renderProfilePreviewKeyboard, renderProfileSavedNotice } from '../../li
 import { applyDirectoryFilterInputForTelegramUser } from '../../lib/storage/directoryFilterStore.js';
 import { applyAdminCommsTextInput, applyAdminUserNoteInput, loadAdminBroadcastState, loadAdminDirectMessageState, loadAdminNoticeState, loadAdminSearchResults } from '../../lib/storage/adminStore.js';
 import { applyProfileFieldInput } from '../../lib/storage/profileEditStore.js';
+import { applyDmComposeInput } from '../../lib/storage/dmStore.js';
 import { formatUserFacingError } from '../utils/notices.js';
 
-export function createTextComposer({ buildDirectoryFiltersSurface, buildAdminUserCardSurface, buildAdminUserMessageSurface, buildAdminNoticeSurface, buildAdminBroadcastSurface, buildAdminSearchResultsSurface }) {
+export function createTextComposer({ buildDirectoryFiltersSurface, buildAdminUserCardSurface, buildAdminUserMessageSurface, buildAdminNoticeSurface, buildAdminBroadcastSurface, buildAdminSearchResultsSurface, buildDmThreadSurface }) {
   const composer = new Composer();
 
   composer.on('message:text', async (ctx, next) => {
@@ -101,6 +102,27 @@ export function createTextComposer({ buildDirectoryFiltersSurface, buildAdminUse
       return;
     }
 
+
+    const dmResult = await applyDmComposeInput({
+      telegramUserId: ctx.from.id,
+      telegramUsername: ctx.from.username || null,
+      text: ctx.message.text
+    }).catch((error) => ({
+      persistenceEnabled: true,
+      consumed: false,
+      reason: String(error?.message || error),
+      errored: true
+    }));
+
+    if (dmResult.consumed) {
+      const notice = dmResult.composeMode === 'request'
+        ? '✅ First DM request message saved. Pay to deliver it to the recipient.'
+        : '✅ DM message sent.';
+      const surface = await buildDmThreadSurface(ctx, dmResult.thread?.dm_thread_id, notice);
+      await ctx.reply(surface.text, { reply_markup: surface.reply_markup });
+      return;
+    }
+
     const profileResult = await applyProfileFieldInput({
       telegramUserId: ctx.from.id,
       text: ctx.message.text
@@ -144,6 +166,11 @@ export function createTextComposer({ buildDirectoryFiltersSurface, buildAdminUse
 
     if (adminNoteResult.errored) {
       await ctx.reply(`⚠️ ${formatUserFacingError(adminNoteResult.reason, 'Could not save this operator note right now.')}`);
+      return;
+    }
+
+    if (dmResult.errored) {
+      await ctx.reply(`⚠️ ${formatUserFacingError(dmResult.reason, 'Could not save this DM message right now.')}`);
       return;
     }
 

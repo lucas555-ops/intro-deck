@@ -1,3 +1,58 @@
+
+export function formatDmRequestReason(reason) {
+  switch (reason) {
+    case 'connect_linkedin_before_dm_request':
+      return 'Connect LinkedIn before starting DM requests.';
+    case 'cannot_message_self':
+      return 'You cannot open a DM request to your own profile.';
+    case 'target_profile_missing':
+      return 'The target profile is no longer available.';
+    case 'target_profile_not_public':
+      return 'This profile is not publicly listed right now.';
+    case 'dm_thread_already_exists':
+      return 'A DM request is already open for this profile.';
+    case 'dm_thread_already_active':
+      return 'An active DM thread already exists with this member.';
+    case 'dm_thread_blocked':
+      return 'This DM path is blocked right now.';
+    case 'dm_request_throttled':
+      return 'Please wait a moment before opening the same DM request again.';
+    case 'dm_payment_already_confirmed':
+      return 'This DM request was already paid.';
+    case 'dm_thread_not_ready_for_payment':
+      return 'Save your first message before paying for this DM request.';
+    case 'dm_thread_not_active':
+      return 'This conversation is not active yet.';
+    case 'dm_thread_declined':
+      return 'This DM request was declined.';
+    default:
+      return 'Could not open the DM request right now.';
+  }
+}
+
+export function formatDmDecisionReason(reason) {
+  switch (reason) {
+    case 'dm_thread_missing':
+      return 'This DM thread is no longer available.';
+    case 'dm_thread_not_actionable_by_user':
+      return 'Only the recipient can act on this DM request.';
+    case 'dm_invalid_decision':
+      return 'That DM decision is not supported.';
+    case 'dm_thread_already_active':
+      return 'This DM thread is already active.';
+    case 'dm_thread_already_declined':
+      return 'This DM request was already declined.';
+    case 'dm_thread_blocked':
+      return 'This DM path is blocked.';
+    case 'dm_thread_not_ready_for_decision':
+      return 'This DM request is not ready for review yet.';
+    case 'dm_thread_reported':
+      return 'This DM request was reported and blocked.';
+    default:
+      return 'Could not update the DM thread right now.';
+  }
+}
+
 export function formatContactUnlockRequestReason(reason) {
   switch (reason) {
     case 'connect_linkedin_before_contact_unlock':
