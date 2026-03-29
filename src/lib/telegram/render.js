@@ -2,6 +2,7 @@ import {
   DIRECTORY_INDUSTRY_BUCKETS,
   DIRECTORY_SKILLS,
   PROFILE_FIELDS,
+  getContactModeLabel,
   summarizeDirectoryFilters
 } from '../profile/contract.js';
 
@@ -118,6 +119,43 @@ function directoryProfileLabel(profileSnapshot) {
   return `${name} — ${truncate(headline, 28)}`;
 }
 
+function profileContactModeSummary(profileSnapshot) {
+  const label = getContactModeLabel(profileSnapshot?.contact_mode);
+  if (profileSnapshot?.contact_mode === 'paid_unlock_requires_approval') {
+    return `${label} • owner approval required`;
+  }
+  return label;
+}
+
+function hiddenTelegramUsernameSummary(profileSnapshot) {
+  const value = typeof profileSnapshot?.telegram_username_hidden === 'string' ? profileSnapshot.telegram_username_hidden.trim() : '';
+  return value ? `@${value}` : 'not set';
+}
+
+function directContactAvailabilityLine(profileSnapshot) {
+  if (profileSnapshot?.is_viewer) {
+    return `Hidden Telegram username: ${hiddenTelegramUsernameSummary(profileSnapshot)}`;
+  }
+
+  if (profileSnapshot?.contact_mode === 'paid_unlock_requires_approval') {
+    return 'Direct contact: available by paid request • recipient approval required';
+  }
+
+  return 'Direct contact: intro only';
+}
+
+function canViewerRequestDirectContact(profileSnapshot) {
+  return Boolean(!profileSnapshot?.is_viewer && profileSnapshot?.profile_id && profileSnapshot?.contact_mode === 'paid_unlock_requires_approval');
+}
+
+function renderContactUnlockLine(item, index) {
+  const name = toDisplayValue(item?.display_name, 'Unknown member');
+  const headline = truncate(item?.headline_user, 36);
+  const paidHint = Number.isFinite(Number(item?.price_stars_snapshot)) ? ` • ${item.price_stars_snapshot}⭐` : '';
+  const revealHint = item?.status === 'revealed' && item?.revealed_contact_value ? ` • @${String(item.revealed_contact_value).replace(/^@+/, '')}` : '';
+  return `${index + 1}. ${name} — ${headline} • ${item?.status || 'pending'}${paidHint}${revealHint} • ${formatDateShort(item?.requested_at || item?.updated_at)}`;
+}
+
 function renderFilterSummaryLines(filterSummary = summarizeDirectoryFilters()) {
   return [
     `Search: ${filterSummary.textQueryLabel}`,
@@ -229,19 +267,14 @@ function canViewerOpenDirectoryLinkedIn(profileSnapshot) {
 }
 
 function directoryContactLabel(profileSnapshot) {
-  if (profileSnapshot?.is_viewer) {
-    return `Public LinkedIn URL: ${toDisplayValue(profileSnapshot?.linkedin_public_url)}`;
-  }
+  const publicLinkedInLabel = profileSnapshot?.is_viewer
+    ? `Public LinkedIn URL: ${toDisplayValue(profileSnapshot?.linkedin_public_url)}`
+    : profileSnapshot?.contact_mode === 'intro_request'
+      ? (hasLinkedInUrl(profileSnapshot?.linkedin_public_url) ? 'Public LinkedIn URL: shared after accepted intro' : 'Public LinkedIn URL: not provided')
+      : `Public LinkedIn URL: ${toDisplayValue(profileSnapshot?.linkedin_public_url)}`;
 
-  if (profileSnapshot?.contact_mode === 'intro_request') {
-    if (hasLinkedInUrl(profileSnapshot?.linkedin_public_url)) {
-      return 'Public LinkedIn URL: shared after accepted intro';
-    }
-
-    return 'Public LinkedIn URL: not provided';
-  }
-
-  return `Public LinkedIn URL: ${toDisplayValue(profileSnapshot?.linkedin_public_url)}`;
+  return `${publicLinkedInLabel}
+${directContactAvailabilityLine(profileSnapshot)}`;
 }
 
 function canOpenReceivedSenderLinkedIn(item) {
@@ -514,6 +547,8 @@ export function renderProfileMenuText({ profileSnapshot = null, persistenceEnabl
       lines.push(linkedInImportLine);
     }
     lines.push(`Card name: ${toDisplayValue(profileSnapshot.display_name)}`);
+    lines.push(`Hidden Telegram username: ${hiddenTelegramUsernameSummary(profileSnapshot)}`);
+    lines.push(`Contact mode: ${profileContactModeSummary(profileSnapshot)}`);
     lines.push(`Profile status: ${profileSnapshot.profile_state || 'draft'}`);
     lines.push(`Visibility: ${profileSnapshot.visibility_status || 'hidden'}`);
     lines.push(readinessLine(profileSnapshot));
@@ -561,8 +596,12 @@ export function renderProfileMenuKeyboard({ appBaseUrl = null, telegramUserId = 
       { text: '🏷 Industry', callback_data: 'p:ed:in' },
       { text: '📝 About', callback_data: 'p:ed:ab' }
     ],
-    [{ text: '🔗 LinkedIn URL', callback_data: 'p:ed:li' }],
+    [
+      { text: '🔗 LinkedIn URL', callback_data: 'p:ed:li' },
+      { text: '🔐 Telegram', callback_data: 'p:ed:tg' }
+    ],
     [{ text: '🧠 Skills', callback_data: 'p:sk' }],
+    [{ text: '💳 Contact mode', callback_data: 'p:cm' }],
     [{ text: '👁 Preview card', callback_data: 'p:prev' }],
     [{ text: visibilityLabel, callback_data: 'p:vis' }],
     [{ text: '🏠 Home', callback_data: 'home:root' }]
@@ -588,8 +627,9 @@ export function renderProfilePreviewText({ profileSnapshot = null, persistenceEn
     lines.push(`Industry: ${toDisplayValue(profileSnapshot.industry_user)}`);
     lines.push(`Skills: ${formatSkillSummary(profileSnapshot)}`);
     lines.push(`Public LinkedIn URL: ${toDisplayValue(profileSnapshot.linkedin_public_url)}`);
+    lines.push(`Hidden Telegram username: ${hiddenTelegramUsernameSummary(profileSnapshot)}`);
     lines.push(`Visibility: ${toDisplayValue(profileSnapshot.visibility_status)}`);
-    lines.push(`Contact mode: ${toDisplayValue(profileSnapshot.contact_mode)}`);
+    lines.push(`Contact mode: ${profileContactModeSummary(profileSnapshot)}`);
     lines.push(`State: ${toDisplayValue(profileSnapshot.profile_state)}`);
     lines.push('');
     lines.push(`About: ${truncate(profileSnapshot.about_user, 320)}`);
@@ -827,7 +867,7 @@ export function renderDirectoryCardText({ profileSnapshot = null, persistenceEna
     lines.push(`About: ${truncate(profileSnapshot.about_user, 320)}`);
     lines.push('');
     lines.push(`Visibility: ${toDisplayValue(profileSnapshot.visibility_status)}`);
-    lines.push(`Contact mode: ${toDisplayValue(profileSnapshot.contact_mode)}`);
+    lines.push(`Contact mode: ${profileContactModeSummary(profileSnapshot)}`);
     lines.push(`State: ${toDisplayValue(profileSnapshot.profile_state)}`);
   }
 
@@ -850,6 +890,10 @@ export function renderDirectoryCardKeyboard({ profileSnapshot = null, page = 0 }
     rows.push([{ text: '✉️ Request intro', callback_data: `dir:intro:${profileSnapshot.profile_id}:${page}` }]);
   }
 
+  if (canViewerRequestDirectContact(profileSnapshot)) {
+    rows.push([{ text: '⭐ Request direct contact', callback_data: `dir:unlock:${profileSnapshot.profile_id}:${page}` }]);
+  }
+
   rows.push([{ text: '↩️ Back to directory', callback_data: `dir:list:${page}` }]);
   rows.push([{ text: '🎯 Filters', callback_data: 'dir:flt' }]);
   rows.push([{ text: '🏠 Home', callback_data: 'home:root' }]);
@@ -857,7 +901,7 @@ export function renderDirectoryCardKeyboard({ profileSnapshot = null, page = 0 }
   return buildInlineKeyboard(rows);
 }
 
-export function renderIntroInboxText({ persistenceEnabled = false, inboxState = null, notice = null } = {}) {
+export function renderIntroInboxText({ persistenceEnabled = false, inboxState = null, contactUnlockInbox = null, notice = null } = {}) {
   const lines = [
     '📥 Intro inbox',
     '',
@@ -871,6 +915,8 @@ export function renderIntroInboxText({ persistenceEnabled = false, inboxState = 
     const counts = inboxState?.counts || { receivedPending: 0, receivedTotal: 0, sentPending: 0, sentTotal: 0 };
     const receivedItems = Array.isArray(inboxState?.received) ? inboxState.received : [];
     const sentItems = Array.isArray(inboxState?.sent) ? inboxState.sent : [];
+    const unlockReceivedItems = Array.isArray(contactUnlockInbox?.received) ? contactUnlockInbox.received : [];
+    const unlockSentItems = Array.isArray(contactUnlockInbox?.sent) ? contactUnlockInbox.sent : [];
     const receivedPending = receivedItems.filter((item) => item?.status === 'pending');
     const receivedProcessed = receivedItems.filter((item) => item?.status !== 'pending');
 
@@ -896,7 +942,19 @@ export function renderIntroInboxText({ persistenceEnabled = false, inboxState = 
       sentItems.forEach((item, index) => lines.push(renderIntroRequestLine(item, index)));
     }
 
-    if (!(receivedItems.length || sentItems.length)) {
+    if (unlockReceivedItems.length) {
+      lines.push('');
+      lines.push('Direct contact requests to review:');
+      unlockReceivedItems.forEach((item, index) => lines.push(renderContactUnlockLine(item, index)));
+    }
+
+    if (unlockSentItems.length) {
+      lines.push('');
+      lines.push('Sent direct contact requests:');
+      unlockSentItems.forEach((item, index) => lines.push(renderContactUnlockLine(item, index)));
+    }
+
+    if (!(receivedItems.length || sentItems.length || unlockReceivedItems.length || unlockSentItems.length)) {
       lines.push('');
       lines.push('No intro requests yet. Browse the directory and send the first one from a public profile card.');
     }
@@ -910,10 +968,12 @@ export function renderIntroInboxText({ persistenceEnabled = false, inboxState = 
   return lines.join('\n');
 }
 
-export function renderIntroInboxKeyboard({ inboxState = null } = {}) {
+export function renderIntroInboxKeyboard({ inboxState = null, contactUnlockInbox = null } = {}) {
   const rows = [];
   const receivedItems = Array.isArray(inboxState?.received) ? inboxState.received : [];
   const sentItems = Array.isArray(inboxState?.sent) ? inboxState.sent : [];
+  const unlockReceivedItems = Array.isArray(contactUnlockInbox?.received) ? contactUnlockInbox.received : [];
+  const unlockSentItems = Array.isArray(contactUnlockInbox?.sent) ? contactUnlockInbox.sent : [];
 
   for (const [index, item] of receivedItems.entries()) {
     const label = truncate(toDisplayValue(item?.display_name, `Received ${index + 1}`), 20);
@@ -946,7 +1006,27 @@ export function renderIntroInboxKeyboard({ inboxState = null } = {}) {
     }
   }
 
-  const hasItems = rows.length > 0;
+
+  for (const [index, item] of unlockReceivedItems.entries()) {
+    const label = truncate(toDisplayValue(item?.display_name, `Direct ${index + 1}`), 20);
+    rows.push([{ text: `🔐 ${index + 1}. ${label}`, callback_data: `cu:view:${item?.contact_unlock_request_id || 0}` }]);
+    if (item?.status === 'paid_pending_approval') {
+      rows.push([
+        { text: '✅ Approve', callback_data: `cu:acc:${item?.contact_unlock_request_id || 0}` },
+        { text: '❌ Decline', callback_data: `cu:dec:${item?.contact_unlock_request_id || 0}` }
+      ]);
+    }
+  }
+
+  for (const [index, item] of unlockSentItems.entries()) {
+    const label = truncate(toDisplayValue(item?.display_name, `Direct ${index + 1}`), 20);
+    rows.push([{ text: `⭐ ${index + 1}. ${label}`, callback_data: `cu:view:${item?.contact_unlock_request_id || 0}` }]);
+    if (item?.status === 'revealed' && item?.revealed_contact_value) {
+      const clean = String(item.revealed_contact_value).replace(/^@+/, '');
+      rows.push([{ text: '🔓 Open contact', url: `https://t.me/${clean}` }]);
+    }
+  }
+
   rows.push([{ text: '🔄 Refresh', callback_data: 'intro:inbox' }]);
   rows.push([{ text: '🌐 Browse directory', callback_data: 'dir:list:0' }]);
   rows.push([{ text: '🏠 Home', callback_data: 'home:root' }]);
@@ -1032,6 +1112,74 @@ export function renderIntroDetailKeyboard({ introRequest = null } = {}) {
   rows.push([{ text: '↩️ Back to inbox', callback_data: 'intro:inbox' }]);
   rows.push([{ text: '🏠 Home', callback_data: 'home:root' }]);
 
+  return buildInlineKeyboard(rows);
+}
+
+export function renderContactUnlockDetailText({ persistenceEnabled = false, request = null, notice = null } = {}) {
+  const lines = [
+    '🔐 Direct contact request',
+    '',
+    'Review the current state of this direct Telegram contact request.'
+  ];
+
+  if (!persistenceEnabled) {
+    lines.push('', 'Persistence is disabled in this environment. Direct contact detail is unavailable.');
+  } else if (!request?.contact_unlock_request_id) {
+    lines.push('', 'Direct contact request not found.');
+  } else {
+    lines.push('');
+    lines.push(`Perspective: ${request.role === 'received' ? 'Received direct contact request' : 'Sent direct contact request'}`);
+    lines.push(`Member: ${toDisplayValue(request.display_name, 'Unknown member')}`);
+    lines.push(`Headline: ${truncate(request.headline_user, 120)}`);
+    lines.push(`Status: ${toDisplayValue(request.status)}`);
+    lines.push(`Payment: ${toDisplayValue(request.payment_state)}`);
+    lines.push(`Price: ${Number.isFinite(Number(request.price_stars_snapshot)) ? `${request.price_stars_snapshot}⭐` : '—'}`);
+    lines.push(`Requested: ${formatDateShort(request.requested_at)}`);
+    if (request.role === 'sent') {
+      if (request.status === 'revealed' && request.revealed_contact_value) {
+        lines.push(`Unlocked Telegram username: @${String(request.revealed_contact_value).replace(/^@+/, '')}`);
+      } else if (request.status === 'paid_pending_approval') {
+        lines.push('Direct contact is still waiting for recipient approval.');
+      } else if (request.status === 'declined') {
+        lines.push('No Telegram username was revealed.');
+      }
+    } else {
+      lines.push(request.status === 'paid_pending_approval'
+        ? 'You can approve or decline this direct contact request.'
+        : request.status === 'revealed'
+          ? 'You approved this request and your hidden Telegram username was revealed to the requester.'
+          : 'This direct contact request is no longer actionable.');
+    }
+  }
+
+  if (notice) {
+    lines.push('', notice);
+  }
+
+  return lines.join('\n');
+}
+
+export function renderContactUnlockDetailKeyboard({ request = null } = {}) {
+  const rows = [];
+
+  if (request?.profile_id) {
+    rows.push([{ text: '👤 Open profile', callback_data: `intro:open:${request.profile_id}` }]);
+  }
+
+  if (request?.role === 'received' && request?.status === 'paid_pending_approval') {
+    rows.push([
+      { text: '✅ Approve', callback_data: `cu:acc:${request.contact_unlock_request_id}` },
+      { text: '❌ Decline', callback_data: `cu:dec:${request.contact_unlock_request_id}` }
+    ]);
+  }
+
+  if (request?.role === 'sent' && request?.status === 'revealed' && request?.revealed_contact_value) {
+    const clean = String(request.revealed_contact_value).replace(/^@+/, '');
+    rows.push([{ text: '🔓 Open contact', url: `https://t.me/${clean}` }]);
+  }
+
+  rows.push([{ text: '↩️ Back to inbox', callback_data: 'intro:inbox' }]);
+  rows.push([{ text: '🏠 Home', callback_data: 'home:root' }]);
   return buildInlineKeyboard(rows);
 }
 

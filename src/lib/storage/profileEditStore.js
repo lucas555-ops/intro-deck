@@ -4,6 +4,7 @@ import {
   clearProfileSkills,
   getProfileSnapshotByTelegramUserId,
   getProfileSnapshotByUserId,
+  setProfileContactMode,
   setProfileVisibility,
   toggleProfileSkill,
   updateProfileField
@@ -210,6 +211,69 @@ export async function clearProfileSkillsForTelegramUser({ telegramUserId }) {
       changed: true,
       profile: updatedProfile,
       reason: 'skills_cleared'
+    };
+  });
+}
+
+
+export async function toggleProfileContactModeForTelegramUser({ telegramUserId }) {
+  if (!isDatabaseConfigured()) {
+    return {
+      persistenceEnabled: false,
+      changed: false,
+      blocked: false,
+      profile: null,
+      reason: 'DATABASE_URL is not configured'
+    };
+  }
+
+  return withDbTransaction(async (client) => {
+    const profile = await getProfileSnapshotByTelegramUserId(client, telegramUserId);
+    if (!profile?.user_id) {
+      return {
+        persistenceEnabled: true,
+        changed: false,
+        blocked: false,
+        profile: null,
+        reason: 'profile_missing'
+      };
+    }
+
+    if (!profile?.linkedin_sub) {
+      return {
+        persistenceEnabled: true,
+        changed: false,
+        blocked: true,
+        profile,
+        reason: 'connect_linkedin_before_contact_mode'
+      };
+    }
+
+    const hasHiddenUsername = typeof profile.telegram_username_hidden === 'string' && profile.telegram_username_hidden.trim().length > 0;
+    const currentMode = profile.contact_mode === 'paid_unlock_requires_approval' ? 'paid_unlock_requires_approval' : 'intro_request';
+    const nextMode = currentMode === 'paid_unlock_requires_approval' ? 'intro_request' : 'paid_unlock_requires_approval';
+
+    if (nextMode === 'paid_unlock_requires_approval' && !hasHiddenUsername) {
+      return {
+        persistenceEnabled: true,
+        changed: false,
+        blocked: true,
+        profile,
+        reason: 'hidden_telegram_username_required_for_paid_unlock'
+      };
+    }
+
+    const updatedProfile = await setProfileContactMode(client, {
+      userId: profile.user_id,
+      contactMode: nextMode
+    });
+
+    return {
+      persistenceEnabled: true,
+      changed: true,
+      blocked: false,
+      profile: updatedProfile,
+      reason: 'contact_mode_toggled'
     };
   });
 }

@@ -1,4 +1,4 @@
-export const PROFILE_FIELD_KEYS = ['dn', 'hl', 'co', 'ci', 'in', 'ab', 'li'];
+export const PROFILE_FIELD_KEYS = ['dn', 'hl', 'co', 'ci', 'in', 'ab', 'li', 'tg'];
 
 export const PROFILE_FIELDS = {
   dn: {
@@ -70,6 +70,16 @@ export const PROFILE_FIELDS = {
     maxLength: 220,
     required: false,
     multiline: false
+  },
+  tg: {
+    key: 'tg',
+    column: 'telegram_username_hidden',
+    label: 'Hidden Telegram username',
+    prompt: 'Send your Telegram username without @ or t.me/. This stays hidden and can only be revealed after an approved direct contact request.',
+    placeholder: 'rustam',
+    maxLength: 32,
+    required: false,
+    multiline: false
   }
 };
 
@@ -116,6 +126,29 @@ export const DIRECTORY_FILTER_INPUTS = {
     storesAs: 'cityQuery'
   }
 };
+
+
+export const CONTACT_MODE_OPTIONS = ['intro_request', 'paid_unlock_requires_approval'];
+
+export function getContactModeLabel(contactMode) {
+  if (contactMode === 'paid_unlock_requires_approval') {
+    return 'Direct contact by paid request';
+  }
+  if (contactMode === 'intro_request') {
+    return 'Intro only';
+  }
+  if (contactMode === 'telegram_only') {
+    return 'Telegram only';
+  }
+  if (contactMode === 'external_link') {
+    return 'External link';
+  }
+  return 'Unknown';
+}
+
+export function canProfileEnablePaidDirectContact(profileSnapshot = null) {
+  return Boolean(trimToNull(profileSnapshot?.telegram_username_hidden));
+}
 
 const DIRECTORY_SKILL_MAP = new Map(DIRECTORY_SKILLS.map((skill) => [skill.slug, skill]));
 const DIRECTORY_INDUSTRY_MAP = new Map(DIRECTORY_INDUSTRY_BUCKETS.map((bucket) => [bucket.slug, bucket]));
@@ -175,7 +208,28 @@ export function normalizeProfileFieldValue(fieldKey, value) {
     return normalizeLinkedInPublicUrl(normalized);
   }
 
+  if (fieldKey === 'tg') {
+    return normalizeTelegramUsername(normalized);
+  }
+
   return normalized;
+}
+
+
+export function normalizeTelegramUsername(value) {
+  const normalized = trimToNull(value);
+  if (!normalized) {
+    throw new Error('Hidden Telegram username cannot be empty');
+  }
+
+  let username = normalized.replace(/^https?:\/\/t\.me\//i, '').replace(/^@+/, '').trim();
+  username = username.replace(/\/$/, '');
+
+  if (!/^[A-Za-z0-9_]{5,32}$/.test(username)) {
+    throw new Error('Hidden Telegram username must be 5-32 characters and use only letters, numbers, or underscores');
+  }
+
+  return username;
 }
 
 export function normalizeLinkedInPublicUrl(value) {

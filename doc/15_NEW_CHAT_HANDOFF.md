@@ -3,9 +3,9 @@
 ## Executive summary
 
 - Project: LinkedIn Telegram Directory Bot
-- Current baseline: STEP045
+- Current baseline: STEP046
 - Current mode: PRODUCT HARDENING / IDENTITY UPLIFT / MONETIZATION FOUNDATION
-- Current focus: keep LinkedIn identity bootstrap clean, preserve manual profile edits, and use STEP045 as the narrow base for STEP046 paid contact unlock
+- Current focus: keep LinkedIn identity bootstrap clean, preserve manual profile edits, and use STEP046 as the narrow base for STEP047 member DM relay
 - Must not break: LinkedIn OIDC truth, webhook secret guard, router contract, listed/active browse truth, intro persistence, communications/outbox truth, operator allowlist gating
 
 ## Source-confirmed
@@ -16,25 +16,28 @@
 - STEP042 launch runbook and freeze policy exist in source
 - STEP043.1 live-verification and rehearsal guidance exist in source
 - STEP045 LinkedIn identity auto-seed uplift now exists in source
+- STEP046 private handle + paid contact unlock now exists in source
 - LinkedIn callback/user notification copy now explicitly says only the basic identity layer was imported
 - profile draft seeding now preserves existing manual display name values on reconnect
+- profile-level hidden Telegram username and direct-contact approval flow now exist in source
 
 ## Live-confirmed
 
 - syntax/smoke can be run from repo
 - docs canon exists
-- source-level STEP045 checks pass locally
+- source-level STEP046 checks pass locally
 
 ## Inference
 
-- the next safe product step is STEP046 private handle + paid contact unlock, not broad LinkedIn scraping
-- the strongest monetization rail remains gated outbound contact access, not public contact dumping
+- the next safe product step is STEP047 member DM relay, not broad LinkedIn scraping or subscription sprawl
+- the strongest monetization rails now are paid direct-contact requests first, then gated DM initiation
 
 ## Blocked / unconfirmed
 
 - fresh production `/api/health` / `/api/health?full=1` verification is not closed here
 - real deployed LinkedIn callback verification for STEP045 copy/seed behavior is not closed here
-- direct paid contact unlock / member DM / subscription analytics are not implemented yet
+- real deployed Telegram Stars direct-contact request flow is not closed here
+- member DM relay / subscription analytics are not implemented yet
 
 ## Required wording
 
@@ -48,5 +51,7 @@ When contract certainty is missing, say exactly:
 
 - `doc/00_CURRENT_STATE.md`
 - `doc/spec/STEP045_LINKEDIN_IDENTITY_AUTO_SEED_UPLIFT.md`
+- `doc/spec/STEP046_PRIVATE_TELEGRAM_HANDLE_AND_PAID_CONTACT_UNLOCK_V1.md`
 - `doc/process/07_WORK_HISTORY_STEP045.md`
+- `doc/process/07_WORK_HISTORY_STEP046.md`
 - `doc/17_START_NEW_CHAT_PROMPT_LINKEDIN_DIRECTORY_BOT.md`

@@ -137,6 +137,7 @@ export async function getProfileSnapshotByUserId(client, userId) {
         mp.industry_user,
         mp.about_user,
         mp.linkedin_public_url,
+        mp.telegram_username_hidden,
         mp.visibility_status,
         mp.contact_mode,
         mp.profile_state,
@@ -179,6 +180,7 @@ export async function getProfileSnapshotByTelegramUserId(client, telegramUserId)
         mp.industry_user,
         mp.about_user,
         mp.linkedin_public_url,
+        mp.telegram_username_hidden,
         mp.visibility_status,
         mp.contact_mode,
         mp.profile_state,
@@ -334,6 +336,31 @@ export async function clearProfileSkills(client, { userId }) {
   );
 
   await normalizeProfileState(client, userId);
+  return getProfileSnapshotByUserId(client, userId);
+}
+
+
+export async function setProfileContactMode(client, { userId, contactMode }) {
+  if (!['intro_request', 'paid_unlock_requires_approval'].includes(contactMode)) {
+    throw new Error(`Unsupported contact mode: ${contactMode}`);
+  }
+
+  const result = await client.query(
+    `
+      update member_profiles
+      set
+        contact_mode = $2,
+        updated_at = now()
+      where user_id = $1
+      returning id
+    `,
+    [userId, contactMode]
+  );
+
+  if (!result.rows[0]) {
+    throw new Error('Profile not found for contact mode update');
+  }
+
   return getProfileSnapshotByUserId(client, userId);
 }
 

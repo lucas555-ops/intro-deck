@@ -1,5 +1,6 @@
 import { Bot } from 'grammy';
 import { getAppConfig, getTelegramConfig } from '../config/env.js';
+import { createContactUnlockComposer } from './composers/contactUnlockComposer.js';
 import { createDirectoryComposer } from './composers/directoryComposer.js';
 import { createHomeComposer } from './composers/homeComposer.js';
 import { createIntroComposer } from './composers/introComposer.js';
@@ -27,13 +28,20 @@ export async function createBot() {
   const bot = new Bot(botToken);
 
   const surfaces = createSurfaceBuilders({ appBaseUrl });
-  const adminSurfaces = createAdminSurfaceBuilders({ currentStep: 'STEP043.2' });
+  const adminSurfaces = createAdminSurfaceBuilders({ currentStep: 'STEP046' });
 
   bot.use(createHomeComposer({
     appBaseUrl,
     clearAllPendingInputs,
     buildHomeSurface: surfaces.buildHomeSurface,
     buildHelpSurface: surfaces.buildHelpSurface
+  }));
+
+
+  bot.use(createContactUnlockComposer({
+    clearAllPendingInputs,
+    buildContactUnlockDetailSurface: surfaces.buildContactUnlockDetailSurface,
+    buildIntroInboxSurface: surfaces.buildIntroInboxSurface
   }));
 
   bot.use(createIntroComposer({

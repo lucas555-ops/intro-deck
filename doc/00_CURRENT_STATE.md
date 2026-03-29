@@ -3,10 +3,10 @@
 ## Snapshot
 
 - Project: LinkedIn Telegram Directory Bot
-- Current STEP: STEP045
-- Phase: identity uplift baseline + contact/DM monetization foundation planning
+- Current STEP: STEP046
+- Phase: private handle + paid contact unlock baseline
 - Primary mode: PRODUCT HARDENING / IDENTITY UPLIFT / MONETIZATION FOUNDATION
-- Runtime status: source-clean STEP045 baseline with LinkedIn OIDC identity auto-seed uplift layered on top of the existing member flow and operator/admin plane; live status not confirmed — manual verification required
+- Runtime status: source-clean STEP046 baseline with LinkedIn OIDC identity auto-seed uplift layered on top of the existing member flow and operator/admin plane; live status not confirmed — manual verification required
 
 ## What exists now
 
@@ -18,6 +18,7 @@
 - compact admin counters, trend summaries, funnel drilldowns
 - guarded bulk actions from user segments into Notice / Broadcast prep
 - STEP045 LinkedIn identity auto-seed uplift for name / given / family / picture / locale persistence
+- STEP046 hidden Telegram username + paid direct-contact request flow with owner approval
 - honest user-facing LinkedIn import summary and manual-fields reminder
 
 ## Current truth
@@ -26,7 +27,8 @@
 - STEP045 auto-seeds only the safe identity layer and only seeds profile display name when the local card name is still empty
 - existing manual Telegram profile fields are preserved on reconnect
 - public browse still depends on listed + active truth
-- contact unlock / member DM / pricing analytics remain planned follow-up steps, not shipped in STEP045
+- STEP046 ships hidden Telegram handle + paid direct contact requests with owner approval
+- member DM relay / pricing analytics remain planned follow-up steps, not shipped in STEP046
 
 ## What must not break
 
@@ -41,8 +43,8 @@
 
 ## Next recommended step
 
-- implement STEP046 — private Telegram handle + paid contact unlock v1
-- keep the rollout narrow: hidden handle, contact policy, paid request, owner approve/decline, controlled reveal
+- implement STEP047 — member DM relay v1
+- keep the rollout narrow: first-message gating, accept/decline/block/report, controlled thread activation
 
 ## STEP039.1 delta
 
@@ -79,3 +81,11 @@
 - profile draft seeding now fills display name only when the local card name is still empty/blank
 - callback success surfaces now state clearly that only the basic identity layer was imported
 - hidden/manual professional fields remain Telegram-managed and are not auto-scraped from LinkedIn
+
+## STEP046 delta
+
+- optional hidden Telegram username added to profile editing
+- contact mode toggle added for intro-only vs paid direct-contact requests
+- Telegram Stars one-time invoice path added for direct-contact requests
+- owner approve/decline + controlled reveal flow added
+- inbox/detail surfaces extended to include direct-contact requests

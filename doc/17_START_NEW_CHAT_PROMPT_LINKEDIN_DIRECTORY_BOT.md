@@ -34,6 +34,7 @@ Source baseline already includes the corridor through:
 - STEP042 launch/operator runbook + freeze discipline
 - STEP043.1 live-verification + launch-rehearsal guidance
 - STEP045 LinkedIn identity auto-seed uplift
+- STEP046 private handle + paid contact unlock
 
 ## What must not break
 
@@ -50,8 +51,7 @@ Source baseline already includes the corridor through:
 
 The project is now in a **product hardening / identity uplift / monetization foundation** layer.
 Do not jump into broad new product scope.
-The immediate move after STEP045 is to keep shipping narrowly:
-- STEP046 private handle + paid contact unlock
+The immediate move after STEP046 is to keep shipping narrowly:
 - STEP047 gated DM relay
 - STEP048 pricing / analytics / ops
 

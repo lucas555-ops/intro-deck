@@ -1,4 +1,4 @@
-export async function sendTelegramMessage({ botToken, chatId, text, replyMarkup }) {
+export async function sendTelegramMessage({ botToken, chatId, text, replyMarkup, parseMode = 'HTML' }) {
   const response = await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
@@ -6,7 +6,7 @@ export async function sendTelegramMessage({ botToken, chatId, text, replyMarkup 
       chat_id: chatId,
       text,
       reply_markup: replyMarkup,
-      parse_mode: 'HTML'
+      ...(parseMode ? { parse_mode: parseMode } : {})
     })
   });
 

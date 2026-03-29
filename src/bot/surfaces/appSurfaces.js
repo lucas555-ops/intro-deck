@@ -2,6 +2,7 @@ import * as render from '../../lib/telegram/render.js';
 import { loadDirectoryCard, loadDirectoryPage } from '../../lib/storage/directoryStore.js';
 import { loadDirectoryFilterState } from '../../lib/storage/directoryFilterStore.js';
 import { loadIntroInboxState, loadIntroRequestDetailForTelegramUser } from '../../lib/storage/introRequestStore.js';
+import { loadContactUnlockInboxState, loadContactUnlockRequestDetailForTelegramUser } from '../../lib/storage/contactUnlockStore.js';
 import { touchTelegramUserAndLoadProfile } from '../../lib/storage/profileStore.js';
 import { loadNotificationOperatorSurface } from '../../lib/storage/notificationStore.js';
 import { loadProfileEditorState } from '../../lib/storage/profileEditStore.js';
@@ -40,6 +41,8 @@ const renderDirectoryCardKeyboard = render.renderDirectoryCardKeyboard;
 const renderDirectoryCardText = render.renderDirectoryCardText;
 const renderDirectoryFiltersKeyboard = render.renderDirectoryFiltersKeyboard;
 const renderDirectoryFiltersText = render.renderDirectoryFiltersText;
+const renderContactUnlockDetailKeyboard = render.renderContactUnlockDetailKeyboard;
+const renderContactUnlockDetailText = render.renderContactUnlockDetailText;
 const renderIntroDetailKeyboard = render.renderIntroDetailKeyboard;
 const renderIntroDetailText = render.renderIntroDetailText;
 const renderIntroInboxKeyboard = render.renderIntroInboxKeyboard;
@@ -370,6 +373,33 @@ async function buildDirectoryCardSurface(ctx, profileId, page = 0, notice = null
   }
 
 
+
+  async function buildContactUnlockDetailSurface(ctx, requestId, notice = null) {
+    const state = await loadContactUnlockRequestDetailForTelegramUser({
+      telegramUserId: ctx.from.id,
+      telegramUsername: ctx.from.username || null,
+      requestId
+    }).catch((error) => {
+      console.warn('[contact unlock detail] load failed', error?.message || error);
+      return {
+        persistenceEnabled: false,
+        request: null,
+        reason: 'contact_unlock_detail_load_failed'
+      };
+    });
+
+    return {
+      text: renderContactUnlockDetailText({
+        persistenceEnabled: state.persistenceEnabled,
+        request: state.request,
+        notice
+      }),
+      reply_markup: renderContactUnlockDetailKeyboard({
+        request: state.request
+      })
+    };
+  }
+
   async function buildOperatorDiagnosticsSurface(ctx, { bucket = null, introRequestId = null, notice = null } = {}) {
     const allowed = isOperatorTelegramUser(ctx.from.id);
     if (!allowed) {
@@ -427,14 +457,26 @@ async function buildDirectoryCardSurface(ctx, profileId, page = 0, notice = null
       };
     });
 
+    const contactState = state.persistenceEnabled
+      ? await loadContactUnlockInboxState({
+        telegramUserId: ctx.from.id,
+        telegramUsername: ctx.from.username || null
+      }).catch((error) => {
+        console.warn('[contact unlock inbox] load failed', error?.message || error);
+        return { persistenceEnabled: true, inbox: null, reason: 'contact_unlock_inbox_load_failed' };
+      })
+      : { persistenceEnabled: false, inbox: null };
+
     return {
       text: renderIntroInboxText({
         persistenceEnabled: state.persistenceEnabled,
         inboxState: state.inbox,
+        contactUnlockInbox: contactState.inbox,
         notice
       }),
       reply_markup: renderIntroInboxKeyboard({
-        inboxState: state.inbox
+        inboxState: state.inbox,
+        contactUnlockInbox: contactState.inbox
       })
     };
   }
@@ -449,6 +491,7 @@ async function buildDirectoryCardSurface(ctx, profileId, page = 0, notice = null
     buildDirectoryCardSurface,
     buildDirectoryFiltersSurface,
     buildIntroDetailSurface,
+    buildContactUnlockDetailSurface,
     buildIntroInboxSurface,
     buildOperatorDiagnosticsSurface
   };

@@ -5,6 +5,7 @@ import { cancelDirectoryFilterInputForTelegramUser } from '../../lib/storage/dir
 import {
   beginProfileFieldEdit,
   clearProfileSkillsForTelegramUser,
+  toggleProfileContactModeForTelegramUser,
   toggleProfileSkillForTelegramUser,
   toggleProfileVisibilityForTelegramUser
 } from '../../lib/storage/profileEditStore.js';
@@ -122,6 +123,37 @@ export function createProfileComposer({
     } catch (error) {
       await renderProfileMenu(ctx, 'edit', `⚠️ ${formatUserFacingError(error?.message || error, 'Could not open this editor right now.')}`);
     }
+  });
+
+
+  composer.callbackQuery('p:cm', async (ctx) => {
+    await ctx.answerCallbackQuery();
+    const result = await toggleProfileContactModeForTelegramUser({
+      telegramUserId: ctx.from.id
+    }).catch((error) => ({
+      persistenceEnabled: true,
+      changed: false,
+      blocked: false,
+      reason: String(error?.message || error)
+    }));
+
+    let notice = 'Contact mode updated.';
+    if (!result.persistenceEnabled) {
+      notice = '⚠️ Persistence is disabled in this environment.';
+    } else if (result.blocked && result.reason === 'hidden_telegram_username_required_for_paid_unlock') {
+      notice = '⚠️ Add your hidden Telegram username first before enabling paid direct contact requests.';
+    } else if (result.blocked) {
+      notice = `⚠️ ${formatUserFacingError(result.reason, 'Could not update contact mode right now.')}`;
+    } else if (!result.changed) {
+      notice = `⚠️ ${formatUserFacingError(result.reason, 'Could not update contact mode right now.')}`;
+    } else {
+      notice = result.profile?.contact_mode === 'paid_unlock_requires_approval'
+        ? '✅ Contact mode is now direct contact by paid request.'
+        : '✅ Contact mode is now intro only.';
+    }
+
+    const surface = await buildProfilePreviewSurface(ctx, notice);
+    await safeEditOrReply(ctx, surface.text, { reply_markup: surface.reply_markup });
   });
 
   composer.callbackQuery('p:vis', async (ctx) => {

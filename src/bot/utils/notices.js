@@ -1,3 +1,53 @@
+export function formatContactUnlockRequestReason(reason) {
+  switch (reason) {
+    case 'connect_linkedin_before_contact_unlock':
+      return 'Connect LinkedIn before requesting direct contact.';
+    case 'cannot_request_direct_contact_to_self':
+      return 'You cannot request direct contact to your own profile.';
+    case 'target_profile_missing':
+      return 'The target profile is no longer available.';
+    case 'target_profile_not_public':
+      return 'This profile is not publicly listed right now.';
+    case 'target_profile_not_paid_unlock_mode':
+      return 'This profile does not accept paid direct contact requests right now.';
+    case 'target_profile_no_hidden_telegram_username':
+      return 'This profile has no hidden Telegram username configured right now.';
+    case 'contact_unlock_request_already_exists':
+      return 'A direct contact request is already active for this profile.';
+    case 'contact_unlock_already_revealed':
+      return 'Direct contact is already unlocked for this profile.';
+    case 'contact_unlock_request_throttled':
+      return 'Please wait a moment before sending the same direct contact request again.';
+    case 'contact_unlock_payment_already_confirmed':
+      return 'This direct contact request was already paid.';
+    default:
+      return 'Could not open the direct contact request right now.';
+  }
+}
+
+export function formatContactUnlockDecisionReason(reason) {
+  switch (reason) {
+    case 'contact_unlock_request_missing':
+      return 'This direct contact request is no longer available.';
+    case 'contact_unlock_request_not_actionable_by_user':
+      return 'Only the recipient can approve or decline this direct contact request.';
+    case 'contact_unlock_invalid_decision':
+      return 'That direct contact decision is not supported.';
+    case 'contact_unlock_already_revealed':
+      return 'This direct contact request was already approved and revealed.';
+    case 'contact_unlock_already_declined':
+      return 'This direct contact request was already declined.';
+    case 'contact_unlock_request_not_ready_for_decision':
+      return 'This direct contact request is not ready for approval yet.';
+    case 'target_profile_not_paid_unlock_mode':
+      return 'This profile no longer accepts paid direct contact requests.';
+    case 'target_profile_no_hidden_telegram_username':
+      return 'No hidden Telegram username is available to reveal right now.';
+    default:
+      return 'Could not update the direct contact request right now.';
+  }
+}
+
 export function formatIntroRequestReason(reason) {
   switch (reason) {
     case 'connect_linkedin_before_intro_request':
@@ -56,7 +106,8 @@ export function formatUserFacingError(input, fallback = 'Something went wrong. P
     'must be a valid URL',
     'must start with http:// or https://',
     'must point to linkedin.com',
-    'must be a member profile URL'
+    'must be a member profile URL',
+    'must be 5-32 characters and use only letters, numbers, or underscores'
   ];
 
   if (safeDirectMessages.some((needle) => message.includes(needle))) {
