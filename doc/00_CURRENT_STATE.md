@@ -3,10 +3,10 @@
 ## Snapshot
 
 - Project: LinkedIn Telegram Directory Bot
-- Current STEP: STEP047
-- Phase: gated member DM relay baseline
-- Primary mode: PRODUCT HARDENING / IDENTITY UPLIFT / MONETIZATION FOUNDATION
-- Runtime status: source-clean STEP047 baseline with LinkedIn OIDC identity auto-seed uplift, paid direct-contact unlock, and gated member DM relay layered on top of the existing member flow and operator/admin plane; live status not confirmed — manual verification required
+- Current STEP: STEP049B
+- Phase: landing production uplift on top of the STEP048.4 product baseline
+- Primary mode: PRODUCT HARDENING / MONETIZATION FOUNDATION / LANDING PRODUCTION UPLIFT
+- Runtime status: source-clean STEP049B baseline with the STEP048.4 product/runtime layer intact plus a rebuilt public landing and upgraded legal-page presentation; live status not confirmed — manual verification required
 
 ## What exists now
 
@@ -21,6 +21,7 @@
 - STEP046 hidden Telegram username + paid direct-contact request flow with owner approval
 - STEP047 gated member DM relay with first-message payment + recipient accept/decline/block/report
 - honest user-facing LinkedIn import summary and manual-fields reminder
+- upgraded one-page public landing with stronger CTA hierarchy, product sections, FAQ, and final CTA
 
 ## Current truth
 
@@ -30,7 +31,9 @@
 - public browse still depends on listed + active truth
 - STEP046 ships hidden Telegram handle + paid direct contact requests with owner approval
 - STEP047 now ships the narrow DM request + active thread path
-- STEP048 pricing / analytics / ops remains the next follow-up step, not shipped in STEP047
+- landing is now structured as a real product entry page instead of a minimal placeholder
+- privacy and terms pages now share the same visual/navigation standard as the landing
+- STEP048 pricing / analytics / ops remains the last shipped product/runtime layer beneath the landing uplift
 
 ## What must not break
 
@@ -45,8 +48,8 @@
 
 ## Next recommended step
 
-- implement STEP048 — pricing / analytics / ops
-- keep the rollout narrow: entitlement truth, receipts, funnel counters, abuse counters, compact admin funnel
+- implement STEP049C — OG / social / metadata uplift
+- keep the rollout narrow: branded OG asset, full og/twitter tags, title/description polish, and share-preview verification
 
 ## STEP039.1 delta
 
@@ -122,3 +125,12 @@
 - Fix: restore STEP048 pricing env contract exports after STEP048.3 UX hotfix accidentally dropped `getSubscriptionConfig` and Pro pricing fields from `src/config/env.js`.
 - Impact: Vercel runtime no longer fails on `monetizationStore.js` import during startup.
 - Scope: narrow compatibility/hardening only; no product-flow changes.
+
+
+## STEP049B delta
+
+- public `index.html` rebuilt into a production-grade one-page landing with clear section architecture
+- hero CTA hierarchy cleaned up: primary bot-open CTA + secondary how-it-works anchor
+- added sections for audience, workflow, product surfaces, FAQ, and final CTA
+- `site.css` upgraded to a stronger dark premium layout system with better mobile behavior
+- `privacy` and `terms` pages aligned to the same navigation and footer standard

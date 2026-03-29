@@ -1,4 +1,4 @@
-<!doctype html> 
+<!doctype html>
 <html lang="en">
   <head>
     <meta charset="utf-8" />
@@ -15,9 +15,10 @@
           <span>Intro Deck</span>
         </a>
         <div class="nav-links small">
+          <a href="/">Home</a>
           <a href="/privacy">Privacy</a>
           <a href="/terms">Terms</a>
-          <a href="https://t.me/introdeckbot">Telegram bot</a>
+          <a class="btn nav-cta" href="https://t.me/introdeckbot">Open @introdeckbot</a>
         </div>
       </nav>
 
@@ -25,9 +26,9 @@
         <div class="eyebrow">Effective date: 2026-03-27</div>
         <h1>Privacy Policy</h1>
         <p>
-          Intro Deck is a Telegram-native private people directory and intro request product. This Privacy Policy explains what
-          information Intro Deck processes, why it is processed, and how it is used when you interact with the Intro Deck bot,
-          website, and LinkedIn sign-in flow.
+          Intro Deck is a Telegram-native private professional directory and contact workflow. This Privacy Policy explains what
+          information Intro Deck processes, why it is processed, and how it is used when you interact with the bot, website,
+          and LinkedIn sign-in flow.
         </p>
 
         <section>
@@ -35,9 +36,9 @@
           <ul>
             <li>Telegram identifiers and account metadata needed to operate the bot.</li>
             <li>LinkedIn sign-in and identity bootstrap data received through the LinkedIn authorization flow.</li>
-            <li>Profile information that you add or edit inside the bot, such as display name, headline, company, city, about, skills, and listing status.</li>
-            <li>Intro request records, inbox decisions, and related contact-unlock state needed to run the workflow.</li>
-            <li>Operational data such as notification receipts, retry metadata, anti-abuse guards, and security logs.</li>
+            <li>Profile information you add or edit inside the bot, such as display name, headline, company, city, about, skills, and listing status.</li>
+            <li>Intro request records, direct-contact state, and DM workflow state needed to run the product.</li>
+            <li>Operational data such as notification receipts, retry metadata, anti-abuse guards, purchase receipts, and security logs.</li>
           </ul>
         </section>
 
@@ -46,28 +47,26 @@
           <ul>
             <li>To authenticate users and bootstrap identity through LinkedIn sign-in.</li>
             <li>To create and maintain user profiles and directory listings inside Telegram.</li>
-            <li>To deliver intro requests, inbox actions, decisions, and contact-unlock flows.</li>
+            <li>To deliver intro requests, direct-contact requests, DM relay flows, and related decisions.</li>
             <li>To keep the service secure, prevent abuse, and maintain operational reliability.</li>
-            <li>To diagnose failures and support retry, audit, and service integrity workflows.</li>
+            <li>To diagnose failures and support audit, receipts, and service integrity workflows.</li>
           </ul>
         </section>
 
         <section>
-          <h2>3. How profile visibility works</h2>
+          <h2>3. How visibility and contact access work</h2>
           <p>
-            Profiles are shown in the directory only when they are marked as both active and listed. Contact details are not opened
-            by default. The service follows a privacy-first contract where contact access is unlocked only through the product's
-            decision-aware intro workflow.
+            Profiles are shown in the directory only when they are both active and listed. Contact details are not public by default.
+            Contact access stays controlled through product features such as intro requests, direct-contact requests, and private DM relay.
           </p>
         </section>
 
         <section>
           <h2>4. Data sharing</h2>
           <p>
-            Intro Deck does not sell personal information. Data is shared only as needed to operate the workflow, such as with
-            infrastructure providers that host the service, LinkedIn for sign-in, and Telegram for bot delivery. Profile and intro
-            information may be shown to other users only within the product features that you use, such as listed directory cards,
-            sent intro requests, received intro requests, and post-decision contact surfaces.
+            Intro Deck does not sell personal information. Data is shared only as needed to operate the service, such as with infrastructure
+            providers, LinkedIn for sign-in, and Telegram for bot delivery. Profile and workflow information may be shown to other users only
+            through the product surfaces that support directory discovery and contact decisions.
           </p>
         </section>
 
@@ -75,8 +74,8 @@
           <h2>5. Retention and security</h2>
           <p>
             Intro Deck keeps operational and workflow data only for as long as reasonably needed to run the service, maintain history,
-            support anti-abuse protections, and investigate failures. Security controls include webhook secret validation, short-lived
-            anti-abuse guards, protected operational routes, and durable notification receipt tracking.
+            support anti-abuse protections, and investigate failures. Security controls include webhook secret validation, protected operational
+            routes, anti-abuse guards, and durable receipt/event tracking.
           </p>
         </section>
 
@@ -97,6 +96,15 @@
           </p>
         </section>
       </article>
+
+      <footer class="footer footer-bar">
+        <span>Intro Deck — private professional directory in Telegram</span>
+        <div class="footer-links small">
+          <a href="/">Home</a>
+          <a href="/terms">Terms</a>
+          <a href="https://t.me/introdeckbot">Telegram bot</a>
+        </div>
+      </footer>
     </main>
   </body>
 </html>

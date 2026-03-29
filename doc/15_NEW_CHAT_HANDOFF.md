@@ -3,9 +3,9 @@
 ## Executive summary
 
 - Project: LinkedIn Telegram Directory Bot
-- Current baseline: STEP047
-- Current mode: PRODUCT HARDENING / IDENTITY UPLIFT / CONTACT + DM MONETIZATION FOUNDATION
-- Current focus: keep LinkedIn identity bootstrap clean, preserve manual profile edits, and use STEP047 as the narrow base for STEP048 pricing / analytics / ops
+- Current baseline: STEP049B
+- Current mode: PRODUCT HARDENING / CONTACT + DM MONETIZATION FOUNDATION / LANDING PRODUCTION UPLIFT
+- Current focus: keep the STEP048.4 runtime/product layer stable while upgrading the public landing into a production-grade entry page
 - Must not break: LinkedIn OIDC truth, webhook secret guard, router contract, listed/active browse truth, intro persistence, communications/outbox truth, operator allowlist gating
 
 ## Source-confirmed
@@ -21,17 +21,18 @@
 - LinkedIn callback/user notification copy now explicitly says only the basic identity layer was imported
 - profile draft seeding now preserves existing manual display name values on reconnect
 - profile-level hidden Telegram username and direct-contact approval flow now exist in source
+- rebuilt public landing now exists in source with stronger section architecture and CTA hierarchy
 
 ## Live-confirmed
 
 - syntax/smoke can be run from repo
 - docs canon exists
-- source-level STEP047 checks pass locally
+- source-level STEP049B checks pass locally
 
 ## Inference
 
-- the next safe product step is STEP048 pricing / analytics / ops, not broad LinkedIn scraping or subscription sprawl
-- the strongest monetization rails now are paid direct-contact requests plus gated DM initiation, with analytics/entitlements still to be layered on
+- the next safe landing step is STEP049C OG / social / metadata uplift, not a broad website rewrite
+- the strongest product/runtime rails remain paid direct-contact requests plus gated DM initiation beneath the landing uplift
 
 ## Blocked / unconfirmed
 
@@ -39,7 +40,7 @@
 - real deployed LinkedIn callback verification for STEP045 copy/seed behavior is not closed here
 - real deployed Telegram Stars direct-contact request flow is not closed here
 - real deployed Telegram Stars DM flow is not closed here
-- pricing analytics / subscriptions are not implemented yet
+- branded OG/social preview layer is not implemented yet
 
 ## Required wording
 
@@ -55,9 +56,11 @@ When contract certainty is missing, say exactly:
 - `doc/spec/STEP045_LINKEDIN_IDENTITY_AUTO_SEED_UPLIFT.md`
 - `doc/spec/STEP046_PRIVATE_TELEGRAM_HANDLE_AND_PAID_CONTACT_UNLOCK_V1.md`
 - `doc/spec/STEP047_MEMBER_DM_RELAY_V1.md`
+- `doc/spec/STEP049B_LANDING_IMPLEMENTATION.md`
 - `doc/process/07_WORK_HISTORY_STEP045.md`
 - `doc/process/07_WORK_HISTORY_STEP046.md`
 - `doc/process/07_WORK_HISTORY_STEP047.md`
+- `doc/process/07_WORK_HISTORY_STEP049B.md`
 - `doc/17_START_NEW_CHAT_PROMPT_LINKEDIN_DIRECTORY_BOT.md`
 
 
@@ -81,3 +84,10 @@ When contract certainty is missing, say exactly:
 - Fix: restore STEP048 pricing env contract exports after STEP048.3 UX hotfix accidentally dropped `getSubscriptionConfig` and Pro pricing fields from `src/config/env.js`.
 - Impact: Vercel runtime no longer fails on `monetizationStore.js` import during startup.
 - Scope: narrow compatibility/hardening only; no product-flow changes.
+
+
+## STEP049B delta
+
+- Rebuilt the public landing into a stronger one-page product entry page with hero, audience, workflow, product surfaces, FAQ, and final CTA sections.
+- Cleaned up CTA hierarchy so legal links no longer compete with the main product action.
+- Upgraded `site.css` and aligned `privacy` / `terms` pages to the same navigation and footer standard.

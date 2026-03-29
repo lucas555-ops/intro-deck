@@ -3,63 +3,304 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Intro Deck</title>
-    <meta name="description" content="Intro Deck is a Telegram-native private people directory and intro request product with LinkedIn identity bootstrap." />
+    <title>Intro Deck — Private professional directory in Telegram</title>
+    <meta
+      name="description"
+      content="Discover people, request contact, and continue through intros or private DM inside Telegram — with LinkedIn as the identity layer."
+    />
     <link rel="stylesheet" href="/site.css" />
   </head>
   <body>
     <main class="wrap">
       <nav class="nav">
-        <a class="brand" href="/">
+        <a class="brand" href="/" aria-label="Intro Deck home">
           <span class="mark">ID</span>
           <span>Intro Deck</span>
         </a>
         <div class="nav-links small">
+          <a href="#how-it-works">How it works</a>
+          <a href="#faq">FAQ</a>
+          <a href="/privacy">Privacy</a>
+          <a href="/terms">Terms</a>
+          <a class="btn nav-cta" href="https://t.me/introdeckbot">Open @introdeckbot</a>
+        </div>
+      </nav>
+
+      <section class="hero hero-grid">
+        <div class="hero-copy">
+          <div class="eyebrow">Private professional directory in Telegram</div>
+          <h1>Trusted intros and direct contact — without manual chaos.</h1>
+          <p class="hero-lead">
+            Intro Deck helps you discover people, request contact, and continue inside one Telegram-native workflow.
+            LinkedIn is used as the identity layer, while visibility and contact access stay controlled inside the product.
+          </p>
+          <div class="cta-row">
+            <a class="btn primary" href="https://t.me/introdeckbot">Open @introdeckbot</a>
+            <a class="btn" href="#how-it-works">See how it works</a>
+          </div>
+          <div class="trust-row">
+            <span class="trust-pill">Private by default</span>
+            <span class="trust-pill">Consent-based contact</span>
+            <span class="trust-pill">No public contact dump</span>
+          </div>
+        </div>
+
+        <div class="hero-product" aria-label="Intro Deck product overview">
+          <div class="panel product-shell">
+            <div class="shell-head">
+              <span class="status-dot"></span>
+              <span class="shell-title">Intro Deck workflow</span>
+            </div>
+            <div class="shell-grid">
+              <div class="surface-card">
+                <div class="surface-kicker">Identity</div>
+                <h3>LinkedIn-backed profile</h3>
+                <p>Connect once, seed the basics, and finish your public card in Telegram.</p>
+              </div>
+              <div class="surface-card accent-card">
+                <div class="surface-kicker">Discovery</div>
+                <h3>Clean private directory</h3>
+                <p>Browse active profiles, request contact, and keep access intentional.</p>
+              </div>
+              <div class="surface-card compact-card">
+                <div class="surface-kicker">Contact</div>
+                <ul class="mini-list">
+                  <li>Intro requests</li>
+                  <li>Direct contact requests</li>
+                  <li>Private DM relay</li>
+                </ul>
+              </div>
+              <div class="surface-card compact-card">
+                <div class="surface-kicker">Controls</div>
+                <ul class="mini-list">
+                  <li>Visibility controls</li>
+                  <li>Consent-aware access</li>
+                  <li>Telegram-native flow</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="section" id="for-whom">
+        <div class="section-head">
+          <div class="eyebrow">For whom</div>
+          <h2>Built for people who want warm access without scattered handoffs.</h2>
+        </div>
+        <div class="card-grid three-up">
+          <article class="card">
+            <span class="card-label">01</span>
+            <h3>Founders and operators</h3>
+            <p>Find relevant people faster and move from discovery to contact without losing the thread.</p>
+          </article>
+          <article class="card">
+            <span class="card-label">02</span>
+            <h3>Creators and independent professionals</h3>
+            <p>Keep a clean public card, control visibility, and avoid dropping raw contact details into the open.</p>
+          </article>
+          <article class="card">
+            <span class="card-label">03</span>
+            <h3>Anyone tired of manual chaos</h3>
+            <p>Less spreadsheet juggling, fewer forwarded messages, and a narrower path to the right person.</p>
+          </article>
+        </div>
+      </section>
+
+      <section class="section" id="how-it-works">
+        <div class="section-head narrow">
+          <div class="eyebrow">How it works</div>
+          <h2>Four steps. One workflow.</h2>
+          <p>All key actions stay inside Telegram, with LinkedIn used only as the identity layer.</p>
+        </div>
+        <div class="steps-grid">
+          <article class="step-card">
+            <span class="step-number">1</span>
+            <h3>Connect LinkedIn</h3>
+            <p>Verify identity and seed the basic profile layer.</p>
+          </article>
+          <article class="step-card">
+            <span class="step-number">2</span>
+            <h3>Complete your card</h3>
+            <p>Add the public details you want others to see in the directory.</p>
+          </article>
+          <article class="step-card">
+            <span class="step-number">3</span>
+            <h3>Discover people</h3>
+            <p>Browse the directory and choose the right contact path.</p>
+          </article>
+          <article class="step-card">
+            <span class="step-number">4</span>
+            <h3>Continue inside Telegram</h3>
+            <p>Use intro requests, direct contact requests, or private DM relay.</p>
+          </article>
+        </div>
+      </section>
+
+      <section class="section" id="inside">
+        <div class="section-head split-head">
+          <div>
+            <div class="eyebrow">What’s inside</div>
+            <h2>The core surfaces stay narrow and readable.</h2>
+          </div>
+          <p class="head-note">Everything here is built to reduce friction, not add another layer of noise.</p>
+        </div>
+        <div class="accordion-grid">
+          <details class="accordion-card" open>
+            <summary>Directory</summary>
+            <p>Browse listed, active profiles without turning the product into a public feed.</p>
+          </details>
+          <details class="accordion-card">
+            <summary>Intro requests</summary>
+            <p>Send warm contact requests and keep decisions connected to the original profile context.</p>
+          </details>
+          <details class="accordion-card">
+            <summary>Direct contact requests</summary>
+            <p>Request direct access when the profile allows it, without bypassing consent.</p>
+          </details>
+          <details class="accordion-card">
+            <summary>Private DM relay</summary>
+            <p>Open the conversation inside the bot through a gated first-message flow.</p>
+          </details>
+          <details class="accordion-card">
+            <summary>Profile controls</summary>
+            <p>Manage public card fields, listing state, visibility, and contact mode in one place.</p>
+          </details>
+          <details class="accordion-card">
+            <summary>Identity layer</summary>
+            <p>LinkedIn connection seeds the basic identity layer. It does not turn Intro Deck into a LinkedIn clone.</p>
+          </details>
+        </div>
+      </section>
+
+      <section class="section" id="why-better">
+        <div class="section-head">
+          <div class="eyebrow">Why it’s easier</div>
+          <h2>Better than stitching together spreadsheets, handles, and half-finished threads.</h2>
+        </div>
+        <div class="card-grid two-up feature-grid">
+          <article class="card feature-card">
+            <h3>Less context loss</h3>
+            <p>Discovery, request, and next-step decisions stay attached to the same workflow.</p>
+          </article>
+          <article class="card feature-card">
+            <h3>Privacy by default</h3>
+            <p>Profiles and contact access stay controlled instead of turning into a public contact dump.</p>
+          </article>
+          <article class="card feature-card">
+            <h3>Intentional contact access</h3>
+            <p>Direct access and DM paths can exist without removing recipient control.</p>
+          </article>
+          <article class="card feature-card">
+            <h3>Telegram-native execution</h3>
+            <p>The workflow runs where the conversation already happens, instead of forcing another heavy tool.</p>
+          </article>
+        </div>
+      </section>
+
+      <section class="section" id="preview">
+        <div class="section-head split-head">
+          <div>
+            <div class="eyebrow">Product preview</div>
+            <h2>A clean contact workflow, not a noisy social surface.</h2>
+          </div>
+          <p class="head-note">Representative product fragments based on the current bot flow.</p>
+        </div>
+        <div class="preview-grid">
+          <article class="preview-card">
+            <div class="preview-topline">Profile</div>
+            <h3>Professional card</h3>
+            <p>Name, headline, company, skills, visibility, and contact mode stay readable at a glance.</p>
+            <ul class="mini-list dense">
+              <li>LinkedIn-backed identity</li>
+              <li>Manual public fields</li>
+              <li>Visibility controls</li>
+            </ul>
+          </article>
+          <article class="preview-card">
+            <div class="preview-topline">Contact request</div>
+            <h3>Decision-aware access</h3>
+            <p>Choose intro, direct contact request, or DM request based on the profile contract.</p>
+            <ul class="mini-list dense">
+              <li>Consent-aware actions</li>
+              <li>Paid access rails</li>
+              <li>No blind contact leakage</li>
+            </ul>
+          </article>
+          <article class="preview-card">
+            <div class="preview-topline">DM relay</div>
+            <h3>Private conversation path</h3>
+            <p>First-message gating keeps the workflow professional and reduces spam pressure.</p>
+            <ul class="mini-list dense">
+              <li>Recipient review</li>
+              <li>Accept / decline / block</li>
+              <li>Thread inside Telegram</li>
+            </ul>
+          </article>
+        </div>
+      </section>
+
+      <section class="section" id="faq">
+        <div class="section-head narrow">
+          <div class="eyebrow">FAQ</div>
+          <h2>What people usually want to know first.</h2>
+        </div>
+        <div class="faq-list">
+          <details class="faq-card" open>
+            <summary>What is Intro Deck?</summary>
+            <p>Intro Deck is a private professional directory and contact workflow that runs inside Telegram.</p>
+          </details>
+          <details class="faq-card">
+            <summary>Is this public?</summary>
+            <p>No. Directory visibility and contact access are controlled inside the product and do not default to public contact exposure.</p>
+          </details>
+          <details class="faq-card">
+            <summary>What does LinkedIn connect import?</summary>
+            <p>The basic identity layer, such as name and other supported identity fields from the current sign-in contract. Public profile fields are still managed in Telegram.</p>
+          </details>
+          <details class="faq-card">
+            <summary>Do you scrape LinkedIn?</summary>
+            <p>No. Intro Deck uses LinkedIn sign-in as the identity layer. It is not a scraping tool and not a LinkedIn clone.</p>
+          </details>
+          <details class="faq-card">
+            <summary>How do intros and direct contact work?</summary>
+            <p>Depending on the profile settings, you can request an intro, request direct contact, or use the private DM relay path inside Telegram.</p>
+          </details>
+          <details class="faq-card">
+            <summary>Is direct contact always visible?</summary>
+            <p>No. Contact access can stay hidden, approval-based, or routed through private DM depending on the profile contract.</p>
+          </details>
+          <details class="faq-card">
+            <summary>Why does it run in Telegram?</summary>
+            <p>Because discovery and follow-up are more useful when the workflow lives close to the actual conversation layer.</p>
+          </details>
+          <details class="faq-card">
+            <summary>What happens after I connect LinkedIn?</summary>
+            <p>You return to Telegram, finish your card, decide how visible it should be, and start using the directory workflow.</p>
+          </details>
+        </div>
+      </section>
+
+      <section class="cta-panel">
+        <div>
+          <div class="eyebrow">Ready to try it?</div>
+          <h2>Open Intro Deck in Telegram.</h2>
+          <p>Start with your LinkedIn identity, complete your card, and use one clean workflow for discovery and contact.</p>
+        </div>
+        <div class="cta-stack">
+          <a class="btn primary" href="https://t.me/introdeckbot">Open @introdeckbot</a>
+          <span class="small subtle">Official bot: @introdeckbot</span>
+        </div>
+      </section>
+
+      <footer class="footer footer-bar">
+        <span>Intro Deck — private professional directory in Telegram</span>
+        <div class="footer-links small">
           <a href="/privacy">Privacy</a>
           <a href="/terms">Terms</a>
           <a href="https://t.me/introdeckbot">Telegram bot</a>
         </div>
-      </nav>
-
-      <section class="hero">
-        <div class="eyebrow">Telegram-first • Privacy-first • LinkedIn as trust layer</div>
-        <h1>Private people directory and intro requests inside Telegram.</h1>
-        <p>
-          Intro Deck helps people discover trusted profiles, request warm intros, and manage contact requests through a narrow,
-          privacy-first workflow inside Telegram. LinkedIn sign-in is used to bootstrap identity. Profile completion, discovery,
-          and intro handling happen inside the bot.
-        </p>
-        <div class="cta-row">
-          <a class="btn primary" href="https://t.me/introdeckbot">Open @introdeckbot</a>
-          <a class="btn" href="/privacy">Privacy policy</a>
-          <a class="btn" href="/terms">Terms of use</a>
-        </div>
-      </section>
-
-      <section class="grid">
-        <article class="card">
-          <h2>What it is</h2>
-          <ul>
-            <li>Telegram-native profile and intro workflow</li>
-            <li>LinkedIn OIDC identity bootstrap</li>
-            <li>Curated profile directory, filters, and intro requests</li>
-            <li>Privacy-first contact unlocking after decisions</li>
-          </ul>
-        </article>
-        <article class="card">
-          <h2>What it is not</h2>
-          <ul>
-            <li>Not a LinkedIn clone</li>
-            <li>Not a scraping tool</li>
-            <li>Not an outreach automation product</li>
-            <li>Not an open public social feed</li>
-          </ul>
-        </article>
-      </section>
-
-      <p class="footer">
-        Official bot: <a href="https://t.me/introdeckbot">@introdeckbot</a>
-      </p>
+      </footer>
     </main>
   </body>
 </html>

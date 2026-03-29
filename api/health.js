@@ -14,8 +14,8 @@ export default async function handler(req, res) {
   const operatorConfig = getOperatorConfig();
   res.status(200).json({
     ok: true,
-    step: 'STEP048.4',
-    docsStep: 'STEP048.4',
+    step: 'STEP049B',
+    docsStep: 'STEP049B',
     service: 'linkedin-telegram-directory-bot',
     flags,
     persistence: {

@@ -1,6 +1,6 @@
 {
   "name": "linkedin-telegram-directory-bot",
-  "version": "0.48.4",
+  "version": "0.49.0",
   "private": true,
   "type": "module",
   "packageManager": "npm@10.8.2",
@@ -81,7 +81,8 @@
     "smoke:contact-unlock-payments": "node scripts/smoke_contact_unlock_payments_contract.js",
     "smoke:dm-relay": "node scripts/smoke_dm_relay_contract.js",
     "smoke:dm-payments": "node scripts/smoke_dm_payments_contract.js",
-    "smoke:schema-compat": "node scripts/smoke_schema_compat_contract.js"
+    "smoke:schema-compat": "node scripts/smoke_schema_compat_contract.js",
+    "smoke:landing": "node scripts/smoke_landing_contract.js"
   },
   "dependencies": {
     "grammy": "1.41.1",
