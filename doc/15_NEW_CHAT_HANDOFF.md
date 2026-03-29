@@ -3,9 +3,9 @@
 ## Executive summary
 
 - Project: LinkedIn Telegram Directory Bot
-- Current baseline: STEP047
-- Current mode: PRODUCT HARDENING / IDENTITY UPLIFT / CONTACT + DM MONETIZATION FOUNDATION
-- Current focus: keep LinkedIn identity bootstrap clean, preserve manual profile edits, and use STEP047 as the narrow base for STEP048 pricing / analytics / ops
+- Current baseline: STEP048
+- Current mode: PRODUCT HARDENING / IDENTITY UPLIFT / CONTACT + DM MONETIZATION + OPS BASELINE
+- Current focus: keep LinkedIn identity bootstrap clean, preserve manual profile edits, and verify the newly shipped STEP048 pricing / analytics / ops layer honestly in production
 - Must not break: LinkedIn OIDC truth, webhook secret guard, router contract, listed/active browse truth, intro persistence, communications/outbox truth, operator allowlist gating
 
 ## Source-confirmed
@@ -18,6 +18,7 @@
 - STEP045 LinkedIn identity auto-seed uplift now exists in source
 - STEP046 private handle + paid contact unlock now exists in source
 - STEP047 gated member DM relay now exists in source
+- STEP048 Pro pricing surface, receipt persistence, entitlement checks, and admin monetization hub now exist in source
 - LinkedIn callback/user notification copy now explicitly says only the basic identity layer was imported
 - profile draft seeding now preserves existing manual display name values on reconnect
 - profile-level hidden Telegram username and direct-contact approval flow now exist in source
@@ -26,12 +27,12 @@
 
 - syntax/smoke can be run from repo
 - docs canon exists
-- source-level STEP047 checks pass locally
+- source-level STEP048 checks pass locally
 
 ## Inference
 
-- the next safe product step is STEP048 pricing / analytics / ops, not broad LinkedIn scraping or subscription sprawl
-- the strongest monetization rails now are paid direct-contact requests plus gated DM initiation, with analytics/entitlements still to be layered on
+- the next safe step is not another broad feature block but live verification and controlled rollout of STEP048
+- the strongest monetization rails now are: Pro monthly, paid direct-contact requests, and gated DM initiation
 
 ## Blocked / unconfirmed
 
@@ -39,7 +40,9 @@
 - real deployed LinkedIn callback verification for STEP045 copy/seed behavior is not closed here
 - real deployed Telegram Stars direct-contact request flow is not closed here
 - real deployed Telegram Stars DM flow is not closed here
-- pricing analytics / subscriptions are not implemented yet
+- fresh production verification of Pro monthly Stars payment is not closed here
+- fresh production verification of Pro-covered no-invoice contact unlock path is not closed here
+- fresh production verification of Pro-covered no-invoice DM path is not closed here
 
 ## Required wording
 
@@ -55,7 +58,9 @@ When contract certainty is missing, say exactly:
 - `doc/spec/STEP045_LINKEDIN_IDENTITY_AUTO_SEED_UPLIFT.md`
 - `doc/spec/STEP046_PRIVATE_TELEGRAM_HANDLE_AND_PAID_CONTACT_UNLOCK_V1.md`
 - `doc/spec/STEP047_MEMBER_DM_RELAY_V1.md`
+- `doc/spec/STEP048_PRICING_ANALYTICS_OPS.md`
 - `doc/process/07_WORK_HISTORY_STEP045.md`
 - `doc/process/07_WORK_HISTORY_STEP046.md`
 - `doc/process/07_WORK_HISTORY_STEP047.md`
+- `doc/process/07_WORK_HISTORY_STEP048.md`
 - `doc/17_START_NEW_CHAT_PROMPT_LINKEDIN_DIRECTORY_BOT.md`

@@ -53,7 +53,25 @@ export function createContactUnlockComposer({
       return;
     }
 
-    if (result.blocked || result.throttled || !result.invoice) {
+    if (result.autoCovered && result.request?.contact_unlock_request_id) {
+      await ctx.answerCallbackQuery({ text: formatContactUnlockRequestReason(result.reason) });
+      const surface = await buildContactUnlockDetailSurface(ctx, result.request.contact_unlock_request_id, '✅ Included in Pro. This request is now waiting for recipient approval.');
+      await safeEditOrReply(ctx, surface.text, { reply_markup: surface.reply_markup });
+      return;
+    }
+
+    if (result.blocked || result.throttled) {
+      await ctx.answerCallbackQuery({ text: formatContactUnlockRequestReason(result.reason) });
+      return;
+    }
+
+    if (!result.invoice) {
+      if (result.request?.contact_unlock_request_id) {
+        await ctx.answerCallbackQuery({ text: formatContactUnlockRequestReason(result.reason) });
+        const surface = await buildContactUnlockDetailSurface(ctx, result.request.contact_unlock_request_id, `ℹ️ ${formatContactUnlockRequestReason(result.reason)}`);
+        await safeEditOrReply(ctx, surface.text, { reply_markup: surface.reply_markup });
+        return;
+      }
       await ctx.answerCallbackQuery({ text: formatContactUnlockRequestReason(result.reason) });
       return;
     }

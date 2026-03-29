@@ -78,6 +78,49 @@ function linkedinIdentityImportLine(profileSnapshot) {
     : 'LinkedIn import: basic identity synced';
 }
 
+export function renderPricingText({ pricingState = null } = {}) {
+  const subscription = pricingState?.subscription || null;
+  const pricing = pricingState?.pricing || {};
+  const lines = [
+    '⭐ Intro Deck Pro',
+    '',
+    'A clean contact layer for serious outbound use inside the directory.',
+    ''
+  ];
+
+  if (subscription?.isActive) {
+    lines.push(`Status: Pro active until ${formatDateShort(subscription.expiresAt)}`);
+  } else {
+    lines.push('Status: Free');
+  }
+
+  lines.push(`Monthly Pro: ${pricing.proMonthlyPriceStars || 0}⭐ / 30d`);
+  lines.push(`Direct contact request: ${pricing.contactUnlockPriceStars || 0}⭐ one-time`);
+  lines.push(`DM request open: ${pricing.dmOpenPriceStars || 0}⭐ one-time`);
+  lines.push('');
+  lines.push('Pro includes:');
+  lines.push('• direct contact requests without per-request Stars fees');
+  lines.push('• DM request opens without per-request Stars fees');
+  lines.push('• same consent rules stay in place');
+  lines.push('');
+  lines.push('Payment gives access to the action, not a guaranteed reply or approval.');
+
+  return lines.join('\n');
+}
+
+export function renderPricingKeyboard({ pricingState = null } = {}) {
+  const rows = [];
+  if (!pricingState?.subscription?.isActive) {
+    rows.push([{ text: '⭐ Buy Pro monthly', callback_data: 'plans:buy:pro' }]);
+  } else {
+    rows.push([{ text: '✅ Pro active', callback_data: 'plans:root' }]);
+  }
+  rows.push([{ text: '💬 DM inbox', callback_data: 'dm:inbox' }]);
+  rows.push([{ text: '📥 Intro inbox', callback_data: 'intro:inbox' }]);
+  rows.push([{ text: '🏠 Home', callback_data: 'home:root' }]);
+  return buildInlineKeyboard(rows);
+}
+
 function buildFieldStatusLines(profileSnapshot) {
   const completion = profileSnapshot?.completion;
   if (!completion?.fields?.length) {
@@ -515,6 +558,7 @@ export function renderHomeKeyboard({ appBaseUrl, telegramUserId, profileSnapshot
   if (persistenceEnabled && profileSnapshot?.linkedin_sub) {
     rows.push([{ text: '📥 Intro inbox', callback_data: 'intro:inbox' }]);
     rows.push([{ text: '💬 DM inbox', callback_data: 'dm:inbox' }]);
+    rows.push([{ text: '⭐ Plans', callback_data: 'plans:root' }]);
   }
 
   rows.push([{ text: '❓ Help', callback_data: 'help:root' }]);
@@ -547,6 +591,7 @@ export function renderHelpKeyboard() {
     [{ text: '🌐 Browse directory', callback_data: 'dir:list:0' }],
     [{ text: '📥 Intro inbox', callback_data: 'intro:inbox' }],
     [{ text: '💬 DM inbox', callback_data: 'dm:inbox' }],
+    [{ text: '⭐ Plans', callback_data: 'plans:root' }],
     [{ text: '🏠 Home', callback_data: 'home:root' }]
   ]);
 }

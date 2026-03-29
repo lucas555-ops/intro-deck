@@ -17,6 +17,7 @@ import {
   loadAdminCommOutbox,
   loadAdminCommOutboxRecord,
   loadAdminCommunicationsState,
+  loadAdminMonetizationState,
   loadAdminBroadcastFailures,
   loadAdminBroadcastState,
   loadAdminUserSegmentBulkActions,
@@ -73,6 +74,7 @@ export function createOperatorComposer({
   buildAdminHomeSurface,
   buildAdminOperationsSurface,
   buildAdminCommunicationsSurface,
+  buildAdminMonetizationSurface,
   buildAdminSystemSurface,
   buildAdminHealthSurface,
   buildAdminOperatorsSurface,
@@ -155,6 +157,25 @@ export function createOperatorComposer({
     await renderSurface(ctx, surface, method);
   }
 
+
+
+  async function renderAdminMonetization(ctx, { notice = null } = {}, method = 'edit') {
+    if (!isOperatorTelegramUser(ctx.from.id)) {
+      await renderOperatorOnly(ctx, method);
+      return;
+    }
+
+    const state = await loadAdminMonetizationState().catch((error) => ({
+      persistenceEnabled: true,
+      summary: null,
+      recentReceipts: [],
+      pricing: null,
+      reason: String(error?.message || error)
+    }));
+
+    const surface = await buildAdminMonetizationSurface({ state, notice });
+    await renderSurface(ctx, surface, method);
+  }
 
   async function renderAdminBulkActions(ctx, { segmentKey = 'all', page = 0, notice = null } = {}, method = 'edit') {
     if (!isOperatorTelegramUser(ctx.from.id)) {
@@ -610,6 +631,9 @@ export function createOperatorComposer({
       case 'sys':
         surface = await buildAdminSystemSurface({ summary: dashboard?.summary?.system || null });
         break;
+      case 'money':
+        await renderAdminMonetization(ctx, {}, method);
+        return;
       case 'health':
         surface = await buildAdminHealthSurface();
         break;
@@ -822,6 +846,11 @@ export function createOperatorComposer({
   composer.callbackQuery('adm:sys', async (ctx) => {
     await ctx.answerCallbackQuery();
     await renderAdminSurface(ctx, 'sys', 'edit');
+  });
+
+  composer.callbackQuery('adm:money', async (ctx) => {
+    await ctx.answerCallbackQuery();
+    await renderAdminSurface(ctx, 'money', 'edit');
   });
 
   composer.callbackQuery('adm:health', async (ctx) => {

@@ -12,6 +12,7 @@ import { getProfileSnapshotByUserId } from '../../db/profileRepo.js';
 import { tryAcquireUserActionGuard } from '../../db/runtimeGuardRepo.js';
 import { upsertTelegramUser } from '../../db/usersRepo.js';
 import { sendTelegramMessage } from '../telegram/botApi.js';
+import { createConfirmedPurchaseReceipt, getUserEntitlements } from '../../db/monetizationRepo.js';
 
 export function buildContactUnlockInvoicePayload(requestId) {
   return `cu:${requestId}`;
@@ -164,7 +165,7 @@ export async function loadContactUnlockInboxState({ telegramUserId, telegramUser
     };
   }
 
-  return withDbTransaction(async (client) => {
+  const result = await withDbTransaction(async (client) => {
     const user = await upsertTelegramUser(client, { telegramUserId, telegramUsername });
     const profile = await getProfileSnapshotByUserId(client, user.id);
     const inbox = await getContactUnlockInboxStateByUserId(client, { userId: user.id });
@@ -194,7 +195,7 @@ export async function beginContactUnlockPaymentForTelegramUser({ telegramUserId,
     };
   }
 
-  return withDbTransaction(async (client) => {
+  const result = await withDbTransaction(async (client) => {
     const user = await upsertTelegramUser(client, { telegramUserId, telegramUsername });
     const profile = await getProfileSnapshotByUserId(client, user.id);
     const { actionThrottleSeconds } = getRuntimeGuardConfig();
@@ -240,9 +241,25 @@ export async function beginContactUnlockPaymentForTelegramUser({ telegramUserId,
       priceStars: contactUnlockPriceStars
     });
 
-    const request = result.request || null;
+    let request = result.request || null;
     const target = result.target || null;
-    const invoice = request && request.status !== 'revealed'
+    const entitlements = await getUserEntitlements(client, { userId: user.id });
+    let autoCovered = false;
+
+    if (request && request.status === 'payment_pending' && entitlements.canUseDirectContactWithoutPayment) {
+      const covered = await markContactUnlockRequestPaymentConfirmed(client, {
+        requestId: request.contact_unlock_request_id,
+        requesterUserId: user.id,
+        telegramPaymentChargeId: null,
+        providerPaymentChargeId: null
+      });
+      if (covered.changed) {
+        request = covered.request || request;
+        autoCovered = true;
+      }
+    }
+
+    const invoice = request && request.status === 'payment_pending' && !autoCovered
       ? {
         payload: buildContactUnlockInvoicePayload(request.contact_unlock_request_id),
         amountStars: request.price_stars_snapshot,
@@ -253,17 +270,29 @@ export async function beginContactUnlockPaymentForTelegramUser({ telegramUserId,
 
     return {
       persistenceEnabled: true,
-      changed: Boolean(result.created),
+      changed: Boolean(result.created) || autoCovered,
       created: Boolean(result.created),
       duplicate: Boolean(result.duplicate),
       blocked: Boolean(result.blocked),
       throttled: false,
-      reason: result.reason,
+      autoCovered,
+      reason: autoCovered ? 'contact_unlock_covered_by_pro' : result.reason,
       request,
       target,
       invoice
     };
   });
+
+  if (result.autoCovered && result.request) {
+    await notifyOwnerOfPaidRequest(result.request).catch((error) => {
+      console.warn('[contact unlock] owner notify failed', error?.message || error);
+    });
+    await notifyRequesterOfPaidRequest(result.request).catch((error) => {
+      console.warn('[contact unlock] requester paid notify failed', error?.message || error);
+    });
+  }
+
+  return result;
 }
 
 export async function confirmContactUnlockPaymentForTelegramUser({
@@ -286,12 +315,26 @@ export async function confirmContactUnlockPaymentForTelegramUser({
 
   const paymentResult = await withDbTransaction(async (client) => {
     const user = await upsertTelegramUser(client, { telegramUserId, telegramUsername });
-    return markContactUnlockRequestPaymentConfirmed(client, {
+    const result = await markContactUnlockRequestPaymentConfirmed(client, {
       requestId,
       requesterUserId: user.id,
       telegramPaymentChargeId,
       providerPaymentChargeId
     });
+    if (result.changed && result.request) {
+      await createConfirmedPurchaseReceipt(client, {
+        userId: user.id,
+        receiptType: 'contact_unlock',
+        productCode: 'contact_unlock_request',
+        amountStars: result.request.price_stars_snapshot || getPricingConfig().contactUnlockPriceStars,
+        relatedEntityType: 'contact_unlock_request',
+        relatedEntityId: result.request.contact_unlock_request_id,
+        telegramPaymentChargeId,
+        providerPaymentChargeId,
+        rawPayloadSnapshot: { requestId }
+      });
+    }
+    return result;
   });
 
   if (paymentResult.changed && paymentResult.request) {

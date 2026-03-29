@@ -132,6 +132,7 @@ function buildAdminHomeKeyboard({ summary = null } = {}) {
   return buildInlineKeyboard([
     [{ text: '🧰 Операции', callback_data: 'adm:ops' }],
     [{ text: '💬 Коммуникации', callback_data: 'adm:comms' }],
+    [{ text: '💳 Монетизация', callback_data: 'adm:money' }],
     [{ text: '⚙️ Система', callback_data: 'adm:sys' }],
     [
       { text: `🔗 LinkedIn: ${summary?.connectedUsers || 0}`, callback_data: 'adm:home:funnel:connected' },
@@ -157,6 +158,68 @@ function buildAdminHomeKeyboard({ summary = null } = {}) {
       { text: '📣 Уведомление', callback_data: 'adm:not' },
       { text: '📬 Рассылка', callback_data: 'adm:bc' }
     ],
+    [{ text: '🏠 Главная', callback_data: 'home:root' }]
+  ]);
+}
+
+
+function buildAdminMonetizationText({ state = null, notice = null } = {}) {
+  const summary = state?.summary || {};
+  const pricing = state?.pricing || {};
+  const recentReceipts = Array.isArray(state?.recentReceipts) ? state.recentReceipts.slice(0, 6) : [];
+  const lines = [
+    '💳 Монетизация',
+    '',
+    `Pro активные: ${summary.activePro || 0} • истёкшие: ${summary.expiredPro || 0}`,
+    `Выручка: ${summary.revenue7dStars || 0}⭐ / 7д • ${summary.revenue30dStars || 0}⭐ / 30д`,
+    `Покупки Pro 7д: ${summary.proPurchases7d || 0}`,
+    '',
+    'Контактная воронка 7д:',
+    `Запросы: ${summary.contactRequests7d || 0} • оплачено: ${summary.contactPaid7d || 0}`,
+    `Раскрыто: ${summary.contactRevealed7d || 0} • отклонено: ${summary.contactDeclined7d || 0}`,
+    '',
+    'DM воронка 7д:',
+    `Создано: ${summary.dmCreated7d || 0} • оплачено: ${summary.dmPaid7d || 0}`,
+    `Доставлено: ${summary.dmDelivered7d || 0} • принято: ${summary.dmAccepted7d || 0}`,
+    `Блоки: ${summary.dmBlocked7d || 0} • репорты: ${summary.dmReported7d || 0} • активные сейчас: ${summary.dmActiveNow || 0}`,
+    '',
+    `Цены: Pro ${pricing.proMonthlyPriceStars || 0}⭐ • direct ${pricing.contactUnlockPriceStars || 0}⭐ • DM ${pricing.dmOpenPriceStars || 0}⭐`
+  ];
+
+  if (recentReceipts.length) {
+    lines.push('', 'Последние покупки:');
+    for (const receipt of recentReceipts) {
+      lines.push(`• ${truncate(receipt.displayName || receipt.telegramUsername || 'user', 22)} — ${receipt.amountStars || 0}⭐ • ${formatShortStatus(receipt.receiptType, 'receipt')} • ${formatDateTimeShort(receipt.confirmedAt || receipt.purchasedAt)}`);
+    }
+  }
+
+  if (notice) {
+    lines.push('', notice);
+  }
+
+  return lines.join('\n');
+}
+
+function buildAdminMonetizationKeyboard({ state = null } = {}) {
+  const summary = state?.summary || {};
+  return buildInlineKeyboard([
+    [
+      { text: `⭐ Выручка 7д: ${summary.revenue7dStars || 0}`, callback_data: 'adm:money' },
+      { text: `👑 Pro: ${summary.activePro || 0}`, callback_data: 'adm:money' }
+    ],
+    [
+      { text: `🔓 Contact paid: ${summary.contactPaid7d || 0}`, callback_data: 'adm:money' },
+      { text: `💬 DM paid: ${summary.dmPaid7d || 0}`, callback_data: 'adm:money' }
+    ],
+    [
+      { text: `✅ Contact revealed: ${summary.contactRevealed7d || 0}`, callback_data: 'adm:money' },
+      { text: `✅ DM accepted: ${summary.dmAccepted7d || 0}`, callback_data: 'adm:money' }
+    ],
+    [
+      { text: `⛔ DM blocks: ${summary.dmBlocked7d || 0}`, callback_data: 'adm:money' },
+      { text: `🚩 DM reports: ${summary.dmReported7d || 0}`, callback_data: 'adm:money' }
+    ],
+    [{ text: '↩️ Назад в Админку', callback_data: 'adm:home' }],
     [{ text: '🏠 Главная', callback_data: 'home:root' }]
   ]);
 }
@@ -1556,6 +1619,7 @@ function buildLaunchRunbookKeyboard() {
   return buildInlineKeyboard([
     [{ text: '🧰 Операции', callback_data: 'adm:ops' }],
     [{ text: '💬 Коммуникации', callback_data: 'adm:comms' }],
+    [{ text: '💳 Монетизация', callback_data: 'adm:money' }],
     [{ text: '⚙️ Система', callback_data: 'adm:sys' }],
     [{ text: '✅ Live verification', callback_data: 'adm:verify' }],
     [{ text: '🎭 Репетиция запуска', callback_data: 'adm:rehearse' }],
@@ -1674,6 +1738,7 @@ function buildLaunchRehearsalKeyboard() {
   return buildInlineKeyboard([
     [{ text: '✅ Live verification', callback_data: 'adm:verify' }],
     [{ text: '💬 Коммуникации', callback_data: 'adm:comms' }],
+    [{ text: '💳 Монетизация', callback_data: 'adm:money' }],
     [{ text: '⚙️ Система', callback_data: 'adm:sys' }],
     [{ text: '🏠 Главная', callback_data: 'home:root' }]
   ]);
@@ -1748,7 +1813,7 @@ function buildAdminBulkActionsKeyboard({ state = null, page = 0 } = {}) {
   return buildInlineKeyboard(rows);
 }
 
-export function createAdminSurfaceBuilders({ currentStep = 'STEP043' } = {}) {
+export function createAdminSurfaceBuilders({ currentStep = 'STEP048' } = {}) {
   return {
     buildAdminHomeSurface: async ({ summary = null } = {}) => ({
       text: buildAdminHomeText({ summary }),
@@ -1761,6 +1826,10 @@ export function createAdminSurfaceBuilders({ currentStep = 'STEP043' } = {}) {
     buildAdminCommunicationsSurface: async ({ state = null, notice = null } = {}) => ({
       text: buildCommunicationsHubText({ state, notice }),
       reply_markup: buildCommunicationsHubKeyboard({ state })
+    }),
+    buildAdminMonetizationSurface: async ({ state = null, notice = null } = {}) => ({
+      text: buildAdminMonetizationText({ state, notice }),
+      reply_markup: buildAdminMonetizationKeyboard({ state })
     }),
     buildAdminSystemSurface: async ({ summary = null } = {}) => ({
       text: buildSystemHubText({ summary }),

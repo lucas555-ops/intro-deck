@@ -116,7 +116,9 @@ export function createTextComposer({ buildDirectoryFiltersSurface, buildAdminUse
 
     if (dmResult.consumed) {
       const notice = dmResult.composeMode === 'request'
-        ? '✅ First DM request message saved. Pay to deliver it to the recipient.'
+        ? (dmResult.autoCovered
+          ? '✅ First DM request message sent via Pro. It is now waiting for recipient approval.'
+          : '✅ First DM request message saved. Pay to deliver it to the recipient.')
         : '✅ DM message sent.';
       const surface = await buildDmThreadSurface(ctx, dmResult.thread?.dm_thread_id, notice);
       await ctx.reply(surface.text, { reply_markup: surface.reply_markup });

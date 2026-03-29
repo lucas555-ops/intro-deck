@@ -21,6 +21,8 @@ export function formatDmRequestReason(reason) {
       return 'This DM request was already paid.';
     case 'dm_thread_not_ready_for_payment':
       return 'Save your first message before paying for this DM request.';
+    case 'dm_request_sent_via_pro':
+      return 'This DM request is included in active Pro and is already waiting for recipient approval.';
     case 'dm_thread_not_active':
       return 'This conversation is not active yet.';
     case 'dm_thread_declined':
@@ -75,6 +77,8 @@ export function formatContactUnlockRequestReason(reason) {
       return 'Please wait a moment before sending the same direct contact request again.';
     case 'contact_unlock_payment_already_confirmed':
       return 'This direct contact request was already paid.';
+    case 'contact_unlock_covered_by_pro':
+      return 'This direct contact request is included in active Pro and is already waiting for approval.';
     default:
       return 'Could not open the direct contact request right now.';
   }

@@ -5,6 +5,7 @@ import { createDirectoryComposer } from './composers/directoryComposer.js';
 import { createDmComposer } from './composers/dmComposer.js';
 import { createHomeComposer } from './composers/homeComposer.js';
 import { createIntroComposer } from './composers/introComposer.js';
+import { createMonetizationComposer } from './composers/monetizationComposer.js';
 import { createOperatorComposer } from './composers/operatorComposer.js';
 import { createProfileComposer } from './composers/profileComposer.js';
 import { createTextComposer } from './composers/textComposer.js';
@@ -29,7 +30,7 @@ export async function createBot() {
   const bot = new Bot(botToken);
 
   const surfaces = createSurfaceBuilders({ appBaseUrl });
-  const adminSurfaces = createAdminSurfaceBuilders({ currentStep: 'STEP047' });
+  const adminSurfaces = createAdminSurfaceBuilders({ currentStep: 'STEP048' });
 
   bot.use(createHomeComposer({
     appBaseUrl,
@@ -38,6 +39,10 @@ export async function createBot() {
     buildHelpSurface: surfaces.buildHelpSurface
   }));
 
+  bot.use(createMonetizationComposer({
+    clearAllPendingInputs,
+    buildPricingSurface: surfaces.buildPricingSurface
+  }));
 
   bot.use(createContactUnlockComposer({
     clearAllPendingInputs,
@@ -91,6 +96,7 @@ export async function createBot() {
     buildAdminHomeSurface: adminSurfaces.buildAdminHomeSurface,
     buildAdminOperationsSurface: adminSurfaces.buildAdminOperationsSurface,
     buildAdminCommunicationsSurface: adminSurfaces.buildAdminCommunicationsSurface,
+    buildAdminMonetizationSurface: adminSurfaces.buildAdminMonetizationSurface,
     buildAdminSystemSurface: adminSurfaces.buildAdminSystemSurface,
     buildAdminHealthSurface: adminSurfaces.buildAdminHealthSurface,
     buildAdminOperatorsSurface: adminSurfaces.buildAdminOperatorsSurface,

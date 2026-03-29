@@ -3,10 +3,10 @@
 ## Snapshot
 
 - Project: LinkedIn Telegram Directory Bot
-- Current STEP: STEP047
-- Phase: gated member DM relay baseline
+- Current STEP: STEP048
+- Phase: pricing / analytics / ops baseline
 - Primary mode: PRODUCT HARDENING / IDENTITY UPLIFT / MONETIZATION FOUNDATION
-- Runtime status: source-clean STEP047 baseline with LinkedIn OIDC identity auto-seed uplift, paid direct-contact unlock, and gated member DM relay layered on top of the existing member flow and operator/admin plane; live status not confirmed — manual verification required
+- Runtime status: source-clean STEP048 baseline with LinkedIn OIDC identity auto-seed uplift, paid direct-contact unlock, gated member DM relay, Pro pricing surface, receipt persistence, and admin monetization counters layered on top of the existing member flow and operator/admin plane; live status not confirmed — manual verification required
 
 ## What exists now
 
@@ -21,6 +21,8 @@
 - STEP046 hidden Telegram username + paid direct-contact request flow with owner approval
 - STEP047 gated member DM relay with first-message payment + recipient accept/decline/block/report
 - honest user-facing LinkedIn import summary and manual-fields reminder
+- `/plans` + Pro subscription surface with receipt + entitlement layer
+- admin monetization hub with revenue / funnel / abuse counters
 
 ## Current truth
 
@@ -30,7 +32,7 @@
 - public browse still depends on listed + active truth
 - STEP046 ships hidden Telegram handle + paid direct contact requests with owner approval
 - STEP047 now ships the narrow DM request + active thread path
-- STEP048 pricing / analytics / ops remains the next follow-up step, not shipped in STEP047
+- STEP048 pricing / analytics / ops now ships in source: Pro subscription invoice path, receipt persistence, entitlement checks, and admin monetization counters
 
 ## What must not break
 
@@ -45,8 +47,9 @@
 
 ## Next recommended step
 
-- implement STEP048 — pricing / analytics / ops
-- keep the rollout narrow: entitlement truth, receipts, funnel counters, abuse counters, compact admin funnel
+- run manual live verification for STEP048 end-to-end
+- verify production Telegram Stars flows for: Pro monthly, paid direct contact, paid DM, and Pro-covered no-invoice paths
+- keep rollout narrow: verify counters, receipts, and admin monetization truth before any new pricing expansion
 
 ## STEP039.1 delta
 
@@ -100,3 +103,11 @@
 - recipient review controls added: accept / decline / block / report
 - active text-only bot-mediated DM thread replies added
 - `/dm` inbox and DM thread detail surfaces added
+
+
+## STEP048 delta
+
+- `/plans` surface and Pro monthly Telegram Stars purchase path added
+- `member_subscriptions` + `purchase_receipts` persistence added
+- active Pro now covers direct-contact and DM outbound action fees while subscription is active
+- compact Russian admin monetization hub added with revenue, funnel, abuse, and recent receipt visibility

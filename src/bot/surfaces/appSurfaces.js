@@ -6,6 +6,7 @@ import { loadContactUnlockInboxState, loadContactUnlockRequestDetailForTelegramU
 import { loadDmInboxState, loadDmThreadDetailForTelegramUser } from '../../lib/storage/dmStore.js';
 import { touchTelegramUserAndLoadProfile } from '../../lib/storage/profileStore.js';
 import { loadNotificationOperatorSurface } from '../../lib/storage/notificationStore.js';
+import { loadPricingSurfaceState } from '../../lib/storage/monetizationStore.js';
 import { loadProfileEditorState } from '../../lib/storage/profileEditStore.js';
 import { isOperatorTelegramUser } from '../../config/env.js';
 import { loadActiveAdminNotice } from '../../lib/storage/adminStore.js';
@@ -22,6 +23,7 @@ function fallbackRenderHelpText() {
     '• /browse — browse the directory',
     '• /inbox — open your intro inbox',
     '• /dm — open your DM inbox',
+    '• /plans — open pricing and Pro status',
     '• /menu — return home'
   ].join('\n');
 }
@@ -33,6 +35,7 @@ function fallbackRenderHelpKeyboard() {
       [{ text: '🌐 Browse directory', callback_data: 'dir:list:0' }],
       [{ text: '📥 Intro inbox', callback_data: 'intro:inbox' }],
       [{ text: '💬 DM inbox', callback_data: 'dm:inbox' }],
+      [{ text: '⭐ Plans', callback_data: 'plans:root' }],
       [{ text: '🏠 Home', callback_data: 'home:root' }]
     ]
   };
@@ -66,7 +69,8 @@ const renderProfilePreviewKeyboard = render.renderProfilePreviewKeyboard;
 const renderProfilePreviewText = render.renderProfilePreviewText;
 const renderProfileSkillsKeyboard = render.renderProfileSkillsKeyboard;
 const renderProfileSkillsText = render.renderProfileSkillsText;
-
+const renderPricingText = render.renderPricingText;
+const renderPricingKeyboard = render.renderPricingKeyboard;
 
 
 function noticeMatchesProfile(notice, profileSnapshot) {
@@ -174,6 +178,25 @@ export function createSurfaceBuilders({ appBaseUrl }) {
     return {
       text: renderHelpText(),
       reply_markup: renderHelpKeyboard()
+    };
+  }
+
+  async function buildPricingSurface(ctx) {
+    const state = await loadPricingSurfaceState({
+      telegramUserId: ctx.from.id,
+      telegramUsername: ctx.from.username || null
+    }).catch((error) => ({
+      persistenceEnabled: false,
+      profile: null,
+      subscription: null,
+      recentReceipts: [],
+      pricing: null,
+      reason: String(error?.message || error)
+    }));
+
+    return {
+      text: renderPricingText({ pricingState: state }),
+      reply_markup: renderPricingKeyboard({ pricingState: state })
     };
   }
 
@@ -544,6 +567,7 @@ async function buildDirectoryCardSurface(ctx, profileId, page = 0, notice = null
   return {
     buildHomeSurface,
     buildHelpSurface,
+    buildPricingSurface,
     buildProfileMenuSurface,
     buildProfilePreviewSurface,
     buildProfileSkillsSurface,

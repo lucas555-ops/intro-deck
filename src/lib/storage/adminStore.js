@@ -68,11 +68,12 @@ import {
   searchAdminOutboxPage,
   searchAdminAuditPage
 } from '../../db/adminRepo.js';
-import { getTelegramConfig } from '../../config/env.js';
+import { getPricingConfig, getTelegramConfig } from '../../config/env.js';
 import { isDatabaseConfigured, withDbClient, withDbTransaction } from '../../db/pool.js';
 import { sendTelegramMessage } from '../telegram/botApi.js';
 import { upsertTelegramUser } from '../../db/usersRepo.js';
 import { getIntroNotificationReceiptSummary, listRecentNotificationReceipts } from '../../db/notificationRepo.js';
+import { getAdminMonetizationSummary, listRecentPurchaseReceipts } from '../../db/monetizationRepo.js';
 
 
 export async function loadAdminDashboardSummary() {
@@ -524,6 +525,44 @@ export async function loadAdminCommunicationsState() {
       reason: 'admin_communications_loaded'
     };
   });
+}
+
+
+export async function loadAdminMonetizationState() {
+  if (!isDatabaseConfigured()) {
+    return {
+      persistenceEnabled: false,
+      summary: {
+        activePro: 0,
+        expiredPro: 0,
+        revenue7dStars: 0,
+        revenue30dStars: 0,
+        proPurchases7d: 0,
+        contactRequests7d: 0,
+        contactPaid7d: 0,
+        contactRevealed7d: 0,
+        contactDeclined7d: 0,
+        dmCreated7d: 0,
+        dmPaid7d: 0,
+        dmDelivered7d: 0,
+        dmAccepted7d: 0,
+        dmBlocked7d: 0,
+        dmReported7d: 0,
+        dmActiveNow: 0
+      },
+      recentReceipts: [],
+      pricing: getPricingConfig(),
+      reason: 'DATABASE_URL is not configured'
+    };
+  }
+
+  return withDbClient(async (client) => ({
+    persistenceEnabled: true,
+    summary: await getAdminMonetizationSummary(client),
+    recentReceipts: await listRecentPurchaseReceipts(client, { limit: 8 }),
+    pricing: getPricingConfig(),
+    reason: 'admin_monetization_loaded'
+  }));
 }
 
 export async function loadAdminTemplatesLibrary() {

@@ -17,6 +17,7 @@ import { getProfileSnapshotByUserId } from '../../db/profileRepo.js';
 import { tryAcquireUserActionGuard } from '../../db/runtimeGuardRepo.js';
 import { upsertTelegramUser } from '../../db/usersRepo.js';
 import { sendTelegramMessage } from '../telegram/botApi.js';
+import { createConfirmedPurchaseReceipt, getUserEntitlements } from '../../db/monetizationRepo.js';
 import { normalizeProfileFieldValue } from '../profile/contract.js';
 
 const DM_COMPOSE_TTL_MINUTES = 20;
@@ -382,14 +383,39 @@ export async function applyDmComposeInput({ telegramUserId, telegramUsername = n
         initiatorUserId: user.id,
         messageText
       });
+      let thread = saveResult.thread || null;
+      let reason = saveResult.reason;
+      let autoCovered = false;
+      let paymentEnvelope = null;
+      if (!saveResult.blocked && thread?.status === 'payment_pending') {
+        const entitlements = await getUserEntitlements(client, { userId: user.id });
+        if (entitlements.canOpenDmWithoutPayment) {
+          const covered = await markDmThreadPaymentConfirmed(client, {
+            threadId: session.thread_id,
+            initiatorUserId: user.id,
+            telegramPaymentChargeId: null,
+            providerPaymentChargeId: null
+          });
+          if (covered.changed) {
+            thread = covered.thread || thread;
+            reason = 'dm_request_sent_via_pro';
+            autoCovered = true;
+            paymentEnvelope = covered.envelope || null;
+          }
+        }
+      }
       await clearDmComposeSessionByUserId(client, user.id);
+      notify = autoCovered && paymentEnvelope
+        ? { type: 'dm_request_paid', envelope: paymentEnvelope }
+        : null;
       return {
         persistenceEnabled: true,
         consumed: true,
         composeMode: 'request',
-        reason: saveResult.reason,
+        autoCovered,
+        reason,
         blocked: Boolean(saveResult.blocked),
-        thread: saveResult.thread || null
+        thread
       };
     }
 
@@ -416,7 +442,11 @@ export async function applyDmComposeInput({ telegramUserId, telegramUsername = n
     };
   });
 
-  if (notify) {
+  if (notify?.type === 'dm_request_paid' && notify?.envelope) {
+    await notifyDmRecipientOfPaidRequest(notify.envelope).catch((error) => {
+      console.warn('[dm] recipient request notify failed', error?.message || error);
+    });
+  } else if (notify) {
     await notifyDmRecipientOfNewMessage(notify).catch((error) => {
       console.warn('[dm] recipient message notify failed', error?.message || error);
     });
@@ -520,12 +550,26 @@ export async function confirmDmPaymentForTelegramUser({ telegramUserId, telegram
 
   const result = await withDbTransaction(async (client) => {
     const user = await upsertTelegramUser(client, { telegramUserId, telegramUsername });
-    return markDmThreadPaymentConfirmed(client, {
+    const paymentResult = await markDmThreadPaymentConfirmed(client, {
       threadId,
       initiatorUserId: user.id,
       telegramPaymentChargeId,
       providerPaymentChargeId
     });
+    if (paymentResult.changed && paymentResult.thread) {
+      await createConfirmedPurchaseReceipt(client, {
+        userId: user.id,
+        receiptType: 'dm_open',
+        productCode: 'dm_request_open',
+        amountStars: paymentResult.thread.price_stars_snapshot || getPricingConfig().dmOpenPriceStars,
+        relatedEntityType: 'dm_thread',
+        relatedEntityId: paymentResult.thread.dm_thread_id,
+        telegramPaymentChargeId,
+        providerPaymentChargeId,
+        rawPayloadSnapshot: { threadId }
+      });
+    }
+    return paymentResult;
   });
 
   if (result.changed && result.envelope) {
