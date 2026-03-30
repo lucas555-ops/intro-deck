@@ -3,7 +3,7 @@
 ## Executive summary
 
 - Project: LinkedIn Telegram Directory Bot
-- Current baseline: STEP049D
+- Current baseline: STEP049J
 - Current mode: PRODUCT HARDENING / CONTACT + DM MONETIZATION FOUNDATION / LANDING PRODUCTION UPLIFT
 - Current focus: keep the STEP048.4 runtime/product layer stable while finishing landing polish, mobile readability, and legal-surface consistency on top of the production-grade entry page and OG/share-preview layer
 - Must not break: LinkedIn OIDC truth, webhook secret guard, router contract, listed/active browse truth, intro persistence, communications/outbox truth, operator allowlist gating
@@ -23,16 +23,17 @@
 - profile-level hidden Telegram username and direct-contact approval flow now exist in source
 - rebuilt public landing now exists in source with stronger section architecture and CTA hierarchy
 - branded homepage OG/social preview layer now exists in source
+- homepage/privacy/terms now point to the refreshed versioned OG master v7 asset in source
 
 ## Live-confirmed
 
 - syntax/smoke can be run from repo
 - docs canon exists
-- source-level STEP049D checks pass locally
+- source-level STEP049J checks pass locally
 
 ## Inference
 
-- the next safe landing step after deploy is a narrow manual verification pass for STEP049D homepage/mobile/legal behavior and share-preview sanity, not another broad landing rewrite
+- the next safe landing step after deploy is a narrow manual verification pass for STEP049J homepage/mobile/legal behavior plus OG/share-preview cache refresh, not another broad landing rewrite
 - the strongest product/runtime rails remain paid direct-contact requests plus gated DM initiation beneath the landing uplift
 
 ## Blocked / unconfirmed
@@ -42,7 +43,7 @@
 - real deployed Telegram Stars direct-contact request flow is not closed here
 - real deployed Telegram Stars DM flow is not closed here
 - deployed OG/share preview cache refresh is not confirmed yet
-- deployed homepage mobile pass and legal-page polish are not confirmed yet
+- deployed homepage mobile pass, legal-page polish, and refreshed OG/share preview are not confirmed yet
 
 ## Required wording
 
@@ -109,3 +110,10 @@ When contract certainty is missing, say exactly:
 - Improved mobile nav layout so section links and the bot CTA remain readable instead of collapsing into a loose wrap.
 - Rebuilt privacy and terms pages into one consistent legal shell with quick summary blocks and aligned action buttons.
 - Added legal-page OG/Twitter metadata and a dedicated landing-polish smoke check.
+
+
+## STEP049J delta
+
+- Refreshed the social preview master to a new versioned `intro-deck-og-1200x630.png` asset with a matching WEBP companion.
+- Updated homepage, privacy, and terms metadata to the new versioned OG path so social platforms can refresh away from older cached preview cards.
+- Scope is asset/meta only; no product, schema, billing, or messaging logic changed.

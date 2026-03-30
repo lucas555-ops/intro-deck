@@ -3,10 +3,10 @@
 ## Snapshot
 
 - Project: LinkedIn Telegram Directory Bot
-- Current STEP: STEP049D
+- Current STEP: STEP049J
 - Phase: landing production uplift with OG / social / metadata polish on top of the STEP048.4 product baseline
 - Primary mode: PRODUCT HARDENING / MONETIZATION FOUNDATION / LANDING PRODUCTION UPLIFT
-- Runtime status: source-clean STEP049D baseline with the STEP048.4 product/runtime layer intact plus the rebuilt public landing, branded OG/share-preview assets, improved mobile navigation, and legal-surface polish/consistency; live status not confirmed — manual verification required
+- Runtime status: source-clean STEP049J baseline with the STEP048.4 product/runtime layer intact plus the rebuilt public landing, refreshed OG master v7 social preview assets, improved mobile navigation, and legal-surface consistency; live status not confirmed — manual verification required
 
 ## What exists now
 
@@ -49,7 +49,7 @@
 
 ## Next recommended step
 
-- execute a narrow STEP049D manual verification pass: homepage mobile layout, CTA hierarchy, footer/legal consistency, and share-preview sanity after deploy
+- execute a narrow STEP049J manual verification pass: homepage mobile layout, share-preview refresh, OG cache busting, and footer/legal consistency after deploy
 
 ## STEP039.1 delta
 
@@ -150,3 +150,10 @@
 - privacy and terms pages rebuilt into one consistent legal-shell layout with quick summary blocks and aligned actions
 - legal pages now include OG/Twitter metadata and landing polish has its own smoke check
 
+
+
+## STEP049J delta
+
+- Replaced the homepage/legal social preview asset with a new premium OG master `intro-deck-og-1200x630.png` plus WEBP companion.
+- Updated homepage, privacy, and terms metadata to the new versioned OG path for cache-safe share refresh.
+- This step is an asset/meta refresh only; no schema or bot runtime behavior changed.
