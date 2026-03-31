@@ -11,7 +11,7 @@ const termsHtml = fs.readFileSync(path.join(repoRoot, 'terms', 'index.html'), 'u
 const requiredIndexSnippets = [
   'Trusted intros and direct contact',
   'id="how-it-works"',
-  'Built for people who rely on warm access.',
+  'A simple path from identity to conversation.',
   'Five moments that define the product.',
   'A more deliberate system for professional access.',
   'What people usually want to know.',
@@ -26,7 +26,7 @@ for (const snippet of requiredIndexSnippets) {
 
 const requiredCssSnippets = [
   '.hero-grid',
-  '.steps-grid',
+  '.bridge-grid',
   '.steps-grid-five',
   '.workflow-grid',
   '.cta-panel'
@@ -48,3 +48,18 @@ for (const html of [privacyHtml, termsHtml]) {
 }
 
 console.log('landing contract smoke passed');
+
+
+const orderChecks = [
+  'id="how-it-works"',
+  'id="workflow"',
+  'id="why-better"',
+  'id="for-whom"',
+  'id="faq"'
+].map((snippet) => indexHtml.indexOf(snippet));
+
+for (let i = 1; i < orderChecks.length; i += 1) {
+  if (orderChecks[i - 1] === -1 || orderChecks[i] === -1 || orderChecks[i - 1] >= orderChecks[i]) {
+    throw new Error('Landing section order drifted from STEP050F canon');
+  }
+}

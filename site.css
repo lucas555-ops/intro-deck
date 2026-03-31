@@ -400,6 +400,17 @@ p {
 .section-head.narrow {
   max-width: 720px;
 }
+.section-head--compact {
+  margin-bottom: 24px;
+}
+
+.section--bridge {
+  margin-top: calc(var(--section-gap) - 14px);
+}
+
+.section--bridge .section-head p {
+  max-width: 58ch;
+}
 
 .split-head {
   display: flex;
@@ -446,6 +457,40 @@ p {
   color: var(--muted-strong);
   font-size: 13px;
   font-weight: 700;
+}
+
+.bridge-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 18px;
+  align-items: stretch;
+}
+
+.bridge-card {
+  padding: 22px;
+  border-radius: 22px;
+  border: 1px solid rgba(124, 147, 176, 0.15);
+  background: linear-gradient(180deg, rgba(255,255,255,0.032), rgba(255,255,255,0.016));
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.035);
+}
+
+.bridge-card__index {
+  display: inline-flex;
+  margin-bottom: 14px;
+  color: var(--accent);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.bridge-card h3 {
+  margin-bottom: 10px;
+}
+
+.bridge-card p {
+  margin: 0;
+  color: var(--muted);
 }
 
 .steps-grid {
@@ -1622,6 +1667,7 @@ p {
 
   .cta-stack { align-items: flex-start; }
   .section { margin-top: var(--section-gap-tablet); }
+  .bridge-grid,
   .steps-grid,
   .steps-grid-five { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .three-up,

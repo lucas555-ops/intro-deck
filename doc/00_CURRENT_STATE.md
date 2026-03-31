@@ -3,10 +3,10 @@
 ## Snapshot
 
 - Project: LinkedIn Telegram Directory Bot
-- Current STEP: STEP050E
+- Current STEP: STEP050F
 - Phase: landing production uplift with hero prime reframe + narrative compression + workflow visual polish + responsive spacing verification on top of the STEP048.4 product baseline
 - Primary mode: PRODUCT HARDENING / MONETIZATION FOUNDATION / LANDING PRODUCTION UPLIFT
-- Runtime status: source-clean STEP050E baseline with the STEP048.4 product/runtime layer intact plus the rebuilt public landing, refreshed OG social preview assets, improved mobile navigation, cleaner brand alignment, a product-first hero, compressed post-hero landing narrative, a stronger workflow showcase with screen-state cards, a responsive spacing pass, and a simplified single-master visual integrated into the hero; live status not confirmed — manual verification required
+- Runtime status: source-clean STEP050F baseline with the STEP048.4 product/runtime layer intact plus the rebuilt public landing, refreshed OG social preview assets, improved mobile navigation, cleaner brand alignment, a product-first hero, a tighter post-hero workflow bridge, a stronger workflow showcase with screen-state cards, a responsive spacing pass, and a simplified single-master visual integrated into the hero; live status not confirmed — manual verification required
 
 ## What exists now
 
@@ -24,7 +24,7 @@
 - upgraded one-page public landing with stronger CTA hierarchy, product sections, FAQ, and final CTA
 - branded OG/share-preview asset, favicon layer, and full homepage social metadata
 - hero now uses a simplified single-master visual with shorter copy, calmer CTA framing, and one trust line instead of the prior rail / plaque density
-- post-hero landing narrative is now compressed into clearer audience, workflow, proof, and FAQ sections with less duplication
+- post-hero landing narrative is now compressed into clearer workflow, proof, audience, and FAQ layers with less duplication
 - `See the workflow` now presents a stronger screen-art showcase with a central master screen, side fragments, richer mini-state cards, and tighter tablet/mobile rhythm
 
 ## Current truth
@@ -57,7 +57,7 @@
 
 ## Next recommended step
 
-- deploy the STEP050E hero simplification and verify the live domain on desktop/mobile before deciding whether a narrower STEP050F section-order / polish pass is still needed
+- deploy STEP050F and verify that the new hero → workflow bridge → workflow proof rhythm feels cleaner on the live domain before any further asset-specific visual passes
 
 ## STEP039.1 delta
 
@@ -214,3 +214,10 @@
 - removed the hero workflow rail, explanatory plaque, and extra trust chips so the first screen reads shorter and cleaner
 - headline/subhead/CTA stack now emphasizes warm professional access inside Telegram with one lighter trust line beneath the actions
 - scope stays front-end-only on `index.html` + `site.css` + landing smoke alignment; runtime and legal surfaces remain untouched
+
+
+## STEP050F delta
+
+- moved `Who it's for` below workflow proof + mechanism advantages so the landing no longer drops into audience explanation immediately after the hero
+- replaced the prior five-step post-hero explainer with a shorter four-card workflow bridge focused on identity, card, access path, and private continuation
+- retuned nav order and hero secondary CTA so the page flows from hero into mechanism before visual proof, then audience/FAQ
