@@ -136,6 +136,13 @@ export function createTextComposer({ buildDirectoryFiltersSurface, buildAdminUse
     }));
 
     if (profileResult.consumed) {
+      if (profileResult.blocked && profileResult.reason === 'hidden_telegram_username_requires_migration') {
+        await ctx.reply('⚠️ Hidden Telegram username is not available in this database yet. Apply STEP046 migration 019_contact_unlock_requests.sql first.', {
+          reply_markup: renderProfilePreviewKeyboard()
+        });
+        return;
+      }
+
       await ctx.reply(renderProfileSavedNotice({
         fieldLabel: profileResult.fieldMeta.label,
         profileSnapshot: profileResult.profile

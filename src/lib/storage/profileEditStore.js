@@ -133,6 +133,17 @@ export async function applyProfileFieldInput({ telegramUserId, text }) {
 
     await clearProfileEditSessionByUserId(client, pendingSession.user_id);
 
+    if (profile?.schema_compat_blocked_reason) {
+      return {
+        persistenceEnabled: true,
+        consumed: true,
+        blocked: true,
+        fieldMeta: getProfileFieldMeta(pendingSession.field_key),
+        profile,
+        reason: profile.schema_compat_blocked_reason
+      };
+    }
+
     return {
       persistenceEnabled: true,
       consumed: true,

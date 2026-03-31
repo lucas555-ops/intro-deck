@@ -6,6 +6,7 @@ import {
   trimToNull
 } from '../lib/profile/contract.js';
 import { decorateProfileSnapshot } from './profileRepo.js';
+import { getSchemaCompat, selectHiddenTelegramUsername } from './schemaCompat.js';
 
 function buildIndustrySqlCondition(selectedIndustrySlug, params) {
   const normalizedIndustrySlug = normalizeDirectoryIndustryFilter(selectedIndustrySlug);
@@ -135,6 +136,9 @@ export async function listListedProfilesPage(client, {
     cityQuery: normalizedCityQuery
   });
 
+  const compat = await getSchemaCompat(client);
+  const hiddenTelegramSelect = selectHiddenTelegramUsername('mp', compat);
+
   const countResult = await client.query(
     `
       select count(*)::int as total_count
@@ -167,7 +171,7 @@ export async function listListedProfilesPage(client, {
         mp.industry_user,
         mp.about_user,
         mp.linkedin_public_url,
-        mp.telegram_username_hidden,
+        ${hiddenTelegramSelect} as telegram_username_hidden,
         mp.visibility_status,
         mp.contact_mode,
         mp.profile_state,
@@ -219,6 +223,8 @@ export async function listListedProfilesPage(client, {
 }
 
 export async function getListedProfileCardById(client, { profileId, viewerTelegramUserId = null }) {
+  const compat = await getSchemaCompat(client);
+  const hiddenTelegramSelect = selectHiddenTelegramUsername('mp', compat);
   const result = await client.query(
     `
       select
@@ -237,7 +243,7 @@ export async function getListedProfileCardById(client, { profileId, viewerTelegr
         mp.industry_user,
         mp.about_user,
         mp.linkedin_public_url,
-        mp.telegram_username_hidden,
+        ${hiddenTelegramSelect} as telegram_username_hidden,
         mp.visibility_status,
         mp.contact_mode,
         mp.profile_state,

@@ -3,9 +3,9 @@
 ## Executive summary
 
 - Project: LinkedIn Telegram Directory Bot
-- Current baseline: STEP050I
-- Current mode: PRODUCT HARDENING / CONTACT + DM MONETIZATION FOUNDATION / LANDING PRODUCTION UPLIFT / REPO CONSISTENCY CLEANUP
-- Current focus: keep the STEP048.4 runtime/product layer stable while shipping the STEP050H landing uplift baseline and cleaning repo/script/doc drift so the source package matches the shipped public surface
+- Current baseline: STEP050J
+- Current mode: PRODUCT HARDENING / CONTACT + DM MONETIZATION FOUNDATION / LANDING PRODUCTION UPLIFT
+- Current focus: keep the STEP048.4 runtime/product layer stable while the landing remains polished and schema truth stays explicit for pre-STEP046 databases.
 - Must not break: LinkedIn OIDC truth, webhook secret guard, router contract, listed/active browse truth, intro persistence, communications/outbox truth, operator allowlist gating
 
 ## Source-confirmed
@@ -24,17 +24,17 @@
 - rebuilt public landing now exists in source with stronger section architecture and CTA hierarchy
 - branded homepage OG/social preview layer now exists in source
 - homepage/privacy/terms now point to the refreshed OG master asset in source
-- repo consistency cleanup now exists in source: landing OG smoke is aligned to the clean asset path, admin bulk actions have a real smoke contract, and stale top-level leftovers are removed
+- STEP050J schema reality check now exists in source: profile/directory reads are schema-compatible again, while hidden Telegram username writes and direct-contact unlock flows explicitly require STEP046 migration `019_contact_unlock_requests.sql`.
 
 ## Live-confirmed
 
 - syntax/smoke can be run from repo
 - docs canon exists
-- source-level STEP050I checks pass locally
+- source-level STEP050J checks pass locally
 
 ## Inference
 
-- the next safe landing step after deploy is a narrow manual verification pass for the STEP050I homepage/workflow/lower-page stack plus OG/share-preview cache refresh, not another broad landing rewrite
+- the next safe landing step after deploy is a narrow manual verification pass for STEP049K homepage/mobile/legal behavior plus OG/share-preview cache refresh, not another broad landing rewrite
 - the strongest product/runtime rails remain paid direct-contact requests plus gated DM initiation beneath the landing uplift
 
 ## Blocked / unconfirmed
@@ -67,15 +67,14 @@ When contract certainty is missing, say exactly:
 - `doc/process/07_WORK_HISTORY_STEP046.md`
 - `doc/process/07_WORK_HISTORY_STEP047.md`
 - `doc/process/07_WORK_HISTORY_STEP049B.md`
-- `doc/process/07_WORK_HISTORY_STEP050H.md`
-- `doc/process/07_WORK_HISTORY_STEP050I.md`
 - `doc/17_START_NEW_CHAT_PROMPT_LINKEDIN_DIRECTORY_BOT.md`
 
 
-## Migrations note
+## STEP048.1 hotfix
 
-- Current source assumes STEP046-STEP048 migrations are applied for hidden Telegram username, DM relay, and pricing/ops features.
-- A separate schema-compat smoke contract is not present in this source package; do not claim legacy-db compatibility without verification.
+- Historical intent: keep pre-STEP046 databases operational while migrations were still being applied.
+- Current reality after STEP050J: schema-compatible reads are restored through `src/db/schemaCompat.js`, but hidden Telegram username writes and direct-contact unlock flows explicitly require STEP046 migration `019_contact_unlock_requests.sql`.
+- Truth boundary: do not claim full STEP046 backward-compat without that migration present.
 
 
 ## STEP048.3 hotfix
@@ -127,10 +126,3 @@ When contract certainty is missing, say exactly:
 - Homepage and legal navigation now use the real Intro Deck brand asset instead of a text-only mark.
 - Product preview cards were rebalanced into a full three-card desktop layout.
 - Privacy and Terms intro blocks were cleaned up for readability and shell consistency.
-
-
-## STEP050I delta
-
-- Repaired repo consistency drift across package scripts, OG smoke, README, and handoff docs.
-- Added a real admin bulk-actions smoke contract.
-- Removed stale top-level artifact leftovers from the repo root.

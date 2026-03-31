@@ -5,6 +5,7 @@ import {
   normalizeSkills,
   REQUIRED_PROFILE_FIELD_KEYS
 } from '../lib/profile/contract.js';
+import { getSchemaCompat, selectHiddenTelegramUsername } from './schemaCompat.js';
 
 function firstNonEmpty(...values) {
   for (const value of values) {
@@ -62,6 +63,42 @@ export async function decorateProfileSnapshot(client, snapshot) {
   };
 }
 
+function buildProfileSnapshotSelect(hiddenTelegramSelect) {
+  return `
+      select
+        u.id as user_id,
+        u.telegram_user_id,
+        u.telegram_username,
+        u.first_seen_at,
+        u.last_seen_at,
+        la.linkedin_sub,
+        la.full_name as linkedin_name,
+        la.given_name as linkedin_given_name,
+        la.family_name as linkedin_family_name,
+        la.email as linkedin_email,
+        la.picture_url as linkedin_picture_url,
+        la.locale as linkedin_locale,
+        la.last_refresh_at as linkedin_last_refresh_at,
+        mp.id as profile_id,
+        mp.display_name,
+        mp.headline_user,
+        mp.company_user,
+        mp.city_user,
+        mp.industry_user,
+        mp.about_user,
+        mp.linkedin_public_url,
+        ${hiddenTelegramSelect} as telegram_username_hidden,
+        mp.visibility_status,
+        mp.contact_mode,
+        mp.profile_state,
+        mp.created_at,
+        mp.updated_at
+      from users u
+      left join linkedin_accounts la on la.user_id = u.id
+      left join member_profiles mp on mp.user_id = u.id
+    `;
+}
+
 async function normalizeProfileState(client, userId) {
   const checks = REQUIRED_PROFILE_FIELD_KEYS.map((fieldKey) => {
     const meta = getProfileFieldMeta(fieldKey);
@@ -113,39 +150,10 @@ export async function ensureProfileDraft(client, { userId, identity }) {
 }
 
 export async function getProfileSnapshotByUserId(client, userId) {
+  const compat = await getSchemaCompat(client);
+  const hiddenTelegramSelect = selectHiddenTelegramUsername('mp', compat);
   const result = await client.query(
-    `
-      select
-        u.id as user_id,
-        u.telegram_user_id,
-        u.telegram_username,
-        u.first_seen_at,
-        u.last_seen_at,
-        la.linkedin_sub,
-        la.full_name as linkedin_name,
-        la.given_name as linkedin_given_name,
-        la.family_name as linkedin_family_name,
-        la.email as linkedin_email,
-        la.picture_url as linkedin_picture_url,
-        la.locale as linkedin_locale,
-        la.last_refresh_at as linkedin_last_refresh_at,
-        mp.id as profile_id,
-        mp.display_name,
-        mp.headline_user,
-        mp.company_user,
-        mp.city_user,
-        mp.industry_user,
-        mp.about_user,
-        mp.linkedin_public_url,
-        mp.telegram_username_hidden,
-        mp.visibility_status,
-        mp.contact_mode,
-        mp.profile_state,
-        mp.created_at,
-        mp.updated_at
-      from users u
-      left join linkedin_accounts la on la.user_id = u.id
-      left join member_profiles mp on mp.user_id = u.id
+    `${buildProfileSnapshotSelect(hiddenTelegramSelect)}
       where u.id = $1
       limit 1
     `,
@@ -156,39 +164,10 @@ export async function getProfileSnapshotByUserId(client, userId) {
 }
 
 export async function getProfileSnapshotByTelegramUserId(client, telegramUserId) {
+  const compat = await getSchemaCompat(client);
+  const hiddenTelegramSelect = selectHiddenTelegramUsername('mp', compat);
   const result = await client.query(
-    `
-      select
-        u.id as user_id,
-        u.telegram_user_id,
-        u.telegram_username,
-        u.first_seen_at,
-        u.last_seen_at,
-        la.linkedin_sub,
-        la.full_name as linkedin_name,
-        la.given_name as linkedin_given_name,
-        la.family_name as linkedin_family_name,
-        la.email as linkedin_email,
-        la.picture_url as linkedin_picture_url,
-        la.locale as linkedin_locale,
-        la.last_refresh_at as linkedin_last_refresh_at,
-        mp.id as profile_id,
-        mp.display_name,
-        mp.headline_user,
-        mp.company_user,
-        mp.city_user,
-        mp.industry_user,
-        mp.about_user,
-        mp.linkedin_public_url,
-        mp.telegram_username_hidden,
-        mp.visibility_status,
-        mp.contact_mode,
-        mp.profile_state,
-        mp.created_at,
-        mp.updated_at
-      from users u
-      left join linkedin_accounts la on la.user_id = u.id
-      left join member_profiles mp on mp.user_id = u.id
+    `${buildProfileSnapshotSelect(hiddenTelegramSelect)}
       where u.telegram_user_id = $1
       limit 1
     `,
@@ -236,6 +215,15 @@ export async function updateProfileField(client, { userId, fieldKey, value }) {
   const meta = getProfileFieldMeta(fieldKey);
   if (!meta) {
     throw new Error(`Unsupported profile field key: ${fieldKey}`);
+  }
+
+  const compat = await getSchemaCompat(client);
+  if (fieldKey === 'tg' && !compat.memberProfilesHasHiddenTelegramUsername) {
+    const snapshot = await getProfileSnapshotByUserId(client, userId);
+    return {
+      ...snapshot,
+      schema_compat_blocked_reason: 'hidden_telegram_username_requires_migration'
+    };
   }
 
   await client.query(

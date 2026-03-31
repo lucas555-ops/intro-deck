@@ -1,3 +1,17 @@
+import { getSchemaCompat, selectHiddenTelegramUsername } from './schemaCompat.js';
+
+function unsupportedSchemaResult(reason = 'contact_unlock_requires_migrations') {
+  return { changed: false, created: false, blocked: true, duplicate: false, reason, request: null, target: null };
+}
+
+async function ensureContactUnlockSchema(client) {
+  const compat = await getSchemaCompat(client);
+  return {
+    compat,
+    supported: compat.memberProfilesHasHiddenTelegramUsername && compat.hasContactUnlockRequestsTable
+  };
+}
+
 function normalizeUnlockItem(row, role) {
   if (!row) {
     return null;
@@ -42,6 +56,8 @@ async function loadRequesterSnapshotRow(client, requesterUserId) {
 }
 
 async function loadTargetContactRow(client, targetProfileId) {
+  const compat = await getSchemaCompat(client);
+  const hiddenTelegramSelect = selectHiddenTelegramUsername('mp', compat);
   const result = await client.query(
     `
       select
@@ -50,7 +66,7 @@ async function loadTargetContactRow(client, targetProfileId) {
         mp.contact_mode,
         mp.visibility_status,
         mp.profile_state,
-        mp.telegram_username_hidden,
+        ${hiddenTelegramSelect} as telegram_username_hidden,
         coalesce(nullif(mp.display_name, ''), la.full_name, 'Unnamed profile') as display_name,
         mp.headline_user
       from member_profiles mp
@@ -99,8 +115,6 @@ async function loadContactUnlockDetailRow(client, requestId, userId) {
       from contact_unlock_requests cur
       left join member_profiles requester_mp on requester_mp.user_id = cur.requester_user_id
       left join linkedin_accounts requester_la on requester_la.user_id = cur.requester_user_id
-      left join member_profiles requester_mp on requester_mp.user_id = cur.requester_user_id
-      left join linkedin_accounts requester_la on requester_la.user_id = cur.requester_user_id
       left join member_profiles target_mp on target_mp.user_id = cur.target_user_id
       left join linkedin_accounts target_la on target_la.user_id = cur.target_user_id
       where cur.id = $1
@@ -114,6 +128,11 @@ async function loadContactUnlockDetailRow(client, requestId, userId) {
 }
 
 export async function createOrGetContactUnlockRequest(client, { requesterUserId, targetProfileId, priceStars }) {
+  const schema = await ensureContactUnlockSchema(client);
+  if (!schema.supported) {
+    return unsupportedSchemaResult();
+  }
+
   const requester = await loadRequesterSnapshotRow(client, requesterUserId);
   if (!requester) {
     return { created: false, blocked: true, reason: 'requester_user_missing', request: null, target: null };
@@ -241,6 +260,12 @@ export async function createOrGetContactUnlockRequest(client, { requesterUserId,
 }
 
 export async function getContactUnlockRequestPaymentEnvelope(client, { requestId }) {
+  const schema = await ensureContactUnlockSchema(client);
+  if (!schema.supported) {
+    return null;
+  }
+
+  const hiddenTelegramSelect = selectHiddenTelegramUsername('target_mp', schema.compat);
   const result = await client.query(
     `
       select
@@ -258,7 +283,7 @@ export async function getContactUnlockRequestPaymentEnvelope(client, { requestId
         coalesce(requester_mp.headline_user, cur.requester_headline_user) as requester_headline_user,
         coalesce(nullif(target_mp.display_name, ''), target_la.full_name, cur.target_display_name, 'Unknown member') as target_display_name,
         coalesce(target_mp.headline_user, cur.target_headline_user) as target_headline_user,
-        target_mp.telegram_username_hidden
+        ${hiddenTelegramSelect} as telegram_username_hidden
       from contact_unlock_requests cur
       join users requester on requester.id = cur.requester_user_id
       join users target on target.id = cur.target_user_id
@@ -281,6 +306,11 @@ export async function markContactUnlockRequestPaymentConfirmed(client, {
   telegramPaymentChargeId,
   providerPaymentChargeId = null
 }) {
+  const schema = await ensureContactUnlockSchema(client);
+  if (!schema.supported) {
+    return { changed: false, blocked: true, duplicate: false, reason: 'contact_unlock_requires_migrations', request: null };
+  }
+
   const current = await getContactUnlockRequestPaymentEnvelope(client, { requestId });
   if (!current) {
     return { changed: false, blocked: true, reason: 'contact_unlock_request_missing', request: null };
@@ -330,6 +360,11 @@ export async function markContactUnlockRequestPaymentConfirmed(client, {
 }
 
 export async function decideContactUnlockRequest(client, { userId, requestId, decision }) {
+  const schema = await ensureContactUnlockSchema(client);
+  if (!schema.supported) {
+    return { changed: false, blocked: true, duplicate: false, reason: 'contact_unlock_requires_migrations', request: null };
+  }
+
   const nextDecision = decision === 'acc' ? 'reveal' : decision === 'dec' ? 'decline' : null;
   if (!nextDecision) {
     return { changed: false, blocked: true, reason: 'contact_unlock_invalid_decision', request: null };
@@ -403,6 +438,22 @@ export async function decideContactUnlockRequest(client, { userId, requestId, de
 }
 
 export async function getContactUnlockInboxStateByUserId(client, { userId }) {
+  const schema = await ensureContactUnlockSchema(client);
+  if (!schema.supported) {
+    return {
+      counts: {
+        receivedPendingApproval: 0,
+        receivedTotal: 0,
+        sentPendingApproval: 0,
+        sentTotal: 0,
+        sentRevealed: 0
+      },
+      received: [],
+      sent: [],
+      schema_blocked_reason: 'contact_unlock_requires_migrations'
+    };
+  }
+
   const receivedResult = await client.query(
     `
       select
@@ -474,6 +525,11 @@ export async function getContactUnlockInboxStateByUserId(client, { userId }) {
 }
 
 export async function getContactUnlockRequestDetailByUserId(client, { userId, requestId }) {
+  const schema = await ensureContactUnlockSchema(client);
+  if (!schema.supported) {
+    return { request: null, blocked: true, reason: 'contact_unlock_requires_migrations' };
+  }
+
   const row = await loadContactUnlockDetailRow(client, requestId, userId);
   if (!row) {
     return { request: null, blocked: true, reason: 'contact_unlock_request_missing' };
