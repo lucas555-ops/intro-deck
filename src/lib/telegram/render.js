@@ -557,24 +557,28 @@ export function renderHomeKeyboard({ appBaseUrl, telegramUserId, profileSnapshot
     rows.push([{ text: '🔐 Connect LinkedIn', url: buildLinkedInStartUrl({ appBaseUrl, telegramUserId }) }]);
   } else if (persistenceEnabled) {
     const profileLabel = profileSnapshot?.completion?.isReady ? '🧩 Edit profile' : '🧩 Complete profile';
-    rows.push([{ text: profileLabel, callback_data: 'p:menu' }]);
+    rows.push([
+      { text: profileLabel, callback_data: 'p:menu' },
+      { text: '🌐 Browse directory', callback_data: 'dir:list:0' }
+    ]);
   }
 
-  if (persistenceEnabled) {
-    rows.push([{ text: '🌐 Browse directory', callback_data: 'dir:list:0' }]);
-  }
-
-  if (persistenceEnabled && isLinkedInConnected) {
-    rows.push([{ text: '📥 Intro inbox', callback_data: 'intro:inbox' }]);
-    rows.push([{ text: '💬 DM inbox', callback_data: 'dm:inbox' }]);
-  }
-
-  if (persistenceEnabled) {
-    rows.push([{ text: '⭐ Plans', callback_data: 'plans:root' }]);
+  if (persistenceEnabled && !isLinkedInConnected) {
+    rows.push([
+      { text: '🌐 Browse directory', callback_data: 'dir:list:0' },
+      { text: '⭐ Plans', callback_data: 'plans:root' }
+    ]);
   }
 
   if (persistenceEnabled && isLinkedInConnected) {
-    rows.push([{ text: '📨 Invite contacts', callback_data: 'invite:root' }]);
+    rows.push([
+      { text: '📥 Intro inbox', callback_data: 'intro:inbox' },
+      { text: '💬 DM inbox', callback_data: 'dm:inbox' }
+    ]);
+    rows.push([
+      { text: '⭐ Plans', callback_data: 'plans:root' },
+      { text: '📨 Invite contacts', callback_data: 'invite:root' }
+    ]);
   }
 
   rows.push([{ text: '❓ Help', callback_data: 'help:root' }]);
@@ -605,12 +609,18 @@ export function renderHelpText() {
 
 export function renderHelpKeyboard() {
   return buildInlineKeyboard([
-    [{ text: '🧩 Profile', callback_data: 'p:menu' }],
-    [{ text: '🌐 Browse directory', callback_data: 'dir:list:0' }],
-    [{ text: '📥 Intro inbox', callback_data: 'intro:inbox' }],
-    [{ text: '💬 DM inbox', callback_data: 'dm:inbox' }],
-    [{ text: '⭐ Plans', callback_data: 'plans:root' }],
-    [{ text: '📨 Invite contacts', callback_data: 'invite:root' }],
+    [
+      { text: '🧩 Profile', callback_data: 'p:menu' },
+      { text: '🌐 Browse directory', callback_data: 'dir:list:0' }
+    ],
+    [
+      { text: '📥 Intro inbox', callback_data: 'intro:inbox' },
+      { text: '💬 DM inbox', callback_data: 'dm:inbox' }
+    ],
+    [
+      { text: '⭐ Plans', callback_data: 'plans:root' },
+      { text: '📨 Invite contacts', callback_data: 'invite:root' }
+    ],
     [{ text: '🏠 Home', callback_data: 'home:root' }]
   ]);
 }

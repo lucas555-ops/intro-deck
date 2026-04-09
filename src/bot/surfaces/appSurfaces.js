@@ -33,12 +33,18 @@ function fallbackRenderHelpText() {
 function fallbackRenderHelpKeyboard() {
   return {
     inline_keyboard: [
-      [{ text: '🧩 Profile', callback_data: 'p:menu' }],
-      [{ text: '🌐 Browse directory', callback_data: 'dir:list:0' }],
-      [{ text: '📥 Intro inbox', callback_data: 'intro:inbox' }],
-      [{ text: '💬 DM inbox', callback_data: 'dm:inbox' }],
-      [{ text: '⭐ Plans', callback_data: 'plans:root' }],
-      [{ text: '📨 Invite contacts', callback_data: 'invite:root' }],
+      [
+        { text: '🧩 Profile', callback_data: 'p:menu' },
+        { text: '🌐 Browse directory', callback_data: 'dir:list:0' }
+      ],
+      [
+        { text: '📥 Intro inbox', callback_data: 'intro:inbox' },
+        { text: '💬 DM inbox', callback_data: 'dm:inbox' }
+      ],
+      [
+        { text: '⭐ Plans', callback_data: 'plans:root' },
+        { text: '📨 Invite contacts', callback_data: 'invite:root' }
+      ],
       [{ text: '🏠 Home', callback_data: 'home:root' }]
     ]
   };

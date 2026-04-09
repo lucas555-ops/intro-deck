@@ -3,10 +3,10 @@
 ## Snapshot
 
 - Project: LinkedIn Telegram Directory Bot
-- Current STEP: STEP051.2
-- Phase: home/help menu organization polish on top of the STEP051.1 invite photo-card uplift and STEP050M landing + STEP048.4 product baseline
+- Current STEP: STEP051.3
+- Phase: paired menu layout polish on top of the STEP051.2 home/help organization pass, the STEP051.1 invite photo-card uplift, and the STEP050M landing + STEP048.4 product baseline
 - Primary mode: PRODUCT HARDENING / MONETIZATION FOUNDATION / TELEGRAM INVITE LAYER
-- Runtime status: source-clean STEP051.2 baseline with the STEP048.4 product/runtime layer intact, the STEP050M landing/meta layer preserved, the STEP051 invite/share layer intact, and the Telegram home/help surfaces reorganized into a cleaner user-first menu order: profile/browse → inboxes → plans → invite → help, with admin still pinned last for founder/operator accounts; live status not confirmed — manual verification required
+- Runtime status: source-clean STEP051.3 baseline with the STEP048.4 product/runtime layer intact, the STEP050M landing/meta layer preserved, the STEP051 invite/share layer intact, and the Telegram home/help surfaces now organized into compact paired rows for cleaner mobile scanning: profile+browse, inboxes, plans+invite, then help, with admin still pinned last for founder/operator accounts; live status not confirmed — manual verification required
 
 ## What exists now
 
@@ -34,6 +34,7 @@
 - STEP051 invite contacts / Telegram-native inline share layer with primary inline share CTA, raw-link/card fallbacks, deep-link attribution truth, and honest invited/activated counters
 - STEP051.1 upgrades the primary inline invite result from article/text into a photo-card built from the shipped OG preview asset, with caption polish and cached-photo readiness
 - STEP051.2 reorganizes the user-facing home/help menu surfaces so the core flow reads more cleanly: profile/browse first, inboxes next, plans before invite, help near the bottom, and founder/operator admin pinned last
+- STEP051.3 keeps the STEP051.2 order but compresses the home/help keyboards into cleaner two-button rows where it improves mobile scanning, without changing invite, DM, intro, or LinkedIn contracts
 
 ## Current truth
 
@@ -54,6 +55,7 @@
 - STEP051 keeps LinkedIn as the trust/identity bootstrap and adds invite sharing as a narrow Telegram-native growth layer without reward mechanics
 - STEP051.1 keeps the STEP051 invite surface contract intact and only upgrades the primary share result to a richer photo-card path
 - STEP051.2 keeps the invite/runtime contracts intact and only reorganizes menu entrypoint order plus help-surface discovery, including a first-class `Plans` entry on the home/help surfaces
+- STEP051.3 keeps the same menu order but makes the keyboards more compact and organic on mobile by pairing the most related actions into shared rows
 - invite attribution only applies to first-start new users and differentiates `inline_share`, `raw_link`, and `invite_card` sources
 
 ## What must not break
@@ -69,7 +71,7 @@
 
 ## Next recommended step
 
-- deploy STEP051.2 and do a short live menu smoke on the real bot: /start or /menu, confirm the new home/help order feels cleaner on mobile, and verify the `⭐ Plans` entry now sits in the main user navigation without disturbing invite/photo-card behavior
+- deploy STEP051.3 and do a short live menu smoke on the real bot: /start or /menu, confirm the paired home/help rows feel more compact on mobile, and verify the `⭐ Plans` + `📨 Invite contacts` row still leaves invite/photo-card behavior untouched
 
 ## STEP039.1 delta
 
@@ -279,3 +281,12 @@
 - help surface text now mentions plans / Pro status explicitly and the help keyboard mirrors the same core navigation order
 - `⭐ Plans` is now promoted from a hidden shortcut/fallback path into the main home/help navigation so monetization entry is easier to discover without cluttering the invite flow
 - scope is UI-order polish only; no schema, invite attribution, DM, intro, or LinkedIn auth contracts changed
+
+
+## STEP051.3 delta
+
+- home keyboard now uses paired rows where it improves readability on mobile: `Profile/Edit + Browse`, `Intro inbox + DM inbox`, and `Plans + Invite contacts`
+- unconnected users now see a tighter compact row for `Browse directory + Plans` beneath `Connect LinkedIn`
+- help keyboard mirrors the same paired navigation structure so home/help feel like one coherent surface instead of two different layouts
+- `❓ Help` and founder/operator `👑 Админка` remain single-row actions so the bottom of the menu still reads clearly
+- scope is layout polish only; no command routing, schema, invite attribution, DM, intro, or LinkedIn auth contracts changed
