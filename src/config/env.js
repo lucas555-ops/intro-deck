@@ -75,6 +75,7 @@ function readSecretEnv(name) {
 export function getAppConfig() {
   return {
     appBaseUrl: readRequiredEnv('APP_BASE_URL'),
+    invitePhotoFileId: readEnv('INVITE_PHOTO_FILE_ID') || null,
     nodeEnv: readEnv('NODE_ENV', 'development')
   };
 }

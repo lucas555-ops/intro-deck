@@ -3,10 +3,10 @@
 ## Snapshot
 
 - Project: LinkedIn Telegram Directory Bot
-- Current STEP: STEP051
-- Phase: invite contacts / Telegram-native inline share layer on top of the STEP050M landing + STEP048.4 product baseline
+- Current STEP: STEP051.1
+- Phase: invite photo-card uplift on top of the STEP051 invite layer and STEP050M landing + STEP048.4 product baseline
 - Primary mode: PRODUCT HARDENING / MONETIZATION FOUNDATION / TELEGRAM INVITE LAYER
-- Runtime status: source-clean STEP051 baseline with the STEP048.4 product/runtime layer intact, the STEP050M landing/meta layer preserved, and a new Telegram invite surface with inline share, raw-link/card fallbacks, first-start attribution truth, and invite counters; live status not confirmed — manual verification required
+- Runtime status: source-clean STEP051.1 baseline with the STEP048.4 product/runtime layer intact, the STEP050M landing/meta layer preserved, and the Telegram invite surface upgraded so primary inline share now ships a photo-card from the OG asset, with cached-photo readiness, caption polish, raw-link/text fallbacks, first-start attribution truth, and invite counters; live status not confirmed — manual verification required
 
 ## What exists now
 
@@ -32,6 +32,7 @@
 - STEP050M narrows the public landing meta copy so root `<title>`, standard description, Open Graph, and Twitter preview text all use one cleaner canon: trusted intros and direct contact in Telegram, with LinkedIn as the identity layer
 - STEP050M also realigns `scripts/smoke_og_social_contract.js` to the current `assets/social/intro-deck-og-1200x630.png` asset path so OG/social source checks match the repo state
 - STEP051 invite contacts / Telegram-native inline share layer with primary inline share CTA, raw-link/card fallbacks, deep-link attribution truth, and honest invited/activated counters
+- STEP051.1 upgrades the primary inline invite result from article/text into a photo-card built from the shipped OG preview asset, with caption polish and cached-photo readiness
 
 ## Current truth
 
@@ -50,6 +51,7 @@
 - privacy and terms pages now share the same visual/navigation standard as the landing
 - STEP048 pricing / analytics / ops remains the last shipped product/runtime layer beneath the landing uplift
 - STEP051 keeps LinkedIn as the trust/identity bootstrap and adds invite sharing as a narrow Telegram-native growth layer without reward mechanics
+- STEP051.1 keeps the STEP051 invite surface contract intact and only upgrades the primary share result to a richer photo-card path
 - invite attribution only applies to first-start new users and differentiates `inline_share`, `raw_link`, and `invite_card` sources
 
 ## What must not break
@@ -65,7 +67,7 @@
 
 ## Next recommended step
 
-- deploy STEP051, enable/confirm BotFather inline mode, and verify live inline share + raw-link/card fallbacks + first-start invite attribution on the real bot before any reward or growth-expansion ideas
+- deploy STEP051.1, verify that inline share now sends the OG photo-card on the real bot, and optionally capture/store `INVITE_PHOTO_FILE_ID` for the cached-photo path after one live Telegram upload
 
 ## STEP039.1 delta
 
@@ -259,3 +261,11 @@
 - home/help surfaces now expose invite entrypoints for connected members
 - invite counters stay honest: `Friends invited` and `Activated`
 - no reward mechanics, no quota bonuses, no leaderboard layer
+
+## STEP051.1 delta
+
+- primary inline invite result now prefers a photo-card instead of article/text
+- shipped JPEG invite asset at `assets/social/intro-deck-og-1200x630.jpg` derived from the production OG preview
+- inline invite caption now uses the tighter landing canon: trusted intros and direct contact in Telegram
+- cached-photo readiness added via optional `INVITE_PHOTO_FILE_ID` env; when absent, the bot falls back to the public JPEG asset URL
+- `Show link` and `Get invite card` remain unchanged as fallback paths

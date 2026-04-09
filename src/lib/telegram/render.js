@@ -1594,6 +1594,61 @@ export function renderInlineInviteShareText({ inviteState = null } = {}) {
   ].join('\n');
 }
 
+export function renderInlineInviteCaption({ inviteState = null } = {}) {
+  return [
+    'Trusted intros and direct contact in Telegram.',
+    'Private directory. LinkedIn identity. Consent-based access.',
+    '',
+    buildJoinIntroDeckAnchor(inviteState?.inlineInviteLink || inviteState?.inviteLink)
+  ].join('\n');
+}
+
+export function buildInlineInviteResult({ inviteState = null } = {}) {
+  const replyMarkup = renderInviteCardKeyboard({ inviteState });
+
+  if (inviteState?.invitePhotoFileId) {
+    return {
+      type: 'photo',
+      id: 'invite-photo-cached',
+      photo_file_id: inviteState.invitePhotoFileId,
+      title: 'Share Intro Deck invite',
+      description: 'Share a photo invite card for Intro Deck',
+      caption: renderInlineInviteCaption({ inviteState }),
+      parse_mode: 'HTML',
+      reply_markup: replyMarkup
+    };
+  }
+
+  if (inviteState?.invitePhotoUrl) {
+    return {
+      type: 'photo',
+      id: 'invite-photo-url',
+      photo_url: inviteState.invitePhotoUrl,
+      thumbnail_url: inviteState.invitePhotoUrl,
+      photo_width: 1200,
+      photo_height: 630,
+      title: 'Share Intro Deck invite',
+      description: 'Share a photo invite card for Intro Deck',
+      caption: renderInlineInviteCaption({ inviteState }),
+      parse_mode: 'HTML',
+      reply_markup: replyMarkup
+    };
+  }
+
+  return {
+    type: 'article',
+    id: 'invite-article-fallback',
+    title: 'Share Intro Deck invite',
+    description: 'Share your personal Intro Deck invite into any chat',
+    input_message_content: {
+      message_text: renderInlineInviteShareText({ inviteState }),
+      parse_mode: 'HTML',
+      disable_web_page_preview: true
+    },
+    reply_markup: replyMarkup
+  };
+}
+
 export function renderOperatorDiagnosticsText({
   persistenceEnabled = false,
   diagnostics = null,

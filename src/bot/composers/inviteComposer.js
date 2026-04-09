@@ -1,6 +1,7 @@
-import { Composer, InlineKeyboard } from 'grammy';
+import { Composer } from 'grammy';
 import { safeEditOrReply } from '../../lib/telegram/safeEditOrReply.js';
 import { attemptInviteAttributionForTelegramUser } from '../../lib/storage/inviteStore.js';
+import { buildInlineInviteResult } from '../../lib/telegram/render.js';
 
 function parseStartParam(ctx) {
   const text = String(ctx.message?.text || '').trim();
@@ -33,21 +34,6 @@ function formatInviteStartNotice(result) {
   }
 
   return null;
-}
-
-function buildInlineInviteResult(snapshot) {
-  return {
-    type: 'article',
-    id: `invite-${Date.now()}`,
-    title: 'Share Intro Deck invite',
-    description: 'Share your personal Intro Deck invite into any chat',
-    input_message_content: {
-      message_text: snapshot.inlineShareText,
-      parse_mode: 'HTML',
-      disable_web_page_preview: true
-    },
-    reply_markup: new InlineKeyboard().url('Open Intro Deck', snapshot.inviteCardLink || snapshot.inlineInviteLink || snapshot.inviteLink)
-  };
 }
 
 export function createInviteComposer({
@@ -141,7 +127,7 @@ export function createInviteComposer({
     }
 
     await ctx.answerInlineQuery([
-      buildInlineInviteResult(surface.snapshot)
+      buildInlineInviteResult({ inviteState: surface.snapshot })
     ], {
       is_personal: true,
       cache_time: 0

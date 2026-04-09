@@ -80,6 +80,7 @@ const renderInviteLinkText = render.renderInviteLinkText;
 const renderInviteLinkKeyboard = render.renderInviteLinkKeyboard;
 const renderInviteCardText = render.renderInviteCardText;
 const renderInviteCardKeyboard = render.renderInviteCardKeyboard;
+const renderInlineInviteCaption = render.renderInlineInviteCaption;
 const renderInlineInviteShareText = render.renderInlineInviteShareText;
 
 
@@ -124,7 +125,15 @@ function noticeMatchesProfile(notice, profileSnapshot) {
   }
 }
 
-export function createSurfaceBuilders({ appBaseUrl }) {
+function buildInvitePhotoUrl(appBaseUrl) {
+  if (!appBaseUrl) {
+    return null;
+  }
+
+  return new URL('/assets/social/intro-deck-og-1200x630.jpg', appBaseUrl).toString();
+}
+
+export function createSurfaceBuilders({ appBaseUrl, invitePhotoFileId = null }) {
   async function buildHomeSurface(ctx, homeExtraNotice = null) {
     const storeResult = await touchTelegramUserAndLoadProfile({
       telegramUserId: ctx.from.id,
@@ -453,6 +462,8 @@ async function buildDirectoryCardSurface(ctx, profileId, page = 0, notice = null
       inlineInviteLink: null,
       inviteCardLink: null,
       shareInlineQuery: 'invite',
+      invitePhotoUrl: buildInvitePhotoUrl(appBaseUrl),
+      invitePhotoFileId,
       invitedCount: 0,
       activatedCount: 0,
       invitedBy: null,
@@ -497,6 +508,8 @@ async function buildDirectoryCardSurface(ctx, profileId, page = 0, notice = null
       inviteLink: null,
       inlineInviteLink: null,
       inviteCardLink: null,
+      invitePhotoUrl: buildInvitePhotoUrl(appBaseUrl),
+      invitePhotoFileId,
       invitedCount: 0,
       activatedCount: 0,
       invited: [],
@@ -510,6 +523,9 @@ async function buildDirectoryCardSurface(ctx, profileId, page = 0, notice = null
       disable_web_page_preview: true,
       snapshot: {
         ...state,
+        invitePhotoUrl: buildInvitePhotoUrl(appBaseUrl),
+        invitePhotoFileId,
+        inlineInviteCaption: renderInlineInviteCaption({ inviteState: state }),
         inlineShareText: renderInlineInviteShareText({ inviteState: state })
       }
     };

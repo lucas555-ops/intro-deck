@@ -27,11 +27,11 @@ export async function createBot() {
   }
 
   const { botToken } = getTelegramConfig();
-  const { appBaseUrl } = getAppConfig();
+  const { appBaseUrl, invitePhotoFileId } = getAppConfig();
   const bot = new Bot(botToken);
 
-  const surfaces = createSurfaceBuilders({ appBaseUrl });
-  const adminSurfaces = createAdminSurfaceBuilders({ currentStep: 'STEP048.2' });
+  const surfaces = createSurfaceBuilders({ appBaseUrl, invitePhotoFileId });
+  const adminSurfaces = createAdminSurfaceBuilders({ currentStep: 'STEP051.1' });
 
 
   bot.use(createInviteComposer({
