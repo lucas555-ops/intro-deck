@@ -1,13 +1,56 @@
 import { Composer } from 'grammy';
 import { renderProfilePreviewKeyboard, renderProfileSavedNotice } from '../../lib/telegram/render.js';
 import { applyDirectoryFilterInputForTelegramUser } from '../../lib/storage/directoryFilterStore.js';
-import { applyAdminCommsTextInput, applyAdminUserNoteInput, loadAdminBroadcastState, loadAdminDirectMessageState, loadAdminNoticeState, loadAdminSearchResults } from '../../lib/storage/adminStore.js';
+import { applyAdminCommsPhotoInput, applyAdminCommsTextInput, applyAdminUserNoteInput, loadAdminBroadcastState, loadAdminDirectMessageState, loadAdminNoticeState, loadAdminSearchResults } from '../../lib/storage/adminStore.js';
 import { applyProfileFieldInput } from '../../lib/storage/profileEditStore.js';
 import { applyDmComposeInput } from '../../lib/storage/dmStore.js';
 import { formatUserFacingError } from '../utils/notices.js';
 
 export function createTextComposer({ buildDirectoryFiltersSurface, buildAdminUserCardSurface, buildAdminUserMessageSurface, buildAdminNoticeSurface, buildAdminBroadcastSurface, buildAdminSearchResultsSurface, buildDmThreadSurface }) {
   const composer = new Composer();
+
+  function broadcastSavedNotice(inputKind = 'broadcast_body') {
+    switch (inputKind) {
+      case 'broadcast_media':
+        return '✅ Broadcast image saved.';
+      case 'broadcast_button_text':
+        return '✅ Button label saved.';
+      case 'broadcast_button_url':
+        return '✅ Button URL saved.';
+      default:
+        return '✅ Broadcast text saved.';
+    }
+  }
+
+  composer.on('message:photo', async (ctx, next) => {
+    const photo = ctx.message.photo?.[ctx.message.photo.length - 1] || null;
+    if (!photo?.file_id) {
+      return next();
+    }
+
+    const adminPhotoResult = await applyAdminCommsPhotoInput({
+      operatorTelegramUserId: ctx.from.id,
+      operatorTelegramUsername: ctx.from.username || null,
+      photoFileId: photo.file_id
+    }).catch((error) => ({
+      persistenceEnabled: true,
+      consumed: false,
+      reason: String(error?.message || error),
+      errored: true
+    }));
+
+    if (adminPhotoResult.consumed) {
+      const latestBroadcastState = await loadAdminBroadcastState().catch(() => ({ persistenceEnabled: true, draft: adminPhotoResult.state, estimate: 0, audienceOptions: [] }));
+      const surface = await buildAdminBroadcastSurface({
+        state: latestBroadcastState,
+        notice: '✅ Broadcast image saved.'
+      });
+      await ctx.reply(surface.text, { reply_markup: surface.reply_markup });
+      return;
+    }
+
+    return next();
+  });
 
   composer.on('message:text', async (ctx, next) => {
     if (ctx.message.text.startsWith('/')) {
@@ -74,7 +117,7 @@ export function createTextComposer({ buildDirectoryFiltersSurface, buildAdminUse
       const latestBroadcastState = await loadAdminBroadcastState().catch(() => ({ persistenceEnabled: true, draft: adminCommsResult.state, estimate: 0, audienceOptions: [] }));
       const surface = await buildAdminBroadcastSurface({
         state: latestBroadcastState,
-        notice: '✅ Broadcast text saved.'
+        notice: broadcastSavedNotice(adminCommsResult.session?.inputKind)
       });
       await ctx.reply(surface.text, { reply_markup: surface.reply_markup });
       return;
@@ -136,13 +179,6 @@ export function createTextComposer({ buildDirectoryFiltersSurface, buildAdminUse
     }));
 
     if (profileResult.consumed) {
-      if (profileResult.blocked && profileResult.reason === 'hidden_telegram_username_requires_migration') {
-        await ctx.reply('⚠️ Hidden Telegram username is not available in this database yet. Apply STEP046 migration 019_contact_unlock_requests.sql first.', {
-          reply_markup: renderProfilePreviewKeyboard()
-        });
-        return;
-      }
-
       await ctx.reply(renderProfileSavedNotice({
         fieldLabel: profileResult.fieldMeta.label,
         profileSnapshot: profileResult.profile

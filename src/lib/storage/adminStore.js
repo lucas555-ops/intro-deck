@@ -17,6 +17,8 @@ import {
   cancelAdminCommsInputSession,
   cancelAdminUserNoteSession,
   clearAdminBroadcastDraft,
+  clearAdminBroadcastDraftButton,
+  clearAdminBroadcastDraftMediaRef,
   clearAdminDirectMessageDraft,
   completeAdminBroadcastDeliveryItem,
   createAdminAuditEvent,
@@ -50,11 +52,15 @@ import {
   normalizeAdminNoticeAudience,
   normalizeAdminQualitySegment,
   normalizeAdminUserSegment,
+  saveAdminCommsPhotoFromSession,
   saveAdminCommsTextFromSession,
   summarizeAdminBroadcastDelivery,
   saveAdminUserNoteFromSession,
   setAdminUserListingVisibility,
   updateAdminBroadcastDraftAudience,
+  updateAdminBroadcastDraftButtonText,
+  updateAdminBroadcastDraftButtonUrl,
+  updateAdminBroadcastDraftMediaRef,
   updateAdminCommOutboxRecord,
   markAdminBroadcastDeliveryItemSending,
   updateAdminNoticeAudience,
@@ -70,11 +76,91 @@ import {
 } from '../../db/adminRepo.js';
 import { getPricingConfig, getTelegramConfig } from '../../config/env.js';
 import { isDatabaseConfigured, withDbClient, withDbTransaction } from '../../db/pool.js';
-import { sendTelegramMessage } from '../telegram/botApi.js';
+import { sendTelegramMessage, sendTelegramPhoto } from '../telegram/botApi.js';
 import { upsertTelegramUser } from '../../db/usersRepo.js';
 import { getIntroNotificationReceiptSummary, listRecentNotificationReceipts } from '../../db/notificationRepo.js';
 import { getAdminMonetizationSummary, listRecentPurchaseReceipts } from '../../db/monetizationRepo.js';
 
+function hasBroadcastContent(draft = null) {
+  return Boolean((draft?.body && String(draft.body).trim()) || (draft?.mediaRef && String(draft.mediaRef).trim()));
+}
+
+function buildBroadcastReplyMarkup(draft = null) {
+  if (!draft?.buttonText || !draft?.buttonUrl) {
+    return null;
+  }
+  return {
+    inline_keyboard: [[{ text: draft.buttonText, url: draft.buttonUrl }]]
+  };
+}
+
+function describeBroadcastDeliveryMode(draft = null) {
+  if (draft?.mediaRef && draft?.body && draft.body.length > 1024) {
+    return 'photo_then_text';
+  }
+  if (draft?.mediaRef && draft?.body) {
+    return 'photo_with_caption';
+  }
+  if (draft?.mediaRef) {
+    return 'photo_only';
+  }
+  return 'text_only';
+}
+
+function assertBroadcastDraftSendable(draft = null) {
+  if (!hasBroadcastContent(draft)) {
+    throw new Error('Broadcast needs text or an image.');
+  }
+  if (!draft?.audienceKey) {
+    throw new Error('Broadcast audience is required');
+  }
+  const hasButtonText = Boolean(draft?.buttonText);
+  const hasButtonUrl = Boolean(draft?.buttonUrl);
+  if (hasButtonText !== hasButtonUrl) {
+    throw new Error('Broadcast button needs both label and URL.');
+  }
+}
+
+async function deliverBroadcastMessage({ botToken, chatId, draft }) {
+  const replyMarkup = buildBroadcastReplyMarkup(draft);
+  const mode = describeBroadcastDeliveryMode(draft);
+
+  if (mode === 'photo_then_text') {
+    await sendTelegramPhoto({
+      botToken,
+      chatId,
+      photo: draft.mediaRef,
+      caption: null,
+      replyMarkup: null
+    });
+    await sendTelegramMessage({
+      botToken,
+      chatId,
+      text: draft.body,
+      replyMarkup
+    });
+    return mode;
+  }
+
+  if (mode === 'photo_with_caption' || mode === 'photo_only') {
+    await sendTelegramPhoto({
+      botToken,
+      chatId,
+      photo: draft.mediaRef,
+      caption: draft.body || null,
+      replyMarkup
+    });
+    return mode;
+  }
+
+  await sendTelegramMessage({
+    botToken,
+    chatId,
+    text: draft.body,
+    replyMarkup
+  });
+  return mode;
+}
 
 export async function loadAdminDashboardSummary() {
   if (!isDatabaseConfigured()) {
@@ -711,7 +797,7 @@ export async function loadAdminBroadcastState() {
   if (!isDatabaseConfigured()) {
     return {
       persistenceEnabled: false,
-      draft: { body: '', audienceKey: 'ALL_CONNECTED' },
+      draft: { body: '', audienceKey: 'ALL_CONNECTED', mediaRef: null, buttonText: null, buttonUrl: null },
       estimate: 0,
       latestRecord: null,
       audienceOptions: Object.values(ADMIN_BROADCAST_AUDIENCES),
@@ -722,7 +808,7 @@ export async function loadAdminBroadcastState() {
 
   return withDbClient(async (client) => {
     const draft = await getAdminBroadcastDraft(client);
-    const estimate = draft.body && draft.audienceKey
+    const estimate = hasBroadcastContent(draft) && draft.audienceKey
       ? await estimateAdminBroadcastAudienceCount(client, { audienceKey: draft.audienceKey })
       : 0;
     const latestRecords = await listAdminCommOutbox(client, { limit: 1, eventType: 'broadcast' });
@@ -742,7 +828,7 @@ export async function updateAdminBroadcastAudienceSelection({ operatorTelegramUs
   if (!isDatabaseConfigured()) {
     return {
       persistenceEnabled: false,
-      draft: { body: '', audienceKey: normalizeAdminBroadcastAudience(audienceKey) },
+      draft: { body: '', audienceKey: normalizeAdminBroadcastAudience(audienceKey), mediaRef: null, buttonText: null, buttonUrl: null },
       estimate: 0,
       reason: 'DATABASE_URL is not configured'
     };
@@ -757,7 +843,7 @@ export async function updateAdminBroadcastAudienceSelection({ operatorTelegramUs
       operatorUserId: operatorUser.id,
       audienceKey
     });
-    const estimate = draft.body && draft.audienceKey
+    const estimate = hasBroadcastContent(draft) && draft.audienceKey
       ? await estimateAdminBroadcastAudienceCount(client, { audienceKey: draft.audienceKey })
       : 0;
     return {
@@ -780,7 +866,7 @@ export async function applyAdminBroadcastTemplateSelection({ operatorTelegramUse
       telegramUsername: operatorTelegramUsername || null
     });
     const draft = await applyAdminBroadcastTemplate(client, { operatorUserId: operatorUser.id, templateKey });
-    const estimate = draft.body && draft.audienceKey
+    const estimate = hasBroadcastContent(draft) && draft.audienceKey
       ? await estimateAdminBroadcastAudienceCount(client, { audienceKey: draft.audienceKey })
       : 0;
     return {
@@ -803,6 +889,96 @@ export async function beginAdminBroadcastEdit({ operatorTelegramUserId }) {
     session: await beginAdminCommsInputSession(client, { operatorTelegramUserId, inputKind: 'broadcast_body' }),
     reason: 'admin_broadcast_edit_started'
   }));
+}
+
+export async function beginAdminBroadcastMediaEdit({ operatorTelegramUserId }) {
+  if (!isDatabaseConfigured()) {
+    return { persistenceEnabled: false, started: false, reason: 'DATABASE_URL is not configured' };
+  }
+
+  return withDbTransaction(async (client) => ({
+    persistenceEnabled: true,
+    started: true,
+    session: await beginAdminCommsInputSession(client, { operatorTelegramUserId, inputKind: 'broadcast_media' }),
+    reason: 'admin_broadcast_media_edit_started'
+  }));
+}
+
+export async function beginAdminBroadcastButtonTextEdit({ operatorTelegramUserId }) {
+  if (!isDatabaseConfigured()) {
+    return { persistenceEnabled: false, started: false, reason: 'DATABASE_URL is not configured' };
+  }
+
+  return withDbTransaction(async (client) => ({
+    persistenceEnabled: true,
+    started: true,
+    session: await beginAdminCommsInputSession(client, { operatorTelegramUserId, inputKind: 'broadcast_button_text' }),
+    reason: 'admin_broadcast_button_text_edit_started'
+  }));
+}
+
+export async function beginAdminBroadcastButtonUrlEdit({ operatorTelegramUserId }) {
+  if (!isDatabaseConfigured()) {
+    return { persistenceEnabled: false, started: false, reason: 'DATABASE_URL is not configured' };
+  }
+
+  return withDbTransaction(async (client) => ({
+    persistenceEnabled: true,
+    started: true,
+    session: await beginAdminCommsInputSession(client, { operatorTelegramUserId, inputKind: 'broadcast_button_url' }),
+    reason: 'admin_broadcast_button_url_edit_started'
+  }));
+}
+
+export async function clearAdminBroadcastMediaState({ operatorTelegramUserId, operatorTelegramUsername = null }) {
+  if (!isDatabaseConfigured()) {
+    return { persistenceEnabled: false, cleared: false, reason: 'DATABASE_URL is not configured' };
+  }
+
+  return withDbTransaction(async (client) => {
+    const operatorUser = await upsertTelegramUser(client, {
+      telegramUserId: operatorTelegramUserId,
+      telegramUsername: operatorTelegramUsername || null
+    });
+    const draft = await clearAdminBroadcastDraftMediaRef(client, { operatorUserId: operatorUser.id });
+    const estimate = hasBroadcastContent(draft) && draft.audienceKey
+      ? await estimateAdminBroadcastAudienceCount(client, { audienceKey: draft.audienceKey })
+      : 0;
+    return { persistenceEnabled: true, cleared: true, draft, estimate, reason: 'admin_broadcast_media_cleared' };
+  });
+}
+
+export async function clearAdminBroadcastButtonState({ operatorTelegramUserId, operatorTelegramUsername = null }) {
+  if (!isDatabaseConfigured()) {
+    return { persistenceEnabled: false, cleared: false, reason: 'DATABASE_URL is not configured' };
+  }
+
+  return withDbTransaction(async (client) => {
+    const operatorUser = await upsertTelegramUser(client, {
+      telegramUserId: operatorTelegramUserId,
+      telegramUsername: operatorTelegramUsername || null
+    });
+    const draft = await clearAdminBroadcastDraftButton(client, { operatorUserId: operatorUser.id });
+    const estimate = hasBroadcastContent(draft) && draft.audienceKey
+      ? await estimateAdminBroadcastAudienceCount(client, { audienceKey: draft.audienceKey })
+      : 0;
+    return { persistenceEnabled: true, cleared: true, draft, estimate, reason: 'admin_broadcast_button_cleared' };
+  });
+}
+
+export async function applyAdminCommsPhotoInput({ operatorTelegramUserId, operatorTelegramUsername = null, photoFileId }) {
+  if (!isDatabaseConfigured()) {
+    return { persistenceEnabled: false, consumed: false, reason: 'DATABASE_URL is not configured' };
+  }
+
+  return withDbTransaction(async (client) => {
+    const result = await saveAdminCommsPhotoFromSession(client, {
+      operatorTelegramUserId,
+      operatorTelegramUsername,
+      photoFileId
+    });
+    return { persistenceEnabled: true, ...result };
+  });
 }
 
 export async function clearAdminBroadcastDraftState() {
@@ -1142,12 +1318,7 @@ export async function sendAdminBroadcast({ operatorTelegramUserId, operatorTeleg
       telegramUsername: operatorTelegramUsername || null
     });
     const draft = await getAdminBroadcastDraft(client);
-    if (!draft.body) {
-      throw new Error('Broadcast text cannot be empty');
-    }
-    if (!draft.audienceKey) {
-      throw new Error('Broadcast audience is required');
-    }
+    assertBroadcastDraftSendable(draft);
 
     const recipients = await listAdminBroadcastRecipients(client, { audienceKey: draft.audienceKey });
     const outboxId = await createAdminCommOutboxRecord(client, {
@@ -1160,7 +1331,10 @@ export async function sendAdminBroadcast({ operatorTelegramUserId, operatorTeleg
       failedCount: 0,
       createdByUserId: operatorUser.id,
       batchSize,
-      cursor: 0
+      cursor: 0,
+      mediaRef: draft.mediaRef,
+      buttonText: draft.buttonText,
+      buttonUrl: draft.buttonUrl
     });
 
     await createAdminBroadcastDeliveryItems(client, { outboxId, recipients });
@@ -1177,7 +1351,7 @@ export async function sendAdminBroadcast({ operatorTelegramUserId, operatorTeleg
       finishedAt: recipients.length > 0 ? null : new Date().toISOString()
     });
 
-    return { draft, recipients, outboxId, operatorUserId: operatorUser.id, batchSize };
+    return { draft, recipients, outboxId, operatorUserId: operatorUser.id, batchSize, deliveryMode: describeBroadcastDeliveryMode(draft) };
   });
 
   const { botToken } = getTelegramConfig();
@@ -1195,11 +1369,10 @@ export async function sendAdminBroadcast({ operatorTelegramUserId, operatorTeleg
       });
 
       try {
-        await sendTelegramMessage({
+        await deliverBroadcastMessage({
           botToken,
           chatId: item.target_telegram_user_id,
-          text: prep.draft.body,
-          replyMarkup: null
+          draft: prep.draft
         });
         await withDbTransaction(async (client) => {
           await completeAdminBroadcastDeliveryItem(client, { itemId: item.id, status: 'sent' });
@@ -1247,6 +1420,10 @@ export async function sendAdminBroadcast({ operatorTelegramUserId, operatorTeleg
         outboxId: prep.outboxId,
         status: finalStatus,
         body: prep.draft.body,
+        mediaRef: prep.draft.mediaRef || null,
+        buttonText: prep.draft.buttonText || null,
+        buttonUrl: prep.draft.buttonUrl || null,
+        deliveryMode: prep.deliveryMode,
         batchSize: finalRecord?.batch_size || prep.batchSize
       }
     });
@@ -1260,6 +1437,7 @@ export async function sendAdminBroadcast({ operatorTelegramUserId, operatorTeleg
     failedCount: finalRecord?.failed_count || 0,
     estimatedRecipientCount: finalRecord?.estimated_recipient_count || prep.recipients.length,
     outboxId: prep.outboxId,
+    deliveryMode: prep.deliveryMode,
     reason: 'admin_broadcast_sent'
   };
 }

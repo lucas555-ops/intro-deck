@@ -4,12 +4,17 @@ import { isOperatorTelegramUser } from '../../config/env.js';
 import {
   activateAdminNoticeState,
   beginAdminBroadcastEdit,
+  beginAdminBroadcastButtonTextEdit,
+  beginAdminBroadcastButtonUrlEdit,
+  beginAdminBroadcastMediaEdit,
   beginAdminDirectMessageEdit,
   beginAdminNoticeEdit,
   beginAdminUserNoteEdit,
   cancelAdminCommsEdit,
   cancelAdminUserNoteEdit,
   clearAdminBroadcastDraftState,
+  clearAdminBroadcastButtonState,
+  clearAdminBroadcastMediaState,
   clearAdminDirectMessageDraftState,
   disableAdminNoticeState,
   loadAdminAuditPage,
@@ -103,6 +108,7 @@ export function createOperatorComposer({
   buildAdminNoticeTemplatePickerSurface,
   buildAdminBroadcastSurface,
   buildAdminBroadcastAudienceSurface,
+  buildAdminBroadcastButtonSurface,
   buildAdminBroadcastPreviewSurface,
   buildAdminBroadcastTemplatePickerSurface,
   buildAdminTemplatesSurface,
@@ -525,6 +531,23 @@ export function createOperatorComposer({
       reason: String(error?.message || error)
     }));
     const surface = await buildAdminBroadcastAudienceSurface({ state, notice });
+    await renderSurface(ctx, surface, method);
+  }
+
+  async function renderAdminBroadcastButton(ctx, { notice = null } = {}, method = 'edit') {
+    if (!isOperatorTelegramUser(ctx.from.id)) {
+      await renderOperatorOnly(ctx, method);
+      return;
+    }
+
+    const state = await loadAdminBroadcastState().catch((error) => ({
+      persistenceEnabled: true,
+      draft: { body: '', audienceKey: 'ALL_CONNECTED', mediaRef: null, buttonText: null, buttonUrl: null },
+      estimate: 0,
+      audienceOptions: [],
+      reason: String(error?.message || error)
+    }));
+    const surface = await buildAdminBroadcastButtonSurface({ state, notice });
     await renderSurface(ctx, surface, method);
   }
 
@@ -1485,6 +1508,82 @@ export function createOperatorComposer({
     }
     const surface = await buildAdminCommsEditPromptSurface({ title: '✏️ Broadcast text', currentValue: state.draft?.body || '', cancelCallback: 'adm:bc' });
     await ctx.reply(surface.text, { reply_markup: surface.reply_markup });
+  });
+
+  composer.callbackQuery('adm:bc:media', async (ctx) => {
+    await ctx.answerCallbackQuery();
+    const state = await loadAdminBroadcastState().catch(() => ({ persistenceEnabled: true, draft: { body: '', audienceKey: 'ALL_CONNECTED', mediaRef: null } }));
+    await clearAllPendingInputs(ctx.from.id);
+    const started = await beginAdminBroadcastMediaEdit({ operatorTelegramUserId: ctx.from.id }).catch((error) => ({ persistenceEnabled: true, started: false, reason: String(error?.message || error) }));
+    if (!started.persistenceEnabled || !started.started) {
+      await renderAdminBroadcast(ctx, { notice: `⚠️ ${formatUserFacingError(started.reason, 'Could not open broadcast image editing right now.')}` }, 'edit');
+      return;
+    }
+    const surface = await buildAdminCommsEditPromptSurface({
+      title: '🖼 Картинка рассылки',
+      currentValue: state.draft?.mediaRef || '',
+      cancelCallback: 'adm:bc',
+      promptText: 'Отправь фото следующим сообщением или вставь публичный URL / Telegram file_id.',
+      currentLabel: 'Текущее изображение'
+    });
+    await ctx.reply(surface.text, { reply_markup: surface.reply_markup });
+  });
+
+  composer.callbackQuery('adm:bc:media:clear', async (ctx) => {
+    await ctx.answerCallbackQuery();
+    const result = await clearAdminBroadcastMediaState({ operatorTelegramUserId: ctx.from.id, operatorTelegramUsername: ctx.from.username || null }).catch((error) => ({ persistenceEnabled: true, cleared: false, reason: String(error?.message || error) }));
+    const notice = result.cleared ? '✅ Broadcast image cleared.' : `⚠️ ${formatUserFacingError(result.reason, 'Could not clear the broadcast image right now.')}`;
+    await renderAdminBroadcast(ctx, { notice }, 'edit');
+  });
+
+  composer.callbackQuery('adm:bc:btn', async (ctx) => {
+    await ctx.answerCallbackQuery();
+    await renderAdminBroadcastButton(ctx, {}, 'edit');
+  });
+
+  composer.callbackQuery('adm:bc:btn:text', async (ctx) => {
+    await ctx.answerCallbackQuery();
+    const state = await loadAdminBroadcastState().catch(() => ({ persistenceEnabled: true, draft: { buttonText: '' } }));
+    await clearAllPendingInputs(ctx.from.id);
+    const started = await beginAdminBroadcastButtonTextEdit({ operatorTelegramUserId: ctx.from.id }).catch((error) => ({ persistenceEnabled: true, started: false, reason: String(error?.message || error) }));
+    if (!started.persistenceEnabled || !started.started) {
+      await renderAdminBroadcastButton(ctx, { notice: `⚠️ ${formatUserFacingError(started.reason, 'Could not open button label editing right now.')}` }, 'edit');
+      return;
+    }
+    const surface = await buildAdminCommsEditPromptSurface({
+      title: '✏️ Текст кнопки',
+      currentValue: state.draft?.buttonText || '',
+      cancelCallback: 'adm:bc:btn',
+      promptText: 'Отправь новый текст кнопки следующим сообщением.',
+      currentLabel: 'Текущий текст кнопки'
+    });
+    await ctx.reply(surface.text, { reply_markup: surface.reply_markup });
+  });
+
+  composer.callbackQuery('adm:bc:btn:url', async (ctx) => {
+    await ctx.answerCallbackQuery();
+    const state = await loadAdminBroadcastState().catch(() => ({ persistenceEnabled: true, draft: { buttonUrl: '' } }));
+    await clearAllPendingInputs(ctx.from.id);
+    const started = await beginAdminBroadcastButtonUrlEdit({ operatorTelegramUserId: ctx.from.id }).catch((error) => ({ persistenceEnabled: true, started: false, reason: String(error?.message || error) }));
+    if (!started.persistenceEnabled || !started.started) {
+      await renderAdminBroadcastButton(ctx, { notice: `⚠️ ${formatUserFacingError(started.reason, 'Could not open button URL editing right now.')}` }, 'edit');
+      return;
+    }
+    const surface = await buildAdminCommsEditPromptSurface({
+      title: '🔗 Ссылка кнопки',
+      currentValue: state.draft?.buttonUrl || '',
+      cancelCallback: 'adm:bc:btn',
+      promptText: 'Отправь ссылку кнопки следующим сообщением. Поддерживаются http(s):// и tg://',
+      currentLabel: 'Текущая ссылка кнопки'
+    });
+    await ctx.reply(surface.text, { reply_markup: surface.reply_markup });
+  });
+
+  composer.callbackQuery('adm:bc:btn:clear', async (ctx) => {
+    await ctx.answerCallbackQuery();
+    const result = await clearAdminBroadcastButtonState({ operatorTelegramUserId: ctx.from.id, operatorTelegramUsername: ctx.from.username || null }).catch((error) => ({ persistenceEnabled: true, cleared: false, reason: String(error?.message || error) }));
+    const notice = result.cleared ? '✅ Broadcast button cleared.' : `⚠️ ${formatUserFacingError(result.reason, 'Could not clear the broadcast button right now.')}`;
+    await renderAdminBroadcastButton(ctx, { notice }, 'edit');
   });
 
   composer.callbackQuery('adm:bc:tpl', async (ctx) => {

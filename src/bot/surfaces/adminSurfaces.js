@@ -1179,27 +1179,60 @@ function buildAdminNoticeПревьюSurface({ state = null, notice = null } = {
   };
 }
 
+function adminBroadcastMediaLabel(mediaRef = null) {
+  if (!mediaRef) {
+    return 'нет';
+  }
+  return /^https?:\/\//i.test(String(mediaRef)) ? 'URL' : 'Telegram file_id';
+}
+
+function adminBroadcastButtonLabel(draft = null) {
+  if (draft?.buttonText && draft?.buttonUrl) {
+    return `${draft.buttonText} → ${truncate(draft.buttonUrl, 42)}`;
+  }
+  if (draft?.buttonText || draft?.buttonUrl) {
+    return 'заполнено не полностью';
+  }
+  return 'нет';
+}
+
+function adminBroadcastDeliveryModeLabel(draft = null) {
+  if (draft?.mediaRef && draft?.body && draft.body.length > 1024) {
+    return 'картинка, затем текст';
+  }
+  if (draft?.mediaRef && draft?.body) {
+    return 'картинка + подпись';
+  }
+  if (draft?.mediaRef) {
+    return 'только картинка';
+  }
+  return 'только текст';
+}
+
 function buildAdminBroadcastText({ state = null, notice = null } = {}) {
-  const draft = state?.draft || { body: '', audienceKey: 'ALL_CONNECTED' };
+  const draft = state?.draft || { body: '', audienceKey: 'ALL_CONNECTED', mediaRef: null, buttonText: null, buttonUrl: null };
   const latest = state?.latestRecord || null;
   const lines = [
     '📬 Рассылка',
     '',
     `Аудитория: ${adminBroadcastAudienceLabel(draft.audienceKey)}`,
-    countLine('Estimated recipients', state?.estimate || 0),
+    `Оценка получателей: ${state?.estimate || 0}`,
+    `Режим доставки: ${adminBroadcastDeliveryModeLabel(draft)}`,
+    `Картинка: ${adminBroadcastMediaLabel(draft.mediaRef)}`,
+    `Кнопка: ${adminBroadcastButtonLabel(draft)}`,
     `Обновлено: ${formatDateTimeShort(draft.updatedAt)}`
   ];
 
   if (latest) {
     lines.push(`Последняя задача: #${latest.id} • ${formatShortStatus(latest.status, 'none')}`);
-    lines.push(`Progress: ${latest.delivered_count || 0}/${latest.estimated_recipient_count ?? 0} delivered • ${latest.failed_count || 0} failed • ${latest.pending_count || 0} pending`);
+    lines.push(`Прогресс: ${latest.delivered_count || 0}/${latest.estimated_recipient_count ?? 0} доставлено • ${latest.failed_count || 0} ошибок • ${latest.pending_count || 0} pending`);
     lines.push(`Batch: ${latest.batch_size || '—'} • cursor ${latest.cursor || 0}`);
     if (latest.last_error) {
       lines.push(`Последняя ошибка: ${truncate(latest.last_error, 80)}`);
     }
   }
 
-  lines.push('', draft.body ? truncate(draft.body, 420) : 'Черновик broadcast пока пустой.');
+  lines.push('', draft.body ? truncate(draft.body, 420) : 'Черновик текста пока пустой. Можно отправить и только картинку, если она задана.');
   if (notice) {
     lines.push('', notice);
   }
@@ -1218,10 +1251,17 @@ function buildAdminBroadcastKeyboard({ state = null } = {}) {
       { text: '👁 Превью', callback_data: 'adm:bc:preview' }
     ],
     [
+      { text: '🖼 Картинка', callback_data: 'adm:bc:media' },
+      { text: '🔘 Кнопка', callback_data: 'adm:bc:btn' }
+    ],
+    [
       { text: '📨 Отправить', callback_data: 'adm:bc:send' },
       { text: '🔄 Обновить', callback_data: 'adm:bc:refresh' }
     ]
   ];
+  if (state?.draft?.mediaRef) {
+    rows.push([{ text: '🗑 Убрать картинку', callback_data: 'adm:bc:media:clear' }]);
+  }
   if (latest?.failed_count > 0 || latest?.retry_due_count > 0 || latest?.exhausted_count > 0) {
     rows.push([
       { text: '🧾 Ошибки', callback_data: `adm:bc:fail:${latest.id}:0` },
@@ -1252,15 +1292,44 @@ function buildAdminBroadcastAudienceSurface({ state = null, notice = null } = {}
   return { text: lines.join('\n'), reply_markup: buildInlineKeyboard(rows) };
 }
 
+function buildAdminBroadcastButtonSurface({ state = null, notice = null } = {}) {
+  const draft = state?.draft || { buttonText: null, buttonUrl: null };
+  const lines = [
+    '🔘 Кнопка рассылки',
+    '',
+    `Текст: ${draft.buttonText || '—'}`,
+    `Ссылка: ${draft.buttonUrl || '—'}`,
+    '',
+    'Кнопка добавляется только если заполнены и текст, и ссылка.'
+  ];
+  if (notice) {
+    lines.push('', notice);
+  }
+  return {
+    text: lines.join('\n'),
+    reply_markup: buildInlineKeyboard([
+      [
+        { text: '✏️ Текст кнопки', callback_data: 'adm:bc:btn:text' },
+        { text: '🔗 Ссылка кнопки', callback_data: 'adm:bc:btn:url' }
+      ],
+      [{ text: '🗑 Очистить кнопку', callback_data: 'adm:bc:btn:clear' }],
+      buildBackHomeRow('↩️ Назад к рассылке', 'adm:bc')
+    ])
+  };
+}
+
 function buildAdminBroadcastPreviewSurface({ state = null, notice = null } = {}) {
-  const draft = state?.draft || { body: '', audienceKey: 'ALL_CONNECTED' };
+  const draft = state?.draft || { body: '', audienceKey: 'ALL_CONNECTED', mediaRef: null, buttonText: null, buttonUrl: null };
   const lines = [
     '👁 Превью рассылки',
     '',
     `Аудитория: ${adminBroadcastAudienceLabel(draft.audienceKey)}`,
-    `Estimated recipients: ${state?.estimate || 0}`,
+    `Оценка получателей: ${state?.estimate || 0}`,
+    `Режим доставки: ${adminBroadcastDeliveryModeLabel(draft)}`,
+    `Картинка: ${adminBroadcastMediaLabel(draft.mediaRef)}`,
+    `Кнопка: ${adminBroadcastButtonLabel(draft)}`,
     '',
-    draft.body ? draft.body : 'Черновик broadcast пока пустой.'
+    draft.body ? draft.body : 'Текст не задан. Будет отправлена только картинка, если она указана.'
   ];
   if (notice) {
     lines.push('', notice);
@@ -1387,6 +1456,8 @@ function buildAdminOutboxRecordText({ record = null, notice = null } = {}) {
     `В ожидании: ${record.pending_count ?? '—'}`,
     `Размер батча: ${record.batch_size ?? '—'}`,
     `Курсор: ${record.cursor ?? '—'}`,
+    `Картинка: ${record.media_ref ? 'да' : 'нет'}`,
+    `Кнопка: ${record.button_text && record.button_url ? `${record.button_text} → ${truncate(record.button_url, 42)}` : (record.button_text || record.button_url ? 'заполнено не полностью' : 'нет')}`,
     `Старт: ${formatDateTimeShort(record.started_at)}`,
     `Завершено: ${formatDateTimeShort(record.finished_at)}`,
     `Создано: ${formatDateTimeShort(record.created_at)}`,
@@ -1449,9 +1520,9 @@ function buildAdminBroadcastFailuresKeyboard({ state = null } = {}) {
   return buildInlineKeyboard(rows);
 }
 
-function buildAdminCommsEditPromptSurface({ title, currentValue, cancelCallback }) {
+function buildAdminCommsEditPromptSurface({ title, currentValue, cancelCallback, promptText = 'Отправь новый текст следующим сообщением.', currentLabel = 'Текущее значение' }) {
   return {
-    text: [title, '', 'Отправь новый текст следующим сообщением.', '', `Текущее значение: ${truncate(currentValue, 280)}`].join('\n'),
+    text: [title, '', promptText, '', `${currentLabel}: ${truncate(currentValue, 280)}`].join('\n'),
     reply_markup: buildInlineKeyboard([
       buildBackHomeRow('↩️ Отмена', cancelCallback)
     ])
@@ -1942,6 +2013,7 @@ export function createAdminSurfaceBuilders({ currentStep = 'STEP048.2' } = {}) {
       reply_markup: buildAdminBroadcastKeyboard({ state })
     }),
     buildAdminBroadcastAudienceSurface: async ({ state = null, notice = null } = {}) => buildAdminBroadcastAudienceSurface({ state, notice }),
+    buildAdminBroadcastButtonSurface: async ({ state = null, notice = null } = {}) => buildAdminBroadcastButtonSurface({ state, notice }),
     buildAdminBroadcastPreviewSurface: async ({ state = null, notice = null } = {}) => buildAdminBroadcastPreviewSurface({ state, notice }),
     buildAdminTemplatesSurface: async ({ state = null, notice = null } = {}) => ({
       text: buildAdminTemplatesText({ state, notice }),
@@ -1983,7 +2055,7 @@ export function createAdminSurfaceBuilders({ currentStep = 'STEP048.2' } = {}) {
       text: buildAdminSearchResultsText({ scopeKey, state, notice }),
       reply_markup: buildAdminSearchResultsKeyboard({ scopeKey, state })
     }),
-    buildAdminCommsEditPromptSurface: async ({ title, currentValue = '', cancelCallback }) => buildAdminCommsEditPromptSurface({ title, currentValue, cancelCallback }),
+    buildAdminCommsEditPromptSurface: async ({ title, currentValue = '', cancelCallback, promptText, currentLabel }) => buildAdminCommsEditPromptSurface({ title, currentValue, cancelCallback, promptText, currentLabel }),
     buildAdminPlaceholderSurface: async ({ title, description, backCallback, nextStep }) => ({
       text: buildPlaceholderText({ title, description, nextStep }),
       reply_markup: buildDetailFooter(backCallback)

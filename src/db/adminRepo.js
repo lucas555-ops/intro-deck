@@ -675,6 +675,47 @@ export function normalizeAdminBroadcastTemplate(value) {
   return ADMIN_BROADCAST_TEMPLATES[key] ? key : 'complete_profile';
 }
 
+export function normalizeAdminBroadcastMediaRef(value) {
+  const normalized = typeof value === 'string' ? value.trim() : '';
+  if (!normalized) {
+    return null;
+  }
+  if (normalized.length > 1000) {
+    throw new Error('Broadcast image value is too long.');
+  }
+  const looksLikeUrl = /^https?:\/\//i.test(normalized);
+  const looksLikeFileId = /^[A-Za-z0-9_-]{20,}$/.test(normalized);
+  if (!looksLikeUrl && !looksLikeFileId) {
+    throw new Error('Broadcast image must be a public http(s) URL or a Telegram file_id.');
+  }
+  return normalized;
+}
+
+export function normalizeAdminBroadcastButtonText(value) {
+  const normalized = typeof value === 'string' ? value.trim().replace(/\s+/g, ' ') : '';
+  if (!normalized) {
+    return null;
+  }
+  if (normalized.length > 64) {
+    throw new Error('Button text is too long. Limit: 64 characters.');
+  }
+  return normalized;
+}
+
+export function normalizeAdminBroadcastButtonUrl(value) {
+  const normalized = typeof value === 'string' ? value.trim() : '';
+  if (!normalized) {
+    return null;
+  }
+  if (normalized.length > 1000) {
+    throw new Error('Button URL is too long.');
+  }
+  if (!/^(https?:\/\/|tg:\/\/)/i.test(normalized)) {
+    throw new Error('Button URL must start with http://, https://, or tg://');
+  }
+  return normalized;
+}
+
 
 function buildNoticeAudienceWhereClause(audienceKey) {
   switch (normalizeAdminNoticeAudience(audienceKey)) {
@@ -904,7 +945,7 @@ export async function disableAdminNotice(client, { operatorUserId }) {
 export async function getAdminBroadcastDraft(client) {
   const result = await client.query(
     `
-      select singleton_id, body, audience_key, updated_at, updated_by_user_id
+      select singleton_id, body, audience_key, media_ref, button_text, button_url, updated_at, updated_by_user_id
       from admin_broadcast_drafts
       where singleton_id = 1
       limit 1
@@ -916,6 +957,9 @@ export async function getAdminBroadcastDraft(client) {
     singletonId: 1,
     body: row?.body || '',
     audienceKey: normalizeAdminBroadcastAudience(row?.audience_key || 'ALL_CONNECTED'),
+    mediaRef: row?.media_ref || null,
+    buttonText: row?.button_text || null,
+    buttonUrl: row?.button_url || null,
     updatedAt: row?.updated_at || null,
     updatedByUserId: row?.updated_by_user_id || null
   };
@@ -955,6 +999,75 @@ export async function updateAdminBroadcastDraftAudience(client, { operatorUserId
     [normalizedAudienceKey, operatorUserId]
   );
 
+  return getAdminBroadcastDraft(client);
+}
+
+export async function updateAdminBroadcastDraftMediaRef(client, { operatorUserId, mediaRef }) {
+  const normalizedMediaRef = normalizeAdminBroadcastMediaRef(mediaRef);
+  await client.query(
+    `
+      insert into admin_broadcast_drafts (singleton_id, body, audience_key, media_ref, updated_at, updated_by_user_id)
+      values (1, '', 'ALL_CONNECTED', $1, now(), $2)
+      on conflict (singleton_id)
+      do update set media_ref = excluded.media_ref, updated_at = now(), updated_by_user_id = excluded.updated_by_user_id
+    `,
+    [normalizedMediaRef, operatorUserId]
+  );
+
+  return getAdminBroadcastDraft(client);
+}
+
+export async function clearAdminBroadcastDraftMediaRef(client, { operatorUserId = null } = {}) {
+  await client.query(
+    `
+      update admin_broadcast_drafts
+      set media_ref = null, updated_at = now(), updated_by_user_id = coalesce($1, updated_by_user_id)
+      where singleton_id = 1
+    `,
+    [operatorUserId]
+  );
+  return getAdminBroadcastDraft(client);
+}
+
+export async function updateAdminBroadcastDraftButtonText(client, { operatorUserId, buttonText }) {
+  const normalizedButtonText = normalizeAdminBroadcastButtonText(buttonText);
+  await client.query(
+    `
+      insert into admin_broadcast_drafts (singleton_id, body, audience_key, button_text, updated_at, updated_by_user_id)
+      values (1, '', 'ALL_CONNECTED', $1, now(), $2)
+      on conflict (singleton_id)
+      do update set button_text = excluded.button_text, updated_at = now(), updated_by_user_id = excluded.updated_by_user_id
+    `,
+    [normalizedButtonText, operatorUserId]
+  );
+
+  return getAdminBroadcastDraft(client);
+}
+
+export async function updateAdminBroadcastDraftButtonUrl(client, { operatorUserId, buttonUrl }) {
+  const normalizedButtonUrl = normalizeAdminBroadcastButtonUrl(buttonUrl);
+  await client.query(
+    `
+      insert into admin_broadcast_drafts (singleton_id, body, audience_key, button_url, updated_at, updated_by_user_id)
+      values (1, '', 'ALL_CONNECTED', $1, now(), $2)
+      on conflict (singleton_id)
+      do update set button_url = excluded.button_url, updated_at = now(), updated_by_user_id = excluded.updated_by_user_id
+    `,
+    [normalizedButtonUrl, operatorUserId]
+  );
+
+  return getAdminBroadcastDraft(client);
+}
+
+export async function clearAdminBroadcastDraftButton(client, { operatorUserId = null } = {}) {
+  await client.query(
+    `
+      update admin_broadcast_drafts
+      set button_text = null, button_url = null, updated_at = now(), updated_by_user_id = coalesce($1, updated_by_user_id)
+      where singleton_id = 1
+    `,
+    [operatorUserId]
+  );
   return getAdminBroadcastDraft(client);
 }
 
@@ -1032,7 +1145,10 @@ export async function createAdminCommOutboxRecord(client, {
   cursor = 0,
   startedAt = null,
   finishedAt = null,
-  lastError = null
+  lastError = null,
+  mediaRef = null,
+  buttonText = null,
+  buttonUrl = null
 }) {
   const result = await client.query(
     `
@@ -1050,6 +1166,9 @@ export async function createAdminCommOutboxRecord(client, {
         started_at,
         finished_at,
         last_error,
+        media_ref,
+        button_text,
+        button_url,
         created_at,
         updated_at,
         sent_at,
@@ -1058,13 +1177,14 @@ export async function createAdminCommOutboxRecord(client, {
       values (
         $1, $2, $3, $4, $5, $6, $7, $8,
         $9, coalesce($10, 0), $11, $12, $13,
+        $14, $15, $16,
         now(), now(),
         case when $5 in ('sent', 'failed', 'sent_with_failures', 'disabled') then now() else null end,
-        $14
+        $17
       )
       returning id
     `,
-    [eventType, body, audienceKey, targetUserId, status, estimatedRecipientCount, deliveredCount, failedCount, batchSize, cursor, startedAt, finishedAt, lastError, createdByUserId]
+    [eventType, body, audienceKey, targetUserId, status, estimatedRecipientCount, deliveredCount, failedCount, batchSize, cursor, startedAt, finishedAt, lastError, mediaRef, buttonText, buttonUrl, createdByUserId]
   );
 
   return result.rows[0]?.id || null;
@@ -1257,6 +1377,7 @@ function buildOutboxRecordSelect() {
       select o.id, o.event_type, o.body, o.audience_key, o.target_user_id, o.status,
              o.estimated_recipient_count, o.delivered_count, o.failed_count,
              o.batch_size, o.cursor, o.started_at, o.finished_at, o.last_error,
+             o.media_ref, o.button_text, o.button_url,
              o.created_at, o.updated_at, o.sent_at,
              u.telegram_user_id as created_by_telegram_user_id,
              u.telegram_username as created_by_telegram_username,
@@ -1311,7 +1432,7 @@ export async function getAdminCommOutboxRecordById(client, { outboxId }) {
 }
 
 export async function beginAdminCommsInputSession(client, { operatorTelegramUserId, inputKind, targetUserId = null, segmentKey = 'all', page = 0 }) {
-  if (!['notice_body', 'broadcast_body', 'direct_body', 'search_users', 'search_intros', 'search_delivery', 'search_outbox', 'search_audit'].includes(inputKind)) {
+  if (!['notice_body', 'broadcast_body', 'broadcast_media', 'broadcast_button_text', 'broadcast_button_url', 'direct_body', 'search_users', 'search_intros', 'search_delivery', 'search_outbox', 'search_audit'].includes(inputKind)) {
     throw new Error('Unsupported admin communications input kind');
   }
 
@@ -1425,6 +1546,15 @@ export async function saveAdminCommsTextFromSession(client, {
   } else if (session.inputKind === 'broadcast_body') {
     result = await upsertAdminBroadcastDraftBody(client, { operatorUserId: operatorUser.id, body: text });
     reason = 'admin_broadcast_body_saved';
+  } else if (session.inputKind === 'broadcast_media') {
+    result = await updateAdminBroadcastDraftMediaRef(client, { operatorUserId: operatorUser.id, mediaRef: text });
+    reason = 'admin_broadcast_media_saved';
+  } else if (session.inputKind === 'broadcast_button_text') {
+    result = await updateAdminBroadcastDraftButtonText(client, { operatorUserId: operatorUser.id, buttonText: text });
+    reason = 'admin_broadcast_button_text_saved';
+  } else if (session.inputKind === 'broadcast_button_url') {
+    result = await updateAdminBroadcastDraftButtonUrl(client, { operatorUserId: operatorUser.id, buttonUrl: text });
+    reason = 'admin_broadcast_button_url_saved';
   } else if (session.inputKind === 'direct_body') {
     result = await upsertAdminDirectMessageDraft(client, {
       operatorTelegramUserId,
@@ -1456,6 +1586,34 @@ export async function saveAdminCommsTextFromSession(client, {
   };
 }
 
+export async function saveAdminCommsPhotoFromSession(client, {
+  operatorTelegramUserId,
+  operatorTelegramUsername = null,
+  photoFileId
+}) {
+  const session = await getAdminCommsInputSession(client, operatorTelegramUserId);
+  if (!session || session.inputKind !== 'broadcast_media') {
+    return { consumed: false, reason: 'admin_comms_input_session_missing' };
+  }
+
+  const operatorUser = await upsertTelegramUser(client, {
+    telegramUserId: operatorTelegramUserId,
+    telegramUsername: operatorTelegramUsername || null
+  });
+
+  const state = await updateAdminBroadcastDraftMediaRef(client, {
+    operatorUserId: operatorUser.id,
+    mediaRef: photoFileId
+  });
+
+  await cancelAdminCommsInputSession(client, operatorTelegramUserId);
+  return {
+    consumed: true,
+    reason: 'admin_broadcast_media_saved',
+    session,
+    state
+  };
+}
 
 export async function getAdminDirectMessageDraft(client, { operatorTelegramUserId, targetUserId = null, segmentKey = 'all', page = 0 } = {}) {
   const normalizedSegmentKey = normalizeAdminUserSegment(segmentKey);

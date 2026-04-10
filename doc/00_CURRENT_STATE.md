@@ -3,10 +3,10 @@
 ## Snapshot
 
 - Project: LinkedIn Telegram Directory Bot
-- Current STEP: STEP051.6
-- Phase: admin navigation/menu polish on top of the STEP051.5 pricing hotfix, the STEP051.4 command parity fix, and the STEP050M landing + STEP048.4 product baseline
+- Current STEP: STEP051.7
+- Phase: broadcast composer uplift on top of the STEP051.6 admin navigation/menu polish, the STEP051.5 pricing hotfix, and the STEP050M landing + STEP048.4 product baseline
 - Primary mode: PRODUCT HARDENING / MONETIZATION FOUNDATION / TELEGRAM INVITE LAYER
-- Runtime status: source-clean STEP051.6 baseline with the STEP048.4 product/runtime layer intact, the STEP050M landing/meta layer preserved, the STEP051 invite/share layer intact, the paired home/help rows preserved, `/start` still routed through a single handler, `/inbox` still hardened, the `Plans` surface restored, and the admin communications/broadcast/system menus tightened into more compact paired rows with back/home navigation kept consistent; live status not confirmed — manual verification required
+- Runtime status: source-clean STEP051.7 baseline with the STEP048.4 product/runtime layer intact, the STEP050M landing/meta layer preserved, the STEP051 invite/share layer intact, the paired home/help rows preserved, `/start` still routed through a single handler, `/inbox` still hardened, the `Plans` surface restored, the compact admin communications/broadcast/system menu layout preserved, and the broadcast composer upgraded to support optional image, optional inline CTA button text/url, and smart text/photo delivery routing with outbox metadata preserved; live status not confirmed — manual verification required
 
 ## What exists now
 
@@ -38,6 +38,7 @@
 - STEP051.4 fixes command parity: `/start` now has one runtime owner, `/menu` stays the visible home fallback, `/inbox` gets a product-safe fallback path, and the accidental home-surface extra-notice leak is removed
 - STEP051.5 restores the broken `Plans` surface by shipping the missing pricing text/keyboard render layer, so `⭐ Plans`, `/plans`, and `plans:root` no longer fail on `renderPricingText is not a function`
 - STEP051.6 compacts the admin communications / broadcast / templates / system navigation into more consistent paired rows, keeps long audience selectors readable, and standardizes back/home navigation across the core admin menu surfaces
+- STEP051.7 upgrades admin Broadcast composition so operators can send text-only, image-only, image + text, or text/image plus one inline CTA button, with smart routing for long image posts and media/button metadata persisted into draft/outbox state
 
 ## Current truth
 
@@ -62,6 +63,7 @@
 - STEP051.4 keeps the paired menu layout intact and only hardens slash-command behavior so `/start`, `/menu`, and `/inbox` behave like honest entrypoints instead of partially diverging from the button flow
 - STEP051.5 keeps the STEP051.4 command/menu work intact and only restores the monetization member surface so the promoted `Plans` button is a working product screen again
 - STEP051.6 keeps the STEP051 invite/share + STEP051.5 plans fixes intact and only reorganizes admin/operator menu layouts for compactness, consistency, and easier thumb navigation in Telegram
+- STEP051.7 keeps the STEP051.6 admin navigation polish intact and only upgrades the broadcast composer so the founder/operator can attach one optional image, one optional inline CTA button, and still send normal text with raw links in-body without extra complexity
 - invite attribution only applies to first-start new users and differentiates `inline_share`, `raw_link`, and `invite_card` sources
 
 ## What must not break
@@ -77,7 +79,17 @@
 
 ## Next recommended step
 
-- deploy STEP051.6 and do a short live smoke on the real bot: verify admin `💬 Коммуникации`, `📬 Рассылка`, `📌 Шаблоны`, `⚙️ Система`, and `💳 Монетизация` surfaces all render with the new paired rows, confirm long audience selectors still stay readable, and confirm `⭐ Plans`, `/start`, `/menu`, and invite paths still behave normally
+- deploy STEP051.7 and do a short live smoke on the real bot: verify admin `📬 Рассылка` supports text only, raw URL in text, image only, image + short text, image + long text split delivery, and optional inline CTA button text/url; confirm outbox rows show media/button metadata and confirm `⭐ Plans`, `/start`, `/menu`, and invite paths still behave normally
+
+## STEP051.7 delta
+
+- admin broadcast drafts now support optional `media_ref`, `button_text`, and `button_url` fields
+- admin communications input sessions now accept broadcast media, button text, and button URL edit flows
+- broadcast composition now supports text-only, image-only, image + short text, and image + long text delivery with smart routing
+- one optional inline CTA button can now be attached to a broadcast by setting button text + URL
+- operators can save media either by pasting a URL/file_id in the prompt or by sending a photo while the media input session is open
+- outbox records now preserve and display media/button metadata for sent broadcasts
+
 
 ## STEP039.1 delta
 
