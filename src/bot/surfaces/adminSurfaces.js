@@ -57,6 +57,32 @@ function formatShortStatus(value, fallback = 'none') {
   return normalized;
 }
 
+function formatOperatorStatus(value, fallback = 'нет') {
+  return buildAdminStatusLabel(value, fallback);
+}
+
+function formatOperatorEventType(value, fallback = 'событие') {
+  const normalized = typeof value === 'string' && value.trim() ? value.trim().toLowerCase() : '';
+  switch (normalized) {
+    case 'broadcast': return 'рассылка';
+    case 'notice': return 'уведомление';
+    case 'direct': return 'личное сообщение';
+    case 'relink': return 'повторная привязка';
+    default: return toDisplayValue(value, fallback);
+  }
+}
+
+function formatOperatorAudienceKey(value, fallback = '—') {
+  const normalized = typeof value === 'string' && value.trim() ? value.trim().toUpperCase() : '';
+  if (ADMIN_BROADCAST_AUDIENCES[normalized]) {
+    return ADMIN_BROADCAST_AUDIENCES[normalized].label;
+  }
+  if (ADMIN_NOTICE_AUDIENCES[normalized]) {
+    return ADMIN_NOTICE_AUDIENCES[normalized].label;
+  }
+  return toDisplayValue(value, fallback);
+}
+
 function compactBooleanLabel(value, yesLabel, noLabel) {
   return value ? yesLabel : noLabel;
 }
@@ -123,18 +149,18 @@ function buildAdminHomeText({ summary = null } = {}) {
   return [
     '👑 Админка',
     '',
-    'Чистый founder/operator root: сначала раздел, потом тревога, потом drilldown.',
+    'Сначала раздел, затем тревоги и только потом детальные срезы.',
     '',
     'Разделы:',
-    '🧰 Операции — пользователи, профиль, каталог, интро и quality',
-    '💬 Коммуникации — notice, рассылка, шаблоны и исходящие',
-    '💳 Монетизация — Pro, direct unlock и DM-платежи',
-    '⚙️ Система — retry, delivery issues, аудит и health',
+    '🧰 Операции — пользователи, профиль, каталог, интро и качество',
+    '💬 Коммуникации — уведомления, рассылки, шаблоны и исходящие',
+    '💳 Монетизация — Pro, раскрытие контакта и сообщения',
+    '⚙️ Система — повторы, ошибки доставки, аудит и здоровье',
     '',
     'Быстрые сигналы:',
     countLine('Подключили, без профиля', connectedNoProfile),
     countLine('Готовы, но не опубликованы', readyNotListed),
-    countLine('Pending >24ч', pendingOlder24h),
+    countLine('Ожидают >24ч', pendingOlder24h),
     countLine('Ошибки доставки', deliveryIssues),
     '',
     `Уведомление: ${summary?.activeNotice ? 'активно' : 'неактивно'} • Последняя рассылка: ${buildAdminStatusLabel(summary?.latestBroadcastStatus, 'нет')}`
@@ -162,7 +188,7 @@ function buildAdminHomeKeyboard({ summary = null } = {}) {
       { text: `✅ Не опубликованы: ${readyNotListed}`, callback_data: 'adm:ops:funnel:ready_not_listed' }
     ],
     [
-      { text: `⏳ Pending >24ч: ${pendingOlder24h}`, callback_data: 'adm:ops:funnel:intro_p24' },
+      { text: `⏳ Ожидают >24ч: ${pendingOlder24h}`, callback_data: 'adm:ops:funnel:intro_p24' },
       { text: `🧾 Ошибки доставки: ${deliveryIssues}`, callback_data: 'adm:ops:funnel:delivery_issue' }
     ],
     [{ text: '🏠 Главная', callback_data: 'home:root' }]
@@ -177,7 +203,7 @@ function buildAdminMonetizationText({ state = null, notice = null } = {}) {
   const lines = [
     '💳 Монетизация',
     '',
-    `Pro активные: ${summary.activePro || 0} • истёкшие: ${summary.expiredPro || 0}`,
+    `Активные Pro: ${summary.activePro || 0} • истёкшие: ${summary.expiredPro || 0}`,
     `Выручка: ${summary.revenue7dStars || 0}⭐ / 7д • ${summary.revenue30dStars || 0}⭐ / 30д`,
     `Покупки Pro 7д: ${summary.proPurchases7d || 0}`,
     '',
@@ -185,12 +211,12 @@ function buildAdminMonetizationText({ state = null, notice = null } = {}) {
     `Запросы: ${summary.contactRequests7d || 0} • оплачено: ${summary.contactPaid7d || 0}`,
     `Раскрыто: ${summary.contactRevealed7d || 0} • отклонено: ${summary.contactDeclined7d || 0}`,
     '',
-    'DM воронка 7д:',
+    'Воронка сообщений 7д:',
     `Создано: ${summary.dmCreated7d || 0} • оплачено: ${summary.dmPaid7d || 0}`,
     `Доставлено: ${summary.dmDelivered7d || 0} • принято: ${summary.dmAccepted7d || 0}`,
     `Блоки: ${summary.dmBlocked7d || 0} • репорты: ${summary.dmReported7d || 0} • активные сейчас: ${summary.dmActiveNow || 0}`,
     '',
-    `Цены: Pro ${pricing.proMonthlyPriceStars || 0}⭐ • direct ${pricing.contactUnlockPriceStars || 0}⭐ • DM ${pricing.dmOpenPriceStars || 0}⭐`
+    `Цены: Pro ${pricing.proMonthlyPriceStars || 0}⭐ • контакт ${pricing.contactUnlockPriceStars || 0}⭐ • сообщения ${pricing.dmOpenPriceStars || 0}⭐`
   ];
 
   if (recentReceipts.length) {
@@ -215,16 +241,16 @@ function buildAdminMonetizationKeyboard({ state = null } = {}) {
       { text: `👑 Активные Pro: ${summary.activePro || 0}`, callback_data: 'adm:money' }
     ],
     [
-      { text: `🔓 Оплачены direct: ${summary.contactPaid7d || 0}`, callback_data: 'adm:money' },
-      { text: `💬 Оплачены DM: ${summary.dmPaid7d || 0}`, callback_data: 'adm:money' }
+      { text: `🔓 Оплачены контакты: ${summary.contactPaid7d || 0}`, callback_data: 'adm:money' },
+      { text: `💬 Оплачены сообщения: ${summary.dmPaid7d || 0}`, callback_data: 'adm:money' }
     ],
     [
       { text: `✅ Раскрыт контакт: ${summary.contactRevealed7d || 0}`, callback_data: 'adm:money' },
-      { text: `✅ Принятые DM: ${summary.dmAccepted7d || 0}`, callback_data: 'adm:money' }
+      { text: `✅ Принятые сообщения: ${summary.dmAccepted7d || 0}`, callback_data: 'adm:money' }
     ],
     [
-      { text: `⛔ Блоки DM: ${summary.dmBlocked7d || 0}`, callback_data: 'adm:money' },
-      { text: `🚩 Репорты DM: ${summary.dmReported7d || 0}`, callback_data: 'adm:money' }
+      { text: `⛔ Блоки сообщений: ${summary.dmBlocked7d || 0}`, callback_data: 'adm:money' },
+      { text: `🚩 Жалобы на сообщения: ${summary.dmReported7d || 0}`, callback_data: 'adm:money' }
     ],
     buildBackHomeRow('↩️ Назад в Админку', 'adm:home')
   ]);
@@ -234,7 +260,7 @@ function buildOperationsHubText({ summary = null } = {}) {
   return [
     '🧰 Операции',
     '',
-    'Пользовательская воронка: LinkedIn → профиль → каталог → интро.',
+    'Воронка: LinkedIn → профиль → каталог → интро.',
     '',
     'Сводка:',
     countLine('Пользователи', summary?.totalUsers || 0),
@@ -249,8 +275,8 @@ function buildOperationsHubText({ summary = null } = {}) {
     `Готовые без навыков: ${summary?.readyNoSkills || 0}`,
     `Ещё без интро: ${summary?.noIntroYet || 0}`,
     `Есть принятые интро: ${summary?.acceptedIntroUsers || 0}`,
-    `Pending >24ч: ${summary?.pendingOlder24h || 0} • >72ч: ${summary?.staleIntros || 0}`,
-    `Проблемы доставки: ${summary?.deliveryIssues || 0} • relink 7д: ${summary?.recentRelinks7d || 0}`
+    `Ожидают >24ч: ${summary?.pendingOlder24h || 0} • >72ч: ${summary?.staleIntros || 0}`,
+    `Проблемы доставки: ${summary?.deliveryIssues || 0} • повторные привязки 7д: ${summary?.recentRelinks7d || 0}`
   ].join('\n');
 }
 
@@ -269,7 +295,7 @@ function buildOperationsHubKeyboard({ summary = null } = {}) {
       { text: `🤝 Принятые: ${summary?.acceptedIntroUsers || 0}`, callback_data: 'adm:ops:funnel:accepted' }
     ],
     [
-      { text: `⏳ Pending >24ч: ${summary?.pendingOlder24h || 0}`, callback_data: 'adm:ops:funnel:intro_p24' },
+      { text: `⏳ Ожидают >24ч: ${summary?.pendingOlder24h || 0}`, callback_data: 'adm:ops:funnel:intro_p24' },
       { text: `🧾 Ошибки доставки: ${summary?.deliveryIssues || 0}`, callback_data: 'adm:ops:funnel:delivery_issue' }
     ],
     [
@@ -291,15 +317,15 @@ function buildCommunicationsHubText({ state = null, notice = null } = {}) {
     'Уведомления, рассылки, исходящие и охват аудиторий.',
     '',
     `Активное уведомление: ${state?.notice?.isActive ? 'да' : 'нет'} • ${ADMIN_NOTICE_AUDIENCES[normalizeAdminNoticeAudience(state?.notice?.audienceKey || 'ALL')]?.label || 'Все пользователи'}`,
-    `Видимость notice: ${state?.noticeVisibilityEstimate || 0}`,
-    `Черновик broadcast: ${state?.broadcastDraft?.body ? 'готов' : 'пусто'}`,
+    `Охват уведомления: ${state?.noticeVisibilityEstimate || 0}`,
+    `Черновик рассылки: ${state?.broadcastDraft?.body ? 'готов' : 'пусто'}`,
     `Последняя рассылка: ${buildAdminStatusLabel(state?.latestBroadcastStatus, 'нет')}`,
     `Аудитория последней рассылки: ${state?.latestBroadcastRecipients || 0}`,
     `Доставлено: ${state?.latestBroadcastDelivered || 0} • ошибок: ${state?.latestBroadcastFailed || 0}`,
     countLine('Личные сообщения 24ч', state?.directMessages24h || 0),
     countLine('Личные сообщения 7д', state?.directMessages7d || 0),
-    countLine('Ошибки outbox 24ч', state?.outboxFailures24h || 0),
-    countLine('Ошибки outbox 7д', state?.outboxFailures7d || 0)
+    countLine('Ошибки отправки 24ч', state?.outboxFailures24h || 0),
+    countLine('Ошибки отправки 7д', state?.outboxFailures7d || 0)
   ];
   if (notice) lines.push('', notice);
   return lines.join('\n');
@@ -308,7 +334,7 @@ function buildCommunicationsHubText({ state = null, notice = null } = {}) {
 function buildCommunicationsHubKeyboard({ state = null } = {}) {
   return buildInlineKeyboard([
     [
-      { text: `📣 Видимость notice: ${state?.noticeVisibilityEstimate || 0}`, callback_data: 'adm:comms:funnel:notice_visibility' },
+      { text: `📣 Активное уведомление: ${state?.noticeVisibilityEstimate || 0}`, callback_data: 'adm:comms:funnel:notice_visibility' },
       { text: `📬 Последняя рассылка: ${state?.latestBroadcastRecipients || 0}`, callback_data: 'adm:comms:funnel:last_bc' }
     ],
     [
@@ -341,7 +367,7 @@ function buildSystemHubText({ summary = null } = {}) {
     `Ошибки ${summary?.failures24h || 0}/24ч • ${summary?.failures7d || 0}/7д`,
     `Доставлено ${summary?.delivered24h || 0}/24ч • ${summary?.delivered7d || 0}/7д`,
     `Действия операторов ${summary?.operatorActions24h || 0}/24ч • ${summary?.operatorActions7d || 0}/7д`,
-    `Изменения листинга ${summary?.listingChanges7d || 0}/7д • релинки ${summary?.relinks7d || 0}/7д`
+    `Изменения листинга ${summary?.listingChanges7d || 0}/7д • повторные привязки ${summary?.relinks7d || 0}/7д`
   ].join('\n');
 }
 
@@ -355,13 +381,13 @@ function buildSystemHubKeyboard({ summary = null } = {}) {
       { text: `📜 Аудит 7д: ${summary?.recentAuditEvents || 0}`, callback_data: 'adm:sys:funnel:audit_recent' },
       { text: `📝 Изменения листинга: ${summary?.listingChanges7d || 0}`, callback_data: 'adm:sys:funnel:listing_changes' }
     ],
-    [{ text: `🔄 Релинки 7д: ${summary?.relinks7d || 0}`, callback_data: 'adm:sys:funnel:relinks' }],
+    [{ text: `🔄 Повторные привязки 7д: ${summary?.relinks7d || 0}`, callback_data: 'adm:sys:funnel:relinks' }],
     [
       { text: '🧭 Регламент запуска', callback_data: 'adm:runbook' },
-      { text: '🧊 Freeze', callback_data: 'adm:freeze' }
+      { text: '🧊 Заморозка', callback_data: 'adm:freeze' }
     ],
     [
-      { text: '✅ Live verification', callback_data: 'adm:verify' },
+      { text: '✅ Живая проверка', callback_data: 'adm:verify' },
       { text: '🎭 Репетиция запуска', callback_data: 'adm:rehearse' }
     ],
     [
@@ -445,7 +471,7 @@ function qualityReasonLabel(item) {
     return 'listed incomplete';
   }
   if (item?.readyNotListed) {
-    return 'ready not listed';
+    return 'готов, но не опубликован';
   }
   if (item?.missingCritical) {
     return 'missing fields';
@@ -453,7 +479,7 @@ function qualityReasonLabel(item) {
   if (item?.duplicateLike) {
     return 'duplicate-like';
   }
-  return 'relink history';
+  return 'история повторной привязки';
 }
 
 function formatAuditActor(record) {
@@ -476,7 +502,7 @@ function renderIntroListLine(item, index, page = 0, pageSize = 8) {
   const target = truncate(item?.targetDisplayName, 18);
   const status = formatShortStatus(item?.status, 'pending');
   const age = formatDateTimeShort(item?.updatedAt || item?.createdAt);
-  const warning = item?.deliveryProblemCount > 0 ? ' • delivery issue' : '';
+  const warning = item?.deliveryProblemCount > 0 ? ' • проблема доставки' : '';
   return `${ordinal}. ${sender} → ${target} • ${status} • ${age}${warning}`;
 }
 
@@ -490,7 +516,7 @@ function buildAdminIntrosText({ state = null, notice = null } = {}) {
     '',
     `Сегмент: ${ADMIN_INTRO_SEGMENTS[state.segmentKey]?.label || 'Все'} • стр. ${state.page + 1}`,
     `Видно в этом сегменте: ${state.totalCount}`,
-    `Pending ${state.counts?.pending || 0} • принято ${state.counts?.accepted || 0} • отклонено ${state.counts?.declined || 0} • просрочено ${state.counts?.stale || 0} • сбой уведомления ${state.counts?.failedNotify || 0}`
+    `В ожидании ${state.counts?.pending || 0} • принято ${state.counts?.accepted || 0} • отклонено ${state.counts?.declined || 0} • просрочено ${state.counts?.stale || 0} • сбой уведомления ${state.counts?.failedNotify || 0}`
   ];
 
   if (notice) {
@@ -848,36 +874,36 @@ function buildAdminUserPublicCardKeyboard({ targetUserId, segmentKey = 'all', pa
 }
 
 function directTemplateLabel(templateKey) {
-  return ADMIN_DIRECT_MESSAGE_TEMPLATES[templateKey]?.label || 'Blank message';
+  return ADMIN_DIRECT_MESSAGE_TEMPLATES[templateKey]?.label || 'Пустое сообщение';
 }
 
 function noticeTemplateLabel(templateKey) {
-  return ADMIN_NOTICE_TEMPLATES[normalizeAdminNoticeTemplate(templateKey)]?.label || 'Шаблон notice';
+  return ADMIN_NOTICE_TEMPLATES[normalizeAdminNoticeTemplate(templateKey)]?.label || 'Шаблон уведомления';
 }
 
 function broadcastTemplateLabel(templateKey) {
-  return ADMIN_BROADCAST_TEMPLATES[normalizeAdminBroadcastTemplate(templateKey)]?.label || 'Шаблон broadcast';
+  return ADMIN_BROADCAST_TEMPLATES[normalizeAdminBroadcastTemplate(templateKey)]?.label || 'Шаблон рассылки';
 }
 
 function formatOutboxTarget(record) {
   if (record?.event_type === 'direct') {
-    return toDisplayValue(record?.target_display_name, record?.target_telegram_username ? `@${record.target_telegram_username}` : record?.target_telegram_user_id ? `id ${record.target_telegram_user_id}` : 'direct target');
+    return toDisplayValue(record?.target_display_name, record?.target_telegram_username ? `@${record.target_telegram_username}` : record?.target_telegram_user_id ? `id ${record.target_telegram_user_id}` : 'получатель сообщения');
   }
   return toDisplayValue(record?.audience_key, '—');
 }
 
 function buildAdminUserMessageText({ card = null, state = null, notice = null } = {}) {
   const draft = state?.draft || {};
-  const targetLabel = toDisplayValue(card?.display_name, card?.linkedin_name || card?.telegram_username || draft?.targetDisplayName || draft?.targetLinkedinName || 'this user');
+  const targetLabel = toDisplayValue(card?.display_name, card?.linkedin_name || card?.telegram_username || draft?.targetDisplayName || draft?.targetLinkedinName || 'этот пользователь');
   const lines = [
     '✉️ Личное сообщение',
     '',
     `Цель: ${targetLabel}`,
     `Telegram: ${toDisplayValue(card?.telegram_username ? `@${card.telegram_username}` : null, card?.telegram_user_id ? `id ${card.telegram_user_id}` : draft?.targetTelegramUserId ? `id ${draft.targetTelegramUserId}` : '—')}`,
-    `Template: ${directTemplateLabel(draft?.templateKey || 'blank')}`,
+    `Шаблон: ${directTemplateLabel(draft?.templateKey || 'blank')}`,
     `Обновлено: ${formatDateTimeShort(draft?.updatedAt)}`,
     '',
-    draft?.body ? truncate(draft.body, 500) : 'Черновик direct message пока пустой.'
+    draft?.body ? truncate(draft.body, 500) : 'Черновик личного сообщения пока пустой.'
   ];
   if (notice) lines.push('', notice);
   return lines.join('\n');
@@ -885,7 +911,7 @@ function buildAdminUserMessageText({ card = null, state = null, notice = null } 
 
 function buildAdminUserMessageKeyboard({ targetUserId, segmentKey = 'all', page = 0 } = {}) {
   return buildInlineKeyboard([
-    [{ text: '📌 Use template', callback_data: `adm:msg:tpl:${targetUserId}:${segmentKey}:${page}` }],
+    [{ text: '📌 Шаблоны', callback_data: `adm:msg:tpl:${targetUserId}:${segmentKey}:${page}` }],
     [{ text: '✏️ Изменить текст', callback_data: `adm:msg:edit:${targetUserId}:${segmentKey}:${page}` }],
     [{ text: '👁 Превью', callback_data: `adm:msg:preview:${targetUserId}:${segmentKey}:${page}` }],
     [{ text: '🗑 Очистить черновик', callback_data: `adm:msg:clear:${targetUserId}:${segmentKey}:${page}` }],
@@ -895,7 +921,7 @@ function buildAdminUserMessageKeyboard({ targetUserId, segmentKey = 'all', page 
 }
 
 function buildAdminDirectTemplatePickerText({ card = null, state = null, notice = null } = {}) {
-  const targetLabel = toDisplayValue(card?.display_name, card?.linkedin_name || card?.telegram_username || state?.draft?.targetDisplayName || 'this user');
+  const targetLabel = toDisplayValue(card?.display_name, card?.linkedin_name || card?.telegram_username || state?.draft?.targetDisplayName || 'этот пользователь');
   const lines = [
     '📌 Шаблон личного сообщения',
     '',
@@ -915,14 +941,14 @@ function buildAdminDirectTemplatePickerKeyboard({ targetUserId, segmentKey = 'al
 
 function buildAdminDirectПревьюText({ card = null, state = null, notice = null } = {}) {
   const draft = state?.draft || {};
-  const targetLabel = toDisplayValue(card?.display_name, card?.linkedin_name || card?.telegram_username || draft?.targetDisplayName || 'this user');
+  const targetLabel = toDisplayValue(card?.display_name, card?.linkedin_name || card?.telegram_username || draft?.targetDisplayName || 'этот пользователь');
   const lines = [
     '👁 Превью личного сообщения',
     '',
     `Цель: ${targetLabel}`,
-    `Template: ${directTemplateLabel(draft?.templateKey || 'blank')}`,
+    `Шаблон: ${directTemplateLabel(draft?.templateKey || 'blank')}`,
     '',
-    draft?.body || 'Черновик direct message пока пустой.'
+    draft?.body || 'Черновик личного сообщения пока пустой.'
   ];
   if (notice) lines.push('', notice);
   return lines.join('\n');
@@ -939,8 +965,8 @@ function buildAdminUserNotePromptText({ card = null } = {}) {
   return [
     '✍️ Заметка оператора',
     '',
-    `Send the note text for ${toDisplayValue(card?.display_name, card?.linkedin_name || card?.telegram_username || 'this user')}.`,
-    'The latest note will replace the previous one.',
+    `Отправь текст заметки для ${toDisplayValue(card?.display_name, card?.linkedin_name || card?.telegram_username || 'этого пользователя')}.`,
+    'Новая заметка заменит предыдущую.',
     '',
     `Текущая заметка: ${truncate(card?.operator_note_text, 220)}`
   ].join('\n');
@@ -956,7 +982,7 @@ function buildAdminUserNotePromptKeyboard({ targetUserId, segmentKey = 'all', pa
 
 function buildAdminQualityText({ state = null, notice = null } = {}) {
   if (!state?.persistenceEnabled) {
-    return ['🚩 Качество', '', notice || '⚠️ Данные quality недоступны в этой среде.'].join('\n');
+    return ['🚩 Качество', '', notice || '⚠️ Данные качества недоступны в этой среде.'].join('\n');
   }
 
   const lines = [
@@ -973,7 +999,7 @@ function buildAdminQualityText({ state = null, notice = null } = {}) {
   }
 
   if (!state.users?.length) {
-    lines.push('', 'В этом quality-сегменте сейчас нет профилей.');
+    lines.push('', 'В этом сегменте качества сейчас нет профилей.');
     return lines.join('\n');
   }
 
@@ -1060,7 +1086,7 @@ function buildAdminAuditRecordText({ record = null, notice = null } = {}) {
     `Цель: ${formatAuditTarget(record)}`,
     `Создано: ${formatDateTimeShort(record.created_at)}`,
     `Intro: ${record.intro_request_id || '—'}`,
-    `Delivery: ${record.notification_receipt_id || '—'}`,
+    `Доставка: ${record.notification_receipt_id || '—'}`,
     '',
     `Summary: ${toDisplayValue(record.summary)}`,
     '',
@@ -1079,7 +1105,7 @@ function buildAdminAuditRecordKeyboard({ record = null, backCallback = 'adm:audi
     rows.push([{ text: '📄 Открыть интро', callback_data: `adm:intro:open:${record.intro_request_id}:all:0` }]);
   }
   if (record?.detail?.outboxId) {
-    rows.push([{ text: '📤 Открыть outbox', callback_data: `adm:outbox:open:${record.detail.outboxId}` }]);
+    rows.push([{ text: '📤 Открыть исходящие', callback_data: `adm:outbox:open:${record.detail.outboxId}` }]);
   }
   rows.push(buildBackHomeRow('↩️ Назад к аудиту', backCallback));
   return buildInlineKeyboard(rows);
@@ -1103,7 +1129,7 @@ function buildAdminNoticeText({ state = null, notice = null } = {}) {
     `Оценка видимости: ${state?.estimate || 0}`,
     `Обновлено: ${formatDateTimeShort(current.updatedAt)}`,
     '',
-    current.body ? truncate(current.body, 500) : 'Текст notice пока пустой.'
+    current.body ? truncate(current.body, 500) : 'Текст уведомления пока пустой.'
   ];
   if (notice) {
     lines.push('', notice);
@@ -1134,7 +1160,7 @@ function buildAdminNoticeAudienceSurface({ state = null, notice = null } = {}) {
     callback_data: `adm:not:aud:${item.key}`
   }]));
   rows.push(buildBackHomeRow('↩️ Назад к уведомлению', 'adm:not'));
-  const lines = ['🎯 Аудитория notice', '', `Текущее: ${adminNoticeAudienceLabel(current.audienceKey)}`];
+  const lines = ['🎯 Аудитория уведомления', '', `Текущее: ${adminNoticeAudienceLabel(current.audienceKey)}`];
   if (notice) {
     lines.push('', notice);
   }
@@ -1148,7 +1174,7 @@ function buildAdminNoticeПревьюSurface({ state = null, notice = null } = {
     '',
     `Аудитория: ${adminNoticeAudienceLabel(current.audienceKey)}`,
     '',
-    current.body ? current.body : 'Текст notice пока пустой.'
+    current.body ? current.body : 'Текст уведомления пока пустой.'
   ];
   if (notice) {
     lines.push('', notice);
@@ -1191,10 +1217,10 @@ function buildBroadcastRecoveryActionRows(record = null) {
   if (failedCount > 0 || retryDueCount > 0) {
     const row = [];
     if (failedCount > 0) {
-      row.push({ text: `🔁 Повторить failed: ${failedCount}`, callback_data: `adm:bc:retry:failed:${record.id}` });
+      row.push({ text: `🔁 Повторить ошибки: ${failedCount}`, callback_data: `adm:bc:retry:failed:${record.id}` });
     }
     if (retryDueCount > 0) {
-      row.push({ text: `🔁 Повторить retry_due: ${retryDueCount}`, callback_data: `adm:bc:retry:retry_due:${record.id}` });
+      row.push({ text: `🔁 Повторить ожидающие: ${retryDueCount}`, callback_data: `adm:bc:retry:retry_due:${record.id}` });
     }
     if (row.length) rows.push(row);
   }
@@ -1230,10 +1256,12 @@ function buildAdminBroadcastText({ state = null, notice = null } = {}) {
 
   if (latest) {
     const failedOnly = adminBroadcastHardFailedCount(latest);
-    lines.push(`Последняя задача: #${latest.id} • ${formatShortStatus(latest.status, 'none')}`);
-    lines.push(`Прогресс: ${latest.delivered_count || 0}/${latest.estimated_recipient_count ?? 0} доставлено • failed ${failedOnly} • retry_due ${latest.retry_due_count || 0} • exhausted ${latest.exhausted_count || 0} • pending ${latest.pending_count || 0}`);
+    lines.push(`Последняя задача: #${latest.id}`);
+    lines.push(`Статус: ${formatOperatorStatus(latest.status, 'нет')}`);
+    lines.push(`Прогресс: ${latest.delivered_count || 0} из ${latest.estimated_recipient_count ?? 0} доставлено`);
+    lines.push(`Ошибки: ${failedOnly} • Ждут повтора: ${latest.retry_due_count || 0} • Исчерпано: ${latest.exhausted_count || 0} • В ожидании: ${latest.pending_count || 0}`);
     lines.push(`Старт: ${formatDateTimeShort(latest.started_at)} • Завершено: ${formatDateTimeShort(latest.finished_at) || 'ещё выполняется'}`);
-    lines.push(`Batch: ${latest.batch_size || '—'} • cursor ${latest.cursor || 0}`);
+    lines.push(`Размер пакета: ${latest.batch_size || '—'} • Позиция курсора: ${latest.cursor || 0}`);
     if (latest.last_error) {
       lines.push(`Последняя ошибка: ${truncate(latest.last_error, 80)}`);
     }
@@ -1344,8 +1372,10 @@ function buildAdminBroadcastPreviewSurface({ state = null, notice = null } = {})
   ];
   if (latest?.id) {
     const failedOnly = adminBroadcastHardFailedCount(latest);
-    lines.push('', `Последняя задача: #${latest.id} • ${formatShortStatus(latest.status, 'none')}`);
-    lines.push(`Прогресс: ${latest.delivered_count || 0}/${latest.estimated_recipient_count ?? 0} доставлено • failed ${failedOnly} • retry_due ${latest.retry_due_count || 0} • exhausted ${latest.exhausted_count || 0} • pending ${latest.pending_count || 0}`);
+    lines.push('', `Последняя задача: #${latest.id}`);
+    lines.push(`Статус: ${formatOperatorStatus(latest.status, 'нет')}`);
+    lines.push(`Прогресс: ${latest.delivered_count || 0} из ${latest.estimated_recipient_count ?? 0} доставлено`);
+    lines.push(`Ошибки: ${failedOnly} • Ждут повтора: ${latest.retry_due_count || 0} • Исчерпано: ${latest.exhausted_count || 0} • В ожидании: ${latest.pending_count || 0}`);
   }
   if (notice) {
     lines.push('', notice);
@@ -1447,10 +1477,10 @@ function buildAdminOutboxText({ records = [], notice = null } = {}) {
   const lines = ['📤 Исходящие', ''];
   if (!records.length) {
     lines.push('Коммуникационных записей пока нет.');
-    lines.push('После активации notice, отправки broadcast или direct message запись появится здесь.');
+    lines.push('После активации уведомления, отправки рассылки или личного сообщения запись появится здесь.');
   } else {
     lines.push('Последние записи:');
-    lines.push(...records.map((item, index) => `${index + 1}. ${item.event_type} • ${truncate(formatOutboxTarget(item), 20)} • ${formatShortStatus(item.status, 'draft')} • ок ${item.delivered_count ?? 0}/${item.estimated_recipient_count ?? '—'} • ошибок ${item.failed_count ?? 0} • ${formatDateTimeShort(item.sent_at || item.created_at)}`));
+    lines.push(...records.map((item, index) => `${index + 1}. ${formatOperatorEventType(item.event_type)} • ${truncate(formatOutboxTarget(item), 20)} • ${formatOperatorStatus(item.status, 'черновик')} • доставлено ${item.delivered_count ?? 0} из ${item.estimated_recipient_count ?? '—'} • ошибок ${item.failed_count ?? 0} • ${formatDateTimeShort(item.sent_at || item.created_at)}`));
   }
   if (notice) {
     lines.push('', notice);
@@ -1459,7 +1489,7 @@ function buildAdminOutboxText({ records = [], notice = null } = {}) {
 }
 
 function buildAdminOutboxKeyboard({ records = [] } = {}) {
-  const rows = records.map((item) => ([{ text: `📄 ${item.event_type} • #${item.id}`, callback_data: `adm:outbox:open:${item.id}` }]));
+  const rows = records.map((item) => ([{ text: `📄 ${formatOperatorEventType(item.event_type)} • #${item.id}`, callback_data: `adm:outbox:open:${item.id}` }]));
   rows.push([{ text: '🔎 Поиск исходящих', callback_data: 'adm:search:outbox' }]);
   rows.push(buildBackHomeRow('↩️ Назад в Коммуникации', 'adm:comms'));
   return buildInlineKeyboard(rows);
@@ -1472,18 +1502,18 @@ function buildAdminOutboxRecordText({ record = null, notice = null } = {}) {
   const lines = [
     '📄 Запись исходящих',
     '',
-    `Тип: ${record.event_type}`,
-    `Статус: ${record.status}`,
-    `Аудитория: ${record.audience_key || '—'}`,
-    `Цель: ${formatOutboxTarget(record)}`,
+    `Тип: ${formatOperatorEventType(record.event_type, 'запись')}`,
+    `Статус: ${formatOperatorStatus(record.status, 'нет')}`,
+    `Аудитория: ${formatOperatorAudienceKey(record.audience_key, '—')}`,
+    `Цель: ${formatOperatorAudienceKey(formatOutboxTarget(record), formatOutboxTarget(record))}`,
     `Оценка: ${record.estimated_recipient_count ?? '—'}`,
     `Доставлено: ${record.delivered_count ?? '—'}`,
-    `Failed: ${adminBroadcastHardFailedCount(record)}`,
-    `Retry due: ${record.retry_due_count ?? '—'}`,
+    `Ошибки: ${adminBroadcastHardFailedCount(record)}`,
+    `Ждут повтора: ${record.retry_due_count ?? '—'}`,
     `Исчерпано: ${record.exhausted_count ?? '—'}`,
     `В ожидании: ${record.pending_count ?? '—'}`,
-    `Размер батча: ${record.batch_size ?? '—'}`,
-    `Курсор: ${record.cursor ?? '—'}`,
+    `Размер пакета: ${record.batch_size ?? '—'}`,
+    `Позиция курсора: ${record.cursor ?? '—'}`,
     `Картинка: ${record.media_ref ? 'да' : 'нет'}`,
     `Кнопка: ${record.button_text && record.button_url ? `${record.button_text} → ${truncate(record.button_url, 42)}` : (record.button_text || record.button_url ? 'заполнено не полностью' : 'нет')}`,
     `Старт: ${formatDateTimeShort(record.started_at)}`,
@@ -1517,19 +1547,19 @@ function buildAdminOutboxRecordKeyboard({ record = null, backCallback = 'adm:out
 
 function buildAdminBroadcastFailuresText({ state = null, notice = null } = {}) {
   if (!state?.record) {
-    return ['🧾 Ошибки broadcast', '', notice || 'Запись broadcast не найдена.'].join('\n');
+    return ['🧾 Ошибки рассылки', '', notice || 'Запись рассылки не найдена.'].join('\n');
   }
   const lines = [
-    '🧾 Ошибки broadcast',
+    '🧾 Ошибки рассылки',
     '',
-    `Рассылка: #${state.record.id} • ${state.record.status}`,
+    `Рассылка: #${state.record.id} • ${formatOperatorStatus(state.record.status, 'нет')}`,
     `Ошибки: ${state.totalCount || 0} • стр. ${(state.page || 0) + 1}`
   ];
   if (!state.items?.length) {
-    lines.push('', 'Для этого broadcast нет получателей с ошибками или retry due.');
+    lines.push('', 'Для этой рассылки нет получателей с ошибками или ожидающих повтора.');
   } else {
     lines.push('', 'Получатели, требующие внимания:');
-    lines.push(...state.items.map((item, index) => `${(state.page || 0) * (state.pageSize || 10) + index + 1}. ${truncate(item.target_display_name || item.target_telegram_username || `id ${item.target_telegram_user_id}`, 28)} • ${item.status} • попыток ${item.attempts} • ${truncate(item.last_error, 64)}`));
+    lines.push(...state.items.map((item, index) => `${(state.page || 0) * (state.pageSize || 10) + index + 1}. ${truncate(item.target_display_name || item.target_telegram_username || `id ${item.target_telegram_user_id}`, 28)} • ${formatOperatorStatus(item.status, 'ошибка')} • попыток ${item.attempts} • ${truncate(item.last_error, 64)}`));
   }
   if (notice) lines.push('', notice);
   return lines.join('\n');
@@ -1562,20 +1592,20 @@ function buildAdminCommsEditPromptSurface({ title, currentValue, cancelCallback,
 }
 
 function boolLine(label, value) {
-  return `${label}: ${value ? 'yes' : 'no'}`;
+  return `${label}: ${value ? 'да' : 'нет'}`;
 }
 
 function renderAdminSearchLine(scopeKey, item, index, page = 0, pageSize = 8) {
   const ordinal = page * pageSize + index + 1;
   switch (normalizeAdminSearchScope(scopeKey)) {
     case 'users':
-      return `${ordinal}. ${truncate(item.displayName || item.linkedinName || item.telegramUsername || `User ${item.telegramUserId}`, 26)} • ${item.hasLinkedIn ? 'LI' : 'без LI'} • ${item.visibilityStatus === 'listed' ? 'листинг' : item.profileState === 'active' ? 'скрыт' : 'неполный'} • pending ${item.pendingIntroCount || 0}`;
+      return `${ordinal}. ${truncate(item.displayName || item.linkedinName || item.telegramUsername || `Пользователь ${item.telegramUserId}`, 26)} • ${item.hasLinkedIn ? 'LinkedIn' : 'без LinkedIn'} • ${item.visibilityStatus === 'listed' ? 'в каталоге' : item.profileState === 'active' ? 'скрыт' : 'неполный'} • в ожидании ${item.pendingIntroCount || 0}`;
     case 'intros':
       return `${ordinal}. ${truncate(item.requesterDisplayName, 18)} → ${truncate(item.targetDisplayName, 18)} • ${formatShortStatus(item.status, 'pending')} • ${formatDateTimeShort(item.updatedAt || item.createdAt)}`;
     case 'delivery':
-      return `${ordinal}. ${truncate(item.recipientDisplayName, 18)} • ${formatShortStatus(item.operatorBucket, 'failed')} • ${truncate(item.errorMessage || item.lastErrorCode || '', 28)}`;
+      return `${ordinal}. ${truncate(item.recipientDisplayName, 18)} • ${formatOperatorStatus(item.operatorBucket, 'ошибка')} • ${truncate(item.errorMessage || item.lastErrorCode || '', 28)}`;
     case 'outbox':
-      return `${ordinal}. ${item.event_type} • ${truncate(formatOutboxTarget(item), 20)} • ${formatShortStatus(item.status, 'draft')} • ${formatDateTimeShort(item.sent_at || item.created_at)}`;
+      return `${ordinal}. ${formatOperatorEventType(item.event_type)} • ${truncate(formatOutboxTarget(item), 20)} • ${formatOperatorStatus(item.status, 'черновик')} • ${formatDateTimeShort(item.sent_at || item.created_at)}`;
     case 'audit':
     default:
       return `${ordinal}. ${truncate(item.event_type, 18)} • ${truncate(item.summary || '', 28)} • ${formatDateTimeShort(item.created_at)}`;
@@ -1714,28 +1744,28 @@ function buildLaunchRunbookText() {
   return [
     '🧭 Регламент запуска',
     '',
-    'Режим STEP043: узкий launch/ops runbook + manual verification/rehearsal без новых фич и без широких мутаций.',
+    'Режим STEP043: узкий регламент запуска и ручная проверка без новых фич и без широких мутаций.',
     '',
     'Ежедневный ритм:',
-    '1) открыть Система и проверить retry/exhausted/failures',
-    '2) открыть Операции и посмотреть bottlenecks: без профиля / ready-not-listed / pending >24ч / delivery issues',
-    '3) открыть Коммуникации и проверить active notice / latest broadcast / outbox errors',
-    '4) открыть Аудит и посмотреть relink / listing changes / bulk-prep',
-    '5) только потом готовить notice, broadcast или direct follow-up',
+    '1) открыть Систему и проверить ждут повтора / исчерпано / ошибки',
+    '2) открыть Операции и посмотреть узкие места: без профиля / не опубликованы / ожидают >24ч / ошибки доставки',
+    '3) открыть Коммуникации и проверить активное уведомление / последнюю рассылку / ошибки отправки',
+    '4) открыть Аудит и посмотреть повторные привязки / изменения листинга / подготовку действий',
+    '5) только потом готовить уведомление, рассылку или личное сообщение',
     '',
-    'Preflight перед notice/broadcast:',
-    '• нет свежего callback/deployment инцидента',
-    '• нет всплеска delivery failures / exhausted',
+    'Проверка перед уведомлением или рассылкой:',
+    '• нет свежего инцидента по callback или деплою',
+    '• нет всплеска ошибок доставки или исчерпанных попыток',
     '• сегмент и аудитория совпадают с реальной задачей',
     '• текст подтверждён оператором',
-    '• после отправки будет ручной post-check через Outbox/Delivery',
+    '• после отправки будет ручная проверка через Исходящие/Доставку',
     '',
     'Инциденты:',
-    '• LinkedIn callback ломается → стоп коммуникации, сначала env/health/callback truth',
-    '• delivery failures растут → стоп новые рассылки, открыть Delivery/Outbox/Audit',
-    '• listed-incomplete растёт → сначала чистим Quality/Users, потом льём трафик',
+    '• если ломается LinkedIn callback → стоп коммуникации, сначала env / здоровье / callback',
+    '• если растут ошибки доставки → стоп новые рассылки, открыть Доставку / Исходящие / Аудит',
+    '• если растёт доля неполных профилей → сначала чистим Качество / Пользователи, потом льём трафик',
     '',
-    'Это read-only runbook. Live status not confirmed — manual verification required.'
+    'Это read-only регламент. Живой статус не подтверждён — нужна ручная проверка.'
   ].join('\n');
 }
 
@@ -1745,25 +1775,25 @@ function buildLaunchRunbookKeyboard() {
     [{ text: '💬 Коммуникации', callback_data: 'adm:comms' }],
     [{ text: '💳 Монетизация', callback_data: 'adm:money' }],
     [{ text: '⚙️ Система', callback_data: 'adm:sys' }],
-    [{ text: '✅ Live verification', callback_data: 'adm:verify' }],
+    [{ text: '✅ Живая проверка', callback_data: 'adm:verify' }],
     [{ text: '🎭 Репетиция запуска', callback_data: 'adm:rehearse' }],
-    [{ text: '🧊 Freeze', callback_data: 'adm:freeze' }],
+    [{ text: '🧊 Заморозка', callback_data: 'adm:freeze' }],
     [{ text: '🏠 Главная', callback_data: 'home:root' }]
   ]);
 }
 
 function buildLaunchFreezeText() {
   return [
-    '🧊 Freeze',
+    '🧊 Заморозка',
     '',
-    'Назначение: удержать source baseline стабильным перед ручным запуском и live verification.',
+    'Назначение: удержать source baseline стабильным перед ручным запуском и живой проверкой.',
     '',
     'Что замораживаем:',
     '• Telegram router contract',
     '• LinkedIn OIDC flow',
     '• visibility/listing truth',
     '• intro/request/decision truth',
-    '• notice/broadcast/send flows',
+    '• уведомления / рассылки / отправка',
     '• operator allowlist contract',
     '',
     'Что разрешено:',
@@ -1784,14 +1814,14 @@ function buildLaunchFreezeText() {
     '3) changed files list + QA checklist',
     '4) честный статус без claims о live readiness',
     '',
-    'Выход из freeze только после ручного verification pass.'
+    'Выход из заморозки только после ручного прохода проверки.'
   ].join('\n');
 }
 
 function buildLaunchFreezeKeyboard() {
   return buildInlineKeyboard([
     [{ text: '🧭 Регламент запуска', callback_data: 'adm:runbook' }],
-    [{ text: '✅ Live verification', callback_data: 'adm:verify' }],
+    [{ text: '✅ Живая проверка', callback_data: 'adm:verify' }],
     [{ text: '🎭 Репетиция запуска', callback_data: 'adm:rehearse' }],
     [{ text: '🩺 Здоровье', callback_data: 'adm:health' }],
     [{ text: '⚙️ Система', callback_data: 'adm:sys' }],
@@ -1801,17 +1831,17 @@ function buildLaunchFreezeKeyboard() {
 
 function buildLiveVerificationText() {
   return [
-    '✅ Live verification',
+    '✅ Живая проверка',
     '',
-    'Назначение: провести честный ручной verification pass на deployed baseline без расширения scope.',
+    'Назначение: провести честный ручной проход проверки на deployed baseline без расширения scope.',
     '',
     'Порядок проверки:',
     '1) открыть landing / privacy / terms и проверить ссылку на @introdeckbot',
     '2) открыть /api/health и /api/health?full=1, сверить step/docsStep/flags',
     '3) в Telegram проверить /start, /menu, founder-only entry в 👑 Админка и /ops / /admin allowlist gating',
-    '4) открыть Админка / Операции / Коммуникации / Система и убедиться, что surfaces живы',
+    '4) открыть Админку / Операции / Коммуникации / Систему и убедиться, что экраны живы',
     '5) пройти LinkedIn connect start и callback truth до сохранения identity/profile state',
-    '6) проверить direct message, notice prep, broadcast preview и post-check через Outbox/Delivery/Audit',
+    '6) проверить личное сообщение, подготовку уведомления, превью рассылки и post-check через Исходящие / Доставку / Аудит',
     '',
     'Фиксируем отдельно:',
     '• source-confirmed',
@@ -1827,7 +1857,7 @@ function buildLiveVerificationKeyboard() {
   return buildInlineKeyboard([
     [{ text: '🎭 Репетиция запуска', callback_data: 'adm:rehearse' }],
     [{ text: '🩺 Здоровье', callback_data: 'adm:health' }],
-    [{ text: '🧊 Freeze', callback_data: 'adm:freeze' }],
+    [{ text: '🧊 Заморозка', callback_data: 'adm:freeze' }],
     [{ text: '⚙️ Система', callback_data: 'adm:sys' }],
     [{ text: '🏠 Главная', callback_data: 'home:root' }]
   ]);
@@ -1842,9 +1872,9 @@ function buildLaunchRehearsalText() {
     'Репетиция:',
     '1) health/preflight: retry/exhausted/failures не в аварийном состоянии',
     '2) founder account: /start → /menu → 👑 Админка видна',
-    '3) operator shell: Админка / Операции / Коммуникации / Система / Регламент / Freeze / verification открываются',
+    '3) operator shell: Админка / Операции / Коммуникации / Система / Регламент / Заморозка / Живая проверка открываются',
     '4) users segment: открыть safe segment и проверить drilldowns / bulk-prep contract',
-    '5) communications: подготовить notice или broadcast preview без широкого охвата',
+    '5) communications: подготовить уведомление или превью рассылки без широкого охвата',
     '6) direct message: отправить узкий тестовый ЛС на founder/test recipient',
     '7) post-check: Outbox / Delivery / Audit / Quality без скрытых ошибок и тупиков',
     '',
@@ -1860,7 +1890,7 @@ function buildLaunchRehearsalText() {
 
 function buildLaunchRehearsalKeyboard() {
   return buildInlineKeyboard([
-    [{ text: '✅ Live verification', callback_data: 'adm:verify' }],
+    [{ text: '✅ Живая проверка', callback_data: 'adm:verify' }],
     [{ text: '💬 Коммуникации', callback_data: 'adm:comms' }],
     [{ text: '💳 Монетизация', callback_data: 'adm:money' }],
     [{ text: '⚙️ Система', callback_data: 'adm:sys' }],

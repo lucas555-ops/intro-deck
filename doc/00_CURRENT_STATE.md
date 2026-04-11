@@ -362,3 +362,13 @@
 - communications / notice / broadcast / templates / outbox menus now use paired action rows where labels stay readable, while long audience/template selectors remain single-column for clarity
 - system, monetization, search prompts, and many admin detail surfaces now share one compact `Back + Home` row instead of two stacked navigation rows
 - no runtime schema, invite attribution, LinkedIn auth, or monetization logic changes
+
+
+## STEP051.8.1 delta
+
+- operator/admin text layer polished into more consistent Russian wording across hubs, broadcast, outbox, notice, and system surfaces
+- broadcast screen now shows human-readable status blocks (`Статус`, `Прогресс`, `Ошибки`, `Ждут повтора`, `Исчерпано`, `В ожидании`) instead of mixed storage/runtime wording
+- outbox list/detail surfaces now map event types, statuses, audiences, and cursor/batch fields into operator-grade labels (`рассылка`, `уведомление`, `личное сообщение`, `все подключённые`, `Размер пакета`, `Позиция курсора`)
+- communications hub wording now uses `Охват уведомления`, `Черновик рассылки`, and `Ошибки отправки` instead of mixed notice/broadcast/outbox terminology
+- monetization/operator labels were cleaned up around contacts/messages terminology while preserving `LinkedIn` and `Pro`
+- system/runbook/freeze/live-verification surfaces now read more consistently in Russian operator wording

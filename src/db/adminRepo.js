@@ -447,9 +447,9 @@ export const ADMIN_NOTICE_AUDIENCES = {
 
 export const ADMIN_INTRO_SEGMENTS = {
   all: { key: 'all', label: 'Все' },
-  pend: { key: 'pend', label: 'Pending' },
-  p24: { key: 'p24', label: 'Pending >24ч' },
-  p72: { key: 'p72', label: 'Pending >72ч' },
+  pend: { key: 'pend', label: 'В ожидании' },
+  p24: { key: 'p24', label: 'Ожидают >24ч' },
+  p72: { key: 'p72', label: 'Ожидают >72ч' },
   acc: { key: 'acc', label: 'Принятые' },
   arec: { key: 'arec', label: 'Принятые 7д' },
   dec: { key: 'dec', label: 'Отклонённые' },
@@ -482,7 +482,7 @@ export const ADMIN_QUALITY_SEGMENTS = {
   ready: { key: 'ready', label: 'Готовые, но не опубликованы' },
   miss: { key: 'miss', label: 'Нет обязательных полей' },
   dupe: { key: 'dupe', label: 'Дубликаты' },
-  relink: { key: 'relink', label: 'Relink' }
+  relink: { key: 'relink', label: 'Повторная привязка' }
 };
 
 export function normalizeAdminQualitySegment(segmentKey) {
@@ -492,10 +492,10 @@ export function normalizeAdminQualitySegment(segmentKey) {
 
 export const ADMIN_AUDIT_SEGMENTS = {
   all: { key: 'all', label: 'Все' },
-  not: { key: 'not', label: 'Notice' },
-  bc: { key: 'bc', label: 'Broadcast' },
+  not: { key: 'not', label: 'Уведомления' },
+  bc: { key: 'bc', label: 'Рассылки' },
   user: { key: 'user', label: 'Действия по пользователям' },
-  relink: { key: 'relink', label: 'Relink' }
+  relink: { key: 'relink', label: 'Повторная привязка' }
 };
 
 export function normalizeAdminAuditSegment(segmentKey) {
@@ -607,7 +607,7 @@ export const ADMIN_BROADCAST_AUDIENCES = {
   RECENT_PENDING_INTROS: { key: 'RECENT_PENDING_INTROS', label: 'Недавние pending интро' },
   ACCEPTED_RECENT: { key: 'ACCEPTED_RECENT', label: 'Недавно принятые' },
   DECLINED_RECENT: { key: 'DECLINED_RECENT', label: 'Недавно отклонённые' },
-  RECENT_RELINKS: { key: 'RECENT_RELINKS', label: 'Недавние relink' }
+  RECENT_RELINKS: { key: 'RECENT_RELINKS', label: 'Недавние повторные привязки' }
 };
 
 export function normalizeAdminNoticeAudience(value) {
@@ -624,7 +624,7 @@ export const ADMIN_SEARCH_SCOPES = {
   users: { key: 'users', label: 'Поиск пользователей' },
   intros: { key: 'intros', label: 'Поиск интро' },
   delivery: { key: 'delivery', label: 'Поиск доставки' },
-  outbox: { key: 'outbox', label: 'Поиск outbox' },
+  outbox: { key: 'outbox', label: 'Поиск исходящих' },
   audit: { key: 'audit', label: 'Поиск аудита' }
 };
 
@@ -649,7 +649,7 @@ export function normalizeAdminDirectMessageTemplate(value) {
 
 export const ADMIN_NOTICE_TEMPLATES = {
   connect_profile: { key: 'connect_profile', label: 'Подключить + начать профиль', audienceKey: 'CONNECTED_NO_PROFILE', body: "You're connected in Intro Deck. Add your basic profile details so people can understand what you do and where you fit." },
-  complete_profile: { key: 'complete_profile', label: 'Complete profile', audienceKey: 'PROFILE_INCOMPLETE', body: "Your Intro Deck profile is almost there. Finish the missing fields so your card is easier to trust and easier to match." },
+  complete_profile: { key: 'complete_profile', label: 'Завершить профиль', audienceKey: 'PROFILE_INCOMPLETE', body: "Your Intro Deck profile is almost there. Finish the missing fields so your card is easier to trust and easier to match." },
   add_skills: { key: 'add_skills', label: 'Добавить навыки', audienceKey: 'COMPLETE_NO_SKILLS', body: "Add a few relevant skills in Intro Deck so your profile is easier to scan and easier to match." },
   list_profile: { key: 'list_profile', label: 'Опубликовать профиль', audienceKey: 'READY_NOT_LISTED', body: "Your Intro Deck profile looks ready. Put it live in the directory so people can discover you and send intros." },
   reengage_listed: { key: 'reengage_listed', label: 'Вернуть неактивных опубликованных', audienceKey: 'LISTED_INACTIVE', body: "Your Intro Deck profile is live, but it has been quiet lately. Open the bot, refresh your card, and check whether new intros are waiting." }
@@ -657,12 +657,12 @@ export const ADMIN_NOTICE_TEMPLATES = {
 
 export const ADMIN_BROADCAST_TEMPLATES = {
   launch_directory: { key: 'launch_directory', label: 'Запуск каталога', audienceKey: 'ALL_CONNECTED', body: "Intro Deck directory is live. Complete your profile, add skills, and list yourself so the right people can find you." },
-  complete_profile: { key: 'complete_profile', label: 'Complete profile', audienceKey: 'PROFILE_INCOMPLETE', body: "Quick nudge from Intro Deck: finish your profile so other members can understand your focus and send better intros." },
+  complete_profile: { key: 'complete_profile', label: 'Завершить профиль', audienceKey: 'PROFILE_INCOMPLETE', body: "Quick nudge from Intro Deck: finish your profile so other members can understand your focus and send better intros." },
   add_skills: { key: 'add_skills', label: 'Добавить навыки', audienceKey: 'COMPLETE_NO_SKILLS', body: "Profiles with a few clear skills are easier to understand and easier to match. Add your skills in Intro Deck today." },
-  list_profile: { key: 'list_profile', label: 'List ready profiles', audienceKey: 'READY_NOT_LISTED', body: "Your profile looks ready. List it in the Intro Deck directory so other members can discover you and send intros." },
+  list_profile: { key: 'list_profile', label: 'Опубликовать готовые профили', audienceKey: 'READY_NOT_LISTED', body: "Your profile looks ready. List it in the Intro Deck directory so other members can discover you and send intros." },
   revive_listed: { key: 'revive_listed', label: 'Вернуть неактивных опубликованных', audienceKey: 'LISTED_INACTIVE', body: "Your Intro Deck profile is live, but it has been quiet lately. Open the bot, refresh your card, and check for new activity." },
   accepted_followup: { key: 'accepted_followup', label: 'Фоллоу-ап по принятым интро', audienceKey: 'ACCEPTED_RECENT', body: "Accepted intros moved recently in Intro Deck. Open the bot, follow through quickly, and keep your profile current." },
-  recent_relinks: { key: 'recent_relinks', label: 'Недавние relink', audienceKey: 'RECENT_RELINKS', body: "Your Intro Deck identity was recently reconnected. Open the bot to confirm your profile and keep your directory presence accurate." }
+  recent_relinks: { key: 'recent_relinks', label: 'Недавние повторные привязки', audienceKey: 'RECENT_RELINKS', body: "Your Intro Deck identity was recently reconnected. Open the bot to confirm your profile and keep your directory presence accurate." }
 };
 
 export function normalizeAdminNoticeTemplate(value) {
