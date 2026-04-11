@@ -1226,6 +1226,7 @@ function buildAdminBroadcastText({ state = null, notice = null } = {}) {
   if (latest) {
     lines.push(`Последняя задача: #${latest.id} • ${formatShortStatus(latest.status, 'none')}`);
     lines.push(`Прогресс: ${latest.delivered_count || 0}/${latest.estimated_recipient_count ?? 0} доставлено • ${latest.failed_count || 0} ошибок • ${latest.pending_count || 0} pending`);
+    lines.push(`Старт: ${formatDateTimeShort(latest.started_at)} • Завершено: ${formatDateTimeShort(latest.finished_at) || 'ещё выполняется'}`);
     lines.push(`Batch: ${latest.batch_size || '—'} • cursor ${latest.cursor || 0}`);
     if (latest.last_error) {
       lines.push(`Последняя ошибка: ${truncate(latest.last_error, 80)}`);
@@ -1262,15 +1263,17 @@ function buildAdminBroadcastKeyboard({ state = null } = {}) {
   if (state?.draft?.mediaRef) {
     rows.push([{ text: '🗑 Убрать картинку', callback_data: 'adm:bc:media:clear' }]);
   }
-  if (latest?.failed_count > 0 || latest?.retry_due_count > 0 || latest?.exhausted_count > 0) {
-    rows.push([
-      { text: '🧾 Ошибки', callback_data: `adm:bc:fail:${latest.id}:0` },
-      { text: '🔎 Поиск исходящих', callback_data: 'adm:search:outbox' }
-    ]);
+  if (latest?.id) {
+    const lastTaskRow = [{ text: '📄 Последняя задача', callback_data: 'adm:bc:last' }];
+    if (latest?.failed_count > 0 || latest?.retry_due_count > 0 || latest?.exhausted_count > 0) {
+      lastTaskRow.push({ text: '🧾 Ошибки', callback_data: `adm:bc:fail:${latest.id}:0` });
+    }
+    rows.push(lastTaskRow);
+    rows.push([{ text: '📤 Исходящие', callback_data: 'adm:outbox' }]);
     rows.push([{ text: '🗑 Очистить черновик', callback_data: 'adm:bc:clear' }]);
   } else {
     rows.push([
-      { text: '🔎 Поиск исходящих', callback_data: 'adm:search:outbox' },
+      { text: '📤 Исходящие', callback_data: 'adm:outbox' },
       { text: '🗑 Очистить черновик', callback_data: 'adm:bc:clear' }
     ]);
   }
@@ -1320,6 +1323,7 @@ function buildAdminBroadcastButtonSurface({ state = null, notice = null } = {}) 
 
 function buildAdminBroadcastPreviewSurface({ state = null, notice = null } = {}) {
   const draft = state?.draft || { body: '', audienceKey: 'ALL_CONNECTED', mediaRef: null, buttonText: null, buttonUrl: null };
+  const latest = state?.latestRecord || null;
   const lines = [
     '👁 Превью рассылки',
     '',
@@ -1331,15 +1335,28 @@ function buildAdminBroadcastPreviewSurface({ state = null, notice = null } = {})
     '',
     draft.body ? draft.body : 'Текст не задан. Будет отправлена только картинка, если она указана.'
   ];
+  if (latest?.id) {
+    lines.push('', `Последняя задача: #${latest.id} • ${formatShortStatus(latest.status, 'none')}`);
+    lines.push(`Прогресс: ${latest.delivered_count || 0}/${latest.estimated_recipient_count ?? 0} доставлено • ${latest.failed_count || 0} ошибок • ${latest.pending_count || 0} pending`);
+  }
   if (notice) {
     lines.push('', notice);
   }
+  const rows = [
+    [{ text: '🧪 Отправить превью себе', callback_data: 'adm:bc:preview:self' }],
+    [{ text: '✅ Подтвердить отправку', callback_data: 'adm:bc:confirm' }]
+  ];
+  if (latest?.id) {
+    const latestRow = [{ text: '📄 Последняя задача', callback_data: 'adm:bc:last' }];
+    if (latest?.failed_count > 0 || latest?.retry_due_count > 0 || latest?.exhausted_count > 0) {
+      latestRow.push({ text: '🧾 Ошибки', callback_data: `adm:bc:fail:${latest.id}:0` });
+    }
+    rows.push(latestRow);
+  }
+  rows.push(buildBackHomeRow('↩️ Назад к рассылке', 'adm:bc'));
   return {
     text: lines.join('\n'),
-    reply_markup: buildInlineKeyboard([
-      [{ text: '✅ Подтвердить отправку', callback_data: 'adm:bc:confirm' }],
-      buildBackHomeRow('↩️ Назад к рассылке', 'adm:bc')
-    ])
+    reply_markup: buildInlineKeyboard(rows)
   };
 }
 
@@ -1474,7 +1491,7 @@ function buildAdminOutboxRecordText({ record = null, notice = null } = {}) {
   return lines.join('\n');
 }
 
-function buildAdminOutboxRecordKeyboard({ record = null } = {}) {
+function buildAdminOutboxRecordKeyboard({ record = null, backCallback = 'adm:outbox' } = {}) {
   const rows = [];
   if (record?.target_user_id) {
     rows.push([{ text: '👤 Открыть пользователя', callback_data: `adm:usr:open:${record.target_user_id}:all:0` }]);
@@ -1482,7 +1499,7 @@ function buildAdminOutboxRecordKeyboard({ record = null } = {}) {
   if (record?.event_type === 'broadcast' && ((record?.failed_count || 0) > 0 || (record?.retry_due_count || 0) > 0 || (record?.exhausted_count || 0) > 0)) {
     rows.push([{ text: '🧾 Открыть ошибки', callback_data: `adm:bc:fail:${record.id}:0` }]);
   }
-  rows.push(buildBackHomeRow('↩️ Назад к исходящим', 'adm:outbox'));
+  rows.push(buildBackHomeRow(backCallback === 'adm:bc' ? '↩️ Назад к рассылке' : '↩️ Назад к исходящим', backCallback));
   return buildInlineKeyboard(rows);
 }
 
@@ -2035,9 +2052,9 @@ export function createAdminSurfaceBuilders({ currentStep = 'STEP048.2' } = {}) {
       text: buildAdminOutboxText({ records, notice }),
       reply_markup: buildAdminOutboxKeyboard({ records })
     }),
-    buildAdminOutboxRecordSurface: async ({ record = null, notice = null } = {}) => ({
+    buildAdminOutboxRecordSurface: async ({ record = null, notice = null, backCallback = 'adm:outbox' } = {}) => ({
       text: buildAdminOutboxRecordText({ record, notice }),
-      reply_markup: buildAdminOutboxRecordKeyboard({ record })
+      reply_markup: buildAdminOutboxRecordKeyboard({ record, backCallback })
     }),
     buildAdminDirectTemplatePickerSurface: async ({ card, state = null, segmentKey = 'all', page = 0, notice = null } = {}) => ({
       text: buildAdminDirectTemplatePickerText({ card, state, notice }),

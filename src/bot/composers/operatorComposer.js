@@ -41,6 +41,7 @@ import {
   loadAdminUsersPage,
   selectAdminDirectMessageTemplate,
   sendAdminBroadcast,
+  sendAdminBroadcastPreviewToSelf,
   sendAdminDirectMessage,
   prepareAdminUserSegmentBulkBroadcast,
   prepareAdminUserSegmentBulkNotice,
@@ -606,7 +607,7 @@ export function createOperatorComposer({
     await renderSurface(ctx, surface, method);
   }
 
-  async function renderAdminOutboxRecord(ctx, { outboxId, notice = null } = {}, method = 'edit') {
+  async function renderAdminOutboxRecord(ctx, { outboxId, notice = null, backCallback = 'adm:outbox' } = {}, method = 'edit') {
     if (!isOperatorTelegramUser(ctx.from.id)) {
       await renderOperatorOnly(ctx, method);
       return;
@@ -617,7 +618,7 @@ export function createOperatorComposer({
       record: null,
       reason: String(error?.message || error)
     }));
-    const surface = await buildAdminOutboxRecordSurface({ record: state.record, notice });
+    const surface = await buildAdminOutboxRecordSurface({ record: state.record, notice, backCallback });
     await renderSurface(ctx, surface, method);
   }
 
@@ -1625,6 +1626,30 @@ export function createOperatorComposer({
     await renderAdminBroadcastPreview(ctx, {}, 'edit');
   });
 
+  composer.callbackQuery('adm:bc:preview:self', async (ctx) => {
+    await ctx.answerCallbackQuery();
+    const result = await sendAdminBroadcastPreviewToSelf({
+      operatorTelegramUserId: ctx.from.id,
+      operatorTelegramUsername: ctx.from.username || null,
+      previewChatId: ctx.chat?.id || ctx.from.id
+    }).catch((error) => ({ persistenceEnabled: true, sent: false, reason: String(error?.message || error) }));
+    const notice = result.sent
+      ? '✅ Живое превью отправлено в этот чат.'
+      : `⚠️ ${formatUserFacingError(result.reason, 'Could not send the live preview right now.')}`;
+    await renderAdminBroadcastPreview(ctx, { notice }, 'edit');
+  });
+
+  composer.callbackQuery('adm:bc:last', async (ctx) => {
+    await ctx.answerCallbackQuery();
+    const state = await loadAdminBroadcastState().catch(() => ({ latestRecord: null }));
+    const outboxId = state?.latestRecord?.id || null;
+    if (!outboxId) {
+      await renderAdminBroadcast(ctx, { notice: '⚠️ Последней задачи рассылки пока нет.' }, 'edit');
+      return;
+    }
+    await renderAdminOutboxRecord(ctx, { outboxId, notice: 'Открываю последнюю задачу рассылки.', backCallback: 'adm:bc' }, 'edit');
+  });
+
   composer.callbackQuery('adm:bc:send', async (ctx) => {
     await ctx.answerCallbackQuery();
     await renderAdminBroadcastPreview(ctx, { notice: 'Review the preview, then confirm the send.' }, 'edit');
@@ -1648,8 +1673,8 @@ export function createOperatorComposer({
     const result = await sendAdminBroadcast({ operatorTelegramUserId: ctx.from.id, operatorTelegramUsername: ctx.from.username || null }).catch((error) => ({ persistenceEnabled: true, sent: false, reason: String(error?.message || error) }));
     const notice = result.sent
       ? (result.failedCount > 0
-          ? `✅ Broadcast completed with failures. Delivered ${result.deliveredCount}, failed ${result.failedCount}. Open Failures for the recipient trail.`
-          : `✅ Broadcast sent to ${result.deliveredCount} recipients in batches.`)
+          ? `✅ Broadcast completed. Delivered ${result.deliveredCount}, failed ${result.failedCount}. Последняя задача сохранена — можно открыть статус и ошибки.`
+          : `✅ Broadcast sent to ${result.deliveredCount} recipients. Последняя задача сохранена — можно открыть статус.`)
       : `⚠️ ${formatUserFacingError(result.reason, 'Could not send this broadcast right now.')}`;
     await renderAdminBroadcast(ctx, { notice }, 'edit');
   });

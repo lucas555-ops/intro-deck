@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { createAdminSurfaceBuilders } from '../src/bot/surfaces/adminSurfaces.js';
 
-const surfaces = createAdminSurfaceBuilders({ currentStep: 'STEP051.7' });
+const surfaces = createAdminSurfaceBuilders({ currentStep: 'STEP051.7.2' });
 const surface = await surfaces.buildAdminBroadcastSurface({
   state: {
     persistenceEnabled: true,
@@ -36,15 +36,30 @@ const preview = await surfaces.buildAdminBroadcastPreviewSurface({
       buttonText: 'Open',
       buttonUrl: 'https://intro-deck.vercel.app'
     },
-    estimate: 5
+    estimate: 5,
+    latestRecord: {
+      id: 77,
+      status: 'sent_with_failures',
+      delivered_count: 4,
+      failed_count: 1,
+      pending_count: 0,
+      retry_due_count: 1,
+      exhausted_count: 0,
+      estimated_recipient_count: 5
+    }
   }
 });
 if (!preview.text.includes('Кнопка: Open')) {
   throw new Error('Broadcast preview must show button state');
 }
+for (const callback of ['adm:bc:preview:self', 'adm:bc:last']) {
+  if (!JSON.stringify(preview.reply_markup.inline_keyboard).includes(callback)) {
+    throw new Error(`Broadcast preview missing ${callback}`);
+  }
+}
 
 const source = readFileSync(new URL('../src/bot/composers/operatorComposer.js', import.meta.url), 'utf8');
-for (const fragment of ['adm:bc:media', 'adm:bc:media:clear', 'adm:bc:btn', 'adm:bc:btn:text', 'adm:bc:btn:url', 'adm:bc:btn:clear']) {
+for (const fragment of ['adm:bc:media', 'adm:bc:media:clear', 'adm:bc:btn', 'adm:bc:btn:text', 'adm:bc:btn:url', 'adm:bc:btn:clear', 'adm:bc:preview:self', 'adm:bc:last']) {
   if (!source.includes(fragment)) {
     throw new Error(`Operator composer missing ${fragment} broadcast routing`);
   }

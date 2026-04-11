@@ -3,10 +3,10 @@
 ## Snapshot
 
 - Project: LinkedIn Telegram Directory Bot
-- Current STEP: STEP051.7.1
+- Current STEP: STEP051.7.2
 - Phase: broadcast composer hardening on top of the STEP051.7 broadcast composer uplift, the STEP051.6 admin navigation/menu polish, the STEP051.5 pricing hotfix, and the STEP050M landing + STEP048.4 product baseline
 - Primary mode: PRODUCT HARDENING / MONETIZATION FOUNDATION / TELEGRAM INVITE LAYER
-- Runtime status: source-clean STEP051.7.1 baseline with the STEP048.4 product/runtime layer intact, the STEP050M landing/meta layer preserved, the STEP051 invite/share layer intact, the paired home/help rows preserved, `/start` still routed through a single handler, `/inbox` still hardened, the `Plans` surface restored, the compact admin communications/broadcast/system menu layout preserved, and the broadcast composer hardened so nullable outbox/status parameters are explicitly typed and raw SQL typing errors no longer leak into the admin UI; live status not confirmed — manual verification required
+- Runtime status: source-clean STEP051.7.2 baseline with the STEP048.4 product/runtime layer intact, the STEP050M landing/meta layer preserved, the STEP051 invite/share layer intact, the paired home/help rows preserved, `/start` still routed through a single handler, `/inbox` still hardened, the `Plans` surface restored, the compact admin communications/broadcast/system menu layout preserved, and the broadcast composer/status loop hardened so nullable outbox/status parameters are explicitly typed, raw SQL typing errors no longer leak into the admin UI, the broadcast screen now exposes a direct last-task path, and preview can now send a live Telegram-format sample back to the operator chat; live status not confirmed — manual verification required
 
 ## What exists now
 
@@ -40,6 +40,7 @@
 - STEP051.6 compacts the admin communications / broadcast / templates / system navigation into more consistent paired rows, keeps long audience selectors readable, and standardizes back/home navigation across the core admin menu surfaces
 - STEP051.7 upgrades admin Broadcast composition so operators can send text-only, image-only, image + text, or text/image plus one inline CTA button, with smart routing for long image posts and media/button metadata persisted into draft/outbox state
 - STEP051.7.1 hardens the broadcast send/outbox SQL path by explicitly typing nullable insert/update parameters and masking raw SQL typing errors from the operator surface
+- STEP051.7.2 closes the broadcast status loop by adding a direct `Последняя задача` path, a live `Отправить превью себе` action, and a more complete post-send status block on the broadcast screen
 
 ## Current truth
 
@@ -66,6 +67,7 @@
 - STEP051.6 keeps the STEP051 invite/share + STEP051.5 plans fixes intact and only reorganizes admin/operator menu layouts for compactness, consistency, and easier thumb navigation in Telegram
 - STEP051.7 keeps the STEP051.6 admin navigation polish intact and only upgrades the broadcast composer so the founder/operator can attach one optional image, one optional inline CTA button, and still send normal text with raw links in-body without extra complexity
 - STEP051.7.1 keeps the STEP051.7 broadcast UX intact and only hardens the SQL/update path so nullable status timestamps and error fields cannot trigger PostgreSQL type-inference failures during send
+- STEP051.7.2 keeps the STEP051.7.1 composer/send path intact and only closes the operator loop so preview can send a live sample to the admin chat, the broadcast screen exposes the last task directly, and the latest broadcast block reads more like a status console than a raw draft footer
 - invite attribution only applies to first-start new users and differentiates `inline_share`, `raw_link`, and `invite_card` sources
 
 ## What must not break
@@ -81,7 +83,15 @@
 
 ## Next recommended step
 
-- deploy STEP051.7.1 and do a short live smoke on the real bot: verify admin `📬 Рассылка` no longer shows raw SQL notices, then verify text only, raw URL in text, image only, image + short text, image + long text split delivery, and optional inline CTA button text/url; confirm outbox rows show media/button metadata and confirm `⭐ Plans`, `/start`, `/menu`, and invite paths still behave normally
+- deploy STEP051.7.2 and do a short live smoke on the real bot: verify `👁 Превью` can send a live sample back to the operator chat, verify `📄 Последняя задача` opens the latest broadcast outbox record, then verify text only, raw URL in text, image only, image + short text, image + long text split delivery, optional inline CTA button text/url, and the direct `🧾 Ошибки` path from the latest broadcast block
+
+## STEP051.7.2 delta
+
+- the broadcast screen now exposes a direct `📄 Последняя задача` action whenever a latest broadcast outbox record exists
+- the latest broadcast summary block now includes clearer progress plus started/finished timestamps on the main `📬 Рассылка` screen
+- `👁 Превью` is no longer a dead end: it now offers `🧪 Отправить превью себе` so the operator can receive a real Telegram-format sample in the current chat before confirming send
+- preview-to-self reuses the same smart routing contract as the real broadcast send, but does not create outbox/delivery records or distort broadcast stats
+- outbox records opened from the broadcast screen can now return directly back to `📬 Рассылка` instead of always forcing a trip through the generic outbox list
 
 ## STEP051.7.1 delta
 

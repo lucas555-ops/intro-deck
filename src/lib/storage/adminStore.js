@@ -162,6 +162,38 @@ async function deliverBroadcastMessage({ botToken, chatId, draft }) {
   return mode;
 }
 
+export async function sendAdminBroadcastPreviewToSelf({ operatorTelegramUserId, operatorTelegramUsername = null, previewChatId = null }) {
+  if (!isDatabaseConfigured()) {
+    return { persistenceEnabled: false, sent: false, reason: 'DATABASE_URL is not configured' };
+  }
+
+  return withDbTransaction(async (client) => {
+    await upsertTelegramUser(client, {
+      telegramUserId: operatorTelegramUserId,
+      telegramUsername: operatorTelegramUsername || null
+    });
+
+    const draft = await getAdminBroadcastDraft(client);
+    assertBroadcastDraftSendable(draft);
+
+    const targetChatId = previewChatId || operatorTelegramUserId;
+    const { botToken } = getTelegramConfig();
+    const deliveryMode = await deliverBroadcastMessage({
+      botToken,
+      chatId: targetChatId,
+      draft
+    });
+
+    return {
+      persistenceEnabled: true,
+      sent: true,
+      deliveryMode,
+      previewChatId: targetChatId,
+      reason: 'admin_broadcast_preview_sent'
+    };
+  });
+}
+
 export async function loadAdminDashboardSummary() {
   if (!isDatabaseConfigured()) {
     return {
