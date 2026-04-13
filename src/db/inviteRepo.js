@@ -210,7 +210,15 @@ export async function loadInviteSnapshotByUserId(client, { userId, telegramUserI
         count(*)::int as invited_count,
         count(*) filter (
           where la.user_id is not null or mp.id is not null
-        )::int as activated_count
+        )::int as activated_count,
+        count(*) filter (where inv.source = 'inline_share')::int as inline_share_count,
+        count(*) filter (where inv.source = 'raw_link')::int as raw_link_count,
+        count(*) filter (where inv.source = 'invite_card')::int as invite_card_count,
+        count(*) filter (where inv.joined_at >= now() - interval '7 days')::int as joined_7d,
+        count(*) filter (
+          where (la.user_id is not null or mp.id is not null)
+            and inv.joined_at >= now() - interval '7 days'
+        )::int as activated_7d
       from member_invites inv
       join users invited on invited.id = inv.invited_user_id
       left join linkedin_accounts la on la.user_id = invited.id
@@ -256,6 +264,11 @@ export async function loadInviteSnapshotByUserId(client, { userId, telegramUserI
     shareInlineQuery: 'invite',
     invitedCount: countsResult.rows[0]?.invited_count || 0,
     activatedCount: countsResult.rows[0]?.activated_count || 0,
+    inlineShareCount: countsResult.rows[0]?.inline_share_count || 0,
+    rawLinkCount: countsResult.rows[0]?.raw_link_count || 0,
+    inviteCardCount: countsResult.rows[0]?.invite_card_count || 0,
+    joined7d: countsResult.rows[0]?.joined_7d || 0,
+    activated7d: countsResult.rows[0]?.activated_7d || 0,
     invitedBy: invitedBy?.invitedBy || null,
     invited: limitedRows.map((row) => ({
       inviteId: row.invite_id,

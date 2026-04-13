@@ -104,12 +104,12 @@ const inviteText = renderInviteText({
     invited: [{ displayName: 'Alice', headlineUser: 'Founder', joinedAt: '2026-04-10T10:00:00Z', source: 'inline_share', status: 'activated' }]
   }
 });
-if (!inviteText.includes('Snapshot') || !inviteText.includes('Recent invited contacts')) {
-  throw new Error('Invite root text must include snapshot and recent invited contacts');
+if (!inviteText.includes('Snapshot') || !inviteText.includes('Next step')) {
+  throw new Error('Invite root text must include snapshot and next-step guidance');
 }
 
 const inviteKeyboard = JSON.stringify(renderInviteKeyboard({ inviteState: { persistenceEnabled: true, inviteLink: inviteUrl, shareInlineQuery: 'invite' } }).inline_keyboard);
-for (const token of ['switch_inline_query', 'invite:show_link', 'invite:send_card', 'invite:perf', 'invite:root']) {
+for (const token of ['switch_inline_query', 'invite:show_link', 'invite:send_card', 'invite:perf', 'invite:hist:1', 'invite:root']) {
   if (!inviteKeyboard.includes(token)) {
     throw new Error(`Invite keyboard missing ${token}`);
   }
@@ -126,13 +126,13 @@ const perfText = renderInvitePerformanceText({
     hasMoreInvites: true
   }
 });
-if (!perfText.includes('Activation rate') || !perfText.includes('Activation rule')) {
-  throw new Error('Invite performance text must expose activation quality');
+if (!perfText.includes('Activation rate') || !perfText.includes('By source') || !perfText.includes('Last 7 days')) {
+  throw new Error('Invite performance text must expose source mix and recent quality');
 }
 
-const perfKeyboard = JSON.stringify(renderInvitePerformanceKeyboard({ inviteState: { invitedCount: 2 } }).inline_keyboard);
+const perfKeyboard = JSON.stringify(renderInvitePerformanceKeyboard({ inviteState: { invitedCount: 0 } }).inline_keyboard);
 if (!perfKeyboard.includes('invite:hist:1') || !perfKeyboard.includes('invite:root')) {
-  throw new Error('Invite performance keyboard must link back to root and history');
+  throw new Error('Invite performance keyboard must always link back to root and history');
 }
 
 const historyText = renderInviteHistoryText({
@@ -150,12 +150,20 @@ if (!historyText.includes('History window') || !historyText.includes('Contacts')
   throw new Error('Invite history text must expose a paged history window');
 }
 
+const emptyHistoryText = renderInviteHistoryText({
+  inviteState: { invitedCount: 0, activatedCount: 0, shareInlineQuery: 'invite' },
+  historyState: { totalCount: 0, page: 1, totalPages: 1, startIndex: 0, endIndex: 0, items: [] }
+});
+if (!emptyHistoryText.includes('No invited contacts yet.') || !emptyHistoryText.includes('Share invite')) {
+  throw new Error('Invite history must expose a product empty-state when no invited contacts exist');
+}
+
 const historyKeyboard = JSON.stringify(renderInviteHistoryKeyboard({
-  inviteState: { invitedCount: 2 },
+  inviteState: { invitedCount: 0, shareInlineQuery: 'invite' },
   historyState: { page: 1, hasPrev: false, hasNext: true }
 }).inline_keyboard);
-if (!historyKeyboard.includes('invite:perf') || !historyKeyboard.includes('invite:hist:2')) {
-  throw new Error('Invite history keyboard must expose navigation and performance');
+if (!historyKeyboard.includes('invite:perf') || !historyKeyboard.includes('invite:hist:2') || !historyKeyboard.includes('switch_inline_query') || !historyKeyboard.includes('invite:show_link')) {
+  throw new Error('Invite history keyboard must expose navigation plus empty-state recovery actions');
 }
 
 const cardKeyboard = JSON.stringify(renderInviteCardKeyboard({ inviteState: { inviteCardLink: inviteUrl } }).inline_keyboard);

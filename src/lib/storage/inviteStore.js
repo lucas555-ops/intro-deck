@@ -2,7 +2,7 @@ import { withDbClient, withDbTransaction, isDatabaseConfigured } from '../../db/
 import { createInviteAttribution, getInviteAttributionByInvitedUserId, getUserByTelegramUserId, loadAdminInviteSnapshot, loadInviteHistoryByUserId, loadInviteSnapshotByUserId, parseInviteStartParam } from '../../db/inviteRepo.js';
 import { upsertTelegramUser } from '../../db/usersRepo.js';
 import { getTelegramConfig } from '../../config/env.js';
-const INTRO_DECK_INVITE_ACTIVATION_HINT = 'connected LinkedIn or started a profile';
+const INTRO_DECK_INVITE_ACTIVATION_HINT = 'the invited member connected LinkedIn or started a profile';
 
 
 export async function loadInviteSurfaceState({ telegramUserId, telegramUsername = null, recentLimit = 3 }) {

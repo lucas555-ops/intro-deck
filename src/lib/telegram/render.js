@@ -33,7 +33,8 @@ function inviteSourceLabel(source) {
 function renderInviteFriendLine(item, index) {
   const name = toDisplayValue(item?.displayName, 'New contact');
   const headline = item?.headlineUser ? ` — ${truncate(item.headlineUser, 34)}` : '';
-  return `${index + 1}. ${name}${headline} • ${item?.status === 'activated' ? 'activated' : 'joined'} • ${inviteSourceLabel(item?.source)} • ${formatDateShort(item?.joinedAt)}`;
+  const status = item?.status === 'activated' ? 'activated' : 'joined';
+  return `${index + 1}. ${name}${headline} • ${status} via ${inviteSourceLabel(item?.source)} • ${formatDateShort(item?.joinedAt)}`;
 }
 
 function renderInviteHistoryLine(item, index, startIndex = 0) {
@@ -41,7 +42,8 @@ function renderInviteHistoryLine(item, index, startIndex = 0) {
   const headline = item?.headlineUser ? ` — ${truncate(item.headlineUser, 40)}` : '';
   const joined = formatDateShort(item?.joinedAt);
   const activated = item?.status === 'activated' && item?.activatedAt ? formatDateShort(item?.activatedAt) : null;
-  return `${startIndex + index + 1}. ${name}${headline} • ${item?.status === 'activated' ? 'activated' : 'joined'} • ${inviteSourceLabel(item?.source)} • joined ${joined}${activated ? ` • activated ${activated}` : ''}`;
+  const status = item?.status === 'activated' ? 'activated' : 'joined';
+  return `${startIndex + index + 1}. ${name}${headline} • ${status} via ${inviteSourceLabel(item?.source)} • joined ${joined}${activated ? ` • activated ${activated}` : ''}`;
 }
 
 function getInviteActivationRate(invitedCount = 0, activatedCount = 0) {
@@ -58,7 +60,8 @@ function renderAdminInviteTopLine(item, index) {
 }
 
 function renderAdminInviteRecentLine(item, index) {
-  return `${index + 1}. ${toDisplayValue(item?.referrerDisplayName, 'Member')} → ${toDisplayValue(item?.displayName, 'Member')} • ${item?.status === 'activated' ? 'activated' : 'joined'} • ${inviteSourceLabel(item?.source)} • ${formatDateShort(item?.joinedAt)}`;
+  const status = item?.status === 'activated' ? 'activated' : 'joined';
+  return `${index + 1}. ${toDisplayValue(item?.referrerDisplayName, 'Member')} → ${toDisplayValue(item?.displayName, 'Member')} • ${status} via ${inviteSourceLabel(item?.source)} • ${formatDateShort(item?.joinedAt)}`;
 }
 
 function buildJoinIntroDeckAnchor(inviteUrl) {
@@ -1625,7 +1628,7 @@ export function renderInviteText({ inviteState = null, notice = null } = {}) {
     '📨 Invite contacts',
     '',
     'Share your personal Intro Deck invite straight into any chat.',
-    'This hub keeps sharing, performance, and history together without overloading Home.'
+    'Keep sharing, performance, and invite history together here without overloading Home.'
   ];
 
   if (!inviteState?.persistenceEnabled) {
@@ -1634,21 +1637,17 @@ export function renderInviteText({ inviteState = null, notice = null } = {}) {
     const invitedCount = Number(inviteState.invitedCount || 0) || 0;
     const activatedCount = Number(inviteState.activatedCount || 0) || 0;
     lines.push('', '<b>Snapshot</b>');
-    lines.push(`• Invited: ${invitedCount} · Activated: ${activatedCount} · Rate: ${getInviteActivationRate(invitedCount, activatedCount)}`);
+    lines.push(`• Invited: ${invitedCount}`);
+    lines.push(`• Activated: ${activatedCount}`);
+    lines.push(`• Activation rate: ${getInviteActivationRate(invitedCount, activatedCount)}`);
     lines.push(`• Invite code: <code>${escapeHtml(inviteState.inviteCode || '—')}</code>`);
     if (inviteState.invitedBy?.displayName) {
       lines.push(`• Joined from: ${escapeHtml(inviteState.invitedBy.displayName)}`);
     }
 
-    lines.push('', '<b>Recent invited contacts</b>');
-    if (Array.isArray(inviteState.invited) && inviteState.invited.length) {
-      inviteState.invited.slice(0, 3).forEach((item, index) => lines.push(escapeHtml(renderInviteFriendLine(item, index))));
-      if (inviteState.hasMoreInvites) {
-        lines.push('• Open Invite history for the full paged list.');
-      }
-    } else {
-      lines.push('• No invited contacts yet. Share invite is the fastest path, while Link + copy and Invite card stay as fallbacks.');
-    }
+    lines.push('', '<b>Next step</b>');
+    lines.push('• Open Performance for source split and recent 7-day quality.');
+    lines.push('• Open Invite history for the full paged list, even before your first invite arrives.');
   }
 
   if (notice) {
@@ -1666,11 +1665,10 @@ export function renderInviteKeyboard({ inviteState = null } = {}) {
       { text: '🔗 Link + copy', callback_data: 'invite:show_link' },
       { text: '🧾 Invite card', callback_data: 'invite:send_card' }
     ]);
-    const detailRow = [{ text: '📊 Performance', callback_data: 'invite:perf' }];
-    if (Number(inviteState?.invitedCount || 0) > 0) {
-      detailRow.push({ text: '📋 Invite history', callback_data: 'invite:hist:1' });
-    }
-    rows.push(detailRow);
+    rows.push([
+      { text: '📊 Performance', callback_data: 'invite:perf' },
+      { text: '📋 Invite history', callback_data: 'invite:hist:1' }
+    ]);
     rows.push([{ text: '🔄 Refresh', callback_data: 'invite:root' }]);
   }
   rows.push([{ text: '🏠 Home', callback_data: 'home:root' }]);
@@ -1683,32 +1681,31 @@ export function renderInvitePerformanceText({ inviteState = null, notice = null 
   const lines = [
     '📊 Invite performance',
     '',
-    'Review invite quality without overloading the main invite hub.',
+    'See invite quality, source mix, and recent momentum without overloading the main invite hub.',
     '',
-    '<b>Summary</b>',
+    '<b>All-time</b>',
     `• Invited: ${invitedCount}`,
     `• Activated: ${activatedCount}`,
-    `• Activation rate: ${getInviteActivationRate(invitedCount, activatedCount)}`
+    `• Activation rate: ${getInviteActivationRate(invitedCount, activatedCount)}`,
+    '',
+    '<b>By source</b>',
+    `• Inline share: ${Number(inviteState?.inlineShareCount || 0) || 0}`,
+    `• Link + copy: ${Number(inviteState?.rawLinkCount || 0) || 0}`,
+    `• Invite card: ${Number(inviteState?.inviteCardCount || 0) || 0}`,
+    '',
+    '<b>Last 7 days</b>',
+    `• Invited: ${Number(inviteState?.joined7d || 0) || 0}`,
+    `• Activated: ${Number(inviteState?.activated7d || 0) || 0}`
   ];
 
   if (inviteState?.activationHint) {
-    lines.push(`• Activation rule: ${escapeHtml(inviteState.activationHint)}`);
+    lines.push('', '<b>Activation rule</b>');
+    lines.push(`• Current signal: ${escapeHtml(inviteState.activationHint)}.`);
   }
 
-  lines.push('', '<b>Setup</b>');
-  lines.push(`• Invite code: <code>${escapeHtml(inviteState?.inviteCode || '—')}</code>`);
-  if (inviteState?.invitedBy?.displayName) {
-    lines.push(`• Joined from: ${escapeHtml(inviteState.invitedBy.displayName)}`);
-  }
-
-  lines.push('', '<b>Recent invited contacts</b>');
-  if (Array.isArray(inviteState?.invited) && inviteState.invited.length) {
-    inviteState.invited.slice(0, 3).forEach((item, index) => lines.push(escapeHtml(renderInviteFriendLine(item, index))));
-    if (inviteState.hasMoreInvites) {
-      lines.push('• Open Invite history for the full paged list.');
-    }
-  } else {
-    lines.push('• No invited contacts yet.');
+  if (!(invitedCount > 0)) {
+    lines.push('', '<b>Nothing to measure yet</b>');
+    lines.push('• No invited contacts yet. Use Share invite, Link + copy, or Invite card to start your first invite flow.');
   }
 
   if (notice) {
@@ -1719,12 +1716,11 @@ export function renderInvitePerformanceText({ inviteState = null, notice = null 
 }
 
 export function renderInvitePerformanceKeyboard({ inviteState = null } = {}) {
-  const rows = [];
-  if (Number(inviteState?.invitedCount || 0) > 0) {
-    rows.push([{ text: '📋 Invite history', callback_data: 'invite:hist:1' }]);
-  }
-  rows.push([{ text: '📨 Invite contacts', callback_data: 'invite:root' }]);
-  rows.push([{ text: '🏠 Home', callback_data: 'home:root' }]);
+  const rows = [
+    [{ text: '📋 Invite history', callback_data: 'invite:hist:1' }],
+    [{ text: '📨 Invite contacts', callback_data: 'invite:root' }],
+    [{ text: '🏠 Home', callback_data: 'home:root' }]
+  ];
   return buildInlineKeyboard(rows);
 }
 
@@ -1737,7 +1733,7 @@ export function renderInviteHistoryText({ inviteState = null, historyState = nul
   const lines = [
     '📋 Invite history',
     '',
-    'Review the invited contacts behind your summary without overloading the main invite hub.',
+    'Open the full paged list of invited contacts here. This screen stays available even before your first invite arrives.',
     '',
     '<b>Summary</b>',
     `• Invited: ${Number(inviteState?.invitedCount || 0) || 0}`,
@@ -1750,13 +1746,11 @@ export function renderInviteHistoryText({ inviteState = null, historyState = nul
   if (totalCount > 0) {
     lines.push(`• Showing: ${startIndex + 1}–${endIndex} of ${totalCount}`);
     lines.push(`• Page: ${currentPage}/${totalPages}`);
-  } else {
-    lines.push('• No invited contacts yet.');
-  }
-
-  if (Array.isArray(historyState?.items) && historyState.items.length > 0) {
     lines.push('', '<b>Contacts</b>');
     historyState.items.forEach((item, index) => lines.push(escapeHtml(renderInviteHistoryLine(item, index, startIndex))));
+  } else {
+    lines.push('• No invited contacts yet.');
+    lines.push('• Use Share invite, Link + copy, or Invite card to bring your first invited contacts here.');
   }
 
   if (notice) {
@@ -1782,6 +1776,12 @@ export function renderInviteHistoryKeyboard({ inviteState = null, historyState =
     { text: '📨 Invite contacts', callback_data: 'invite:root' },
     { text: '📊 Performance', callback_data: 'invite:perf' }
   ]);
+  if (!(Number(inviteState?.invitedCount || 0) > 0)) {
+    rows.push([
+      { text: '📨 Share invite', switch_inline_query: inviteState?.shareInlineQuery || 'invite' },
+      { text: '🔗 Link + copy', callback_data: 'invite:show_link' }
+    ]);
+  }
   rows.push([{ text: '🏠 Home', callback_data: 'home:root' }]);
   return buildInlineKeyboard(rows);
 }
@@ -1887,39 +1887,42 @@ export function renderAdminInviteSnapshotText({ state = null, notice = null } = 
   const summary = state?.snapshot?.summary || {};
   const topInviters = Array.isArray(state?.snapshot?.topInviters) ? state.snapshot.topInviters : [];
   const recentInvites = Array.isArray(state?.snapshot?.recentInvites) ? state.snapshot.recentInvites : [];
+  const totalInvites = Number(summary.totalInvites || 0) || 0;
+  const activatedInvites = Number(summary.activatedInvites || 0) || 0;
   const lines = [
     '📨 Инвайты',
     '',
-    'Сводка invite-слоя и качества активации без rewards и redeem.',
+    'Сводка invite-слоя и качества активации до включения rewards и redeem.',
     '',
     '<b>Сводка</b>',
-    `• Всего инвайтов: ${Number(summary.totalInvites || 0) || 0}`,
-    `• Активировано: ${Number(summary.activatedInvites || 0) || 0}`,
+    `• Всего инвайтов: ${totalInvites}`,
+    `• Активировано: ${activatedInvites}`,
     `• Конверсия: ${Number(summary.activationRate || 0) || 0}%`,
-    `• За 7д: ${Number(summary.joined7d || 0) || 0} joined • ${Number(summary.activated7d || 0) || 0} activated`,
+    `• За 7д: ${Number(summary.joined7d || 0) || 0} приглашено • ${Number(summary.activated7d || 0) || 0} активировано`,
     '',
-    '<b>Источники</b>',
+    '<b>По источникам</b>',
     `• Inline share: ${Number(summary.inlineShareCount || 0) || 0}`,
-    `• Link: ${Number(summary.rawLinkCount || 0) || 0}`,
+    `• Link + copy: ${Number(summary.rawLinkCount || 0) || 0}`,
     `• Invite card: ${Number(summary.inviteCardCount || 0) || 0}`
   ];
 
   if (state?.activationHint) {
-    lines.push('', `<b>Правило активации</b>`, `• ${escapeHtml(state.activationHint)}`);
+    lines.push('', '<b>Правило активации</b>');
+    lines.push(`• Текущий сигнал: ${escapeHtml(state.activationHint)}.`);
   }
 
   lines.push('', '<b>Топ инвайтеры</b>');
   if (topInviters.length) {
     topInviters.forEach((item, index) => lines.push(escapeHtml(renderAdminInviteTopLine(item, index))));
   } else {
-    lines.push('• Пока нет данных.');
+    lines.push('• Пока нет инвайтов для рейтинга.');
   }
 
   lines.push('', '<b>Последние инвайты</b>');
   if (recentInvites.length) {
     recentInvites.forEach((item, index) => lines.push(escapeHtml(renderAdminInviteRecentLine(item, index))));
   } else {
-    lines.push('• Пока нет данных.');
+    lines.push('• Пока нет недавней invite-активности.');
   }
 
   if (notice) {

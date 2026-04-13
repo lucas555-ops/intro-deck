@@ -3,8 +3,8 @@
 ## Snapshot
 
 - Project: LinkedIn Telegram Directory Bot
-- Current STEP: STEP052
-- Phase: invite module A uplift on top of the STEP051.9 broadcast/admin hardening layer and the STEP050M landing + STEP048.4 product baseline
+- Current STEP: STEP052.1
+- Phase: invite module A completion / UX hardening on top of the STEP051.9 broadcast/admin hardening layer and the STEP050M landing + STEP048.4 product baseline
 - Primary mode: PRODUCT HARDENING / MONETIZATION FOUNDATION / TELEGRAM INVITE LAYER
 - Runtime status: source-clean STEP052 baseline with the STEP048.4 product/runtime layer intact, the STEP050M landing/meta layer preserved, the STEP051 invite/share layer intact, the paired home/help rows preserved, `/start` still routed through a single handler, `/inbox` still hardened, the `Plans` surface restored, the broadcast composer/status closure layer preserved, and the admin root/navigation IA now decluttered so `👑 Админка` starts with four hub sections plus quick alerts while users/intros/notice/broadcast live inside the correct hubs; live status not confirmed — manual verification required
 
@@ -44,6 +44,7 @@
 - STEP051.8 declutters the admin IA: the admin root now shows only hubs plus quick alerts, leaf entrypoints move into the correct hub screens, operations labels become more readable, and monetization button naming is normalized into Russian operator language
 - STEP051.9 closes the next broadcast operations gap by adding direct recovery actions for failed and retry_due recipients on the broadcast screen, the outbox task screen, and the broadcast failures surface, without changing the existing composer or admin IA layers
 - STEP052 applies the reusable invite suite to the current product at Module A depth: the invite layer now has a bounded hub plus separate `Performance` and paged `Invite history` screens, while founder/operator admin gets a new read-only `📨 Инвайты` surface inside `🧰 Операции`
+- STEP052.1 completes the Invite Module A UX: `Invite history` is always available with a real empty-state, `Performance` now focuses on source split and recent 7-day quality instead of duplicating the hub, and the admin invite snapshot reads more like a finished read-only operations view
 
 ## Current truth
 
@@ -75,6 +76,7 @@
 - STEP051.9 keeps the STEP051.8 admin IA intact and only adds narrow recovery controls so an operator can retry failed or retry_due subsets for an existing broadcast task without resending already-delivered items
 - invite attribution only applies to first-start new users and differentiates `inline_share`, `raw_link`, and `invite_card` sources
 - STEP052 keeps rewards/redeem out of Intro Deck for now and only applies the safe Module A invite truths: bounded invite hub, performance split, paged history, and admin read-only visibility
+- STEP052.1 keeps rewards/redeem out of scope and only hardens Module A so history/performance/admin invite states read as finished product surfaces instead of partial secondary paths
 
 ## What must not break
 
