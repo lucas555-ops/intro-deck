@@ -1,9 +1,47 @@
 import { withDbClient, withDbTransaction, isDatabaseConfigured } from '../../db/pool.js';
-import { createInviteAttribution, getInviteAttributionByInvitedUserId, getUserByTelegramUserId, loadAdminInviteSnapshot, loadInviteHistoryByUserId, loadInviteSnapshotByUserId, parseInviteStartParam } from '../../db/inviteRepo.js';
+import {
+  createInviteAttribution,
+  createPendingInviteActivationReward,
+  ensureInviteRewardsDefaults,
+  getInviteAttributionByInvitedUserId,
+  getInviteRewardActivationStateByInvitedUserId,
+  getInviteRewardSummaryByUserId,
+  getInviteRewardsConfig,
+  getInviteRewardsMode,
+  getUserByTelegramUserId,
+  loadAdminInviteSnapshot,
+  loadInviteHistoryByUserId,
+  loadInviteSnapshotByUserId,
+  parseInviteStartParam
+} from '../../db/inviteRepo.js';
 import { upsertTelegramUser } from '../../db/usersRepo.js';
 import { getTelegramConfig } from '../../config/env.js';
-const INTRO_DECK_INVITE_ACTIVATION_HINT = 'the invited member connected LinkedIn or started a profile';
 
+const INTRO_DECK_INVITE_ACTIVATION_HINT = 'the invited member connected LinkedIn or started a profile';
+const INTRO_DECK_REWARDS_ACTIVATION_HINT = 'the invited member connected LinkedIn and reached listed-ready state';
+
+function emptyInviteRewardsSummary(reason = 'DATABASE_URL is not configured') {
+  return {
+    persistenceEnabled: false,
+    rewardsSummary: {
+      mode: 'off',
+      config: {
+        activationPoints: 10,
+        activationConfirmHours: 24,
+        activationRuleVersion: 'introdeck_listed_ready_v1',
+        catalogVersion: 'v1'
+      },
+      availablePoints: 0,
+      pendingPoints: 0,
+      redeemedPoints: 0,
+      availableEntries: 0,
+      pendingEntries: 0,
+      redeemedEntries: 0
+    },
+    activationHint: INTRO_DECK_REWARDS_ACTIVATION_HINT,
+    reason
+  };
+}
 
 export async function loadInviteSurfaceState({ telegramUserId, telegramUsername = null, recentLimit = 3 }) {
   if (!isDatabaseConfigured()) {
@@ -131,7 +169,6 @@ export async function attemptInviteAttributionForTelegramUser({ telegramUserId, 
   });
 }
 
-
 export async function loadInviteHistoryState({ telegramUserId, telegramUsername = null, page = 1 }) {
   if (!isDatabaseConfigured()) {
     return {
@@ -224,6 +261,106 @@ export async function loadAdminInviteSnapshotState() {
       snapshot,
       activationHint: INTRO_DECK_INVITE_ACTIVATION_HINT,
       reason: 'admin_invite_snapshot_loaded'
+    };
+  });
+}
+
+export async function maybeCreatePendingInviteRewardForActivationWithClient(client, { userId }) {
+  await ensureInviteRewardsDefaults(client);
+  const [mode, config, activationState] = await Promise.all([
+    getInviteRewardsMode(client),
+    getInviteRewardsConfig(client),
+    getInviteRewardActivationStateByInvitedUserId(client, { invitedUserId: userId })
+  ]);
+
+  if (!['earn_only', 'live'].includes(mode)) {
+    return {
+      created: false,
+      blocked: true,
+      mode,
+      config,
+      activationState,
+      reason: `rewards_mode_${mode}`
+    };
+  }
+
+  if (!activationState.inviteId) {
+    return {
+      created: false,
+      blocked: false,
+      mode,
+      config,
+      activationState,
+      reason: 'invite_attribution_missing'
+    };
+  }
+
+  if (!activationState.rewardable) {
+    return {
+      created: false,
+      blocked: false,
+      mode,
+      config,
+      activationState,
+      reason: activationState.reason || 'invite_activation_not_rewardable'
+    };
+  }
+
+  const result = await createPendingInviteActivationReward(client, {
+    referrerUserId: activationState.referrerUserId,
+    invitedUserId: activationState.invitedUserId,
+    inviteLinkId: activationState.inviteId,
+    inviteCode: activationState.inviteCode,
+    source: activationState.source,
+    activationState,
+    activationAt: activationState.activatedAt || new Date().toISOString(),
+    points: config.activationPoints,
+    confirmHours: config.activationConfirmHours,
+    activationRuleVersion: config.activationRuleVersion,
+    catalogVersion: config.catalogVersion
+  });
+
+  return {
+    ...result,
+    blocked: false,
+    mode,
+    config,
+    activationState
+  };
+}
+
+export async function recordInviteRewardableActivationForUserId({ userId }) {
+  if (!isDatabaseConfigured()) {
+    return {
+      persistenceEnabled: false,
+      created: false,
+      reason: 'DATABASE_URL is not configured'
+    };
+  }
+
+  return withDbTransaction(async (client) => ({
+    persistenceEnabled: true,
+    ...(await maybeCreatePendingInviteRewardForActivationWithClient(client, { userId }))
+  }));
+}
+
+export async function loadInviteRewardsSummaryState({ telegramUserId, telegramUsername = null }) {
+  if (!isDatabaseConfigured()) {
+    return emptyInviteRewardsSummary();
+  }
+
+  return withDbClient(async (client) => {
+    const user = await upsertTelegramUser(client, {
+      telegramUserId,
+      telegramUsername
+    });
+
+    const rewardsSummary = await getInviteRewardSummaryByUserId(client, { userId: user.id });
+    return {
+      persistenceEnabled: true,
+      rewardsSummary,
+      activationHint: INTRO_DECK_REWARDS_ACTIVATION_HINT,
+      reason: 'invite_rewards_summary_loaded'
     };
   });
 }

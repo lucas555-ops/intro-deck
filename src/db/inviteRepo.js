@@ -481,3 +481,410 @@ export async function loadAdminInviteSnapshot(client, { recentLimit = ADMIN_INVI
     }))
   };
 }
+
+const INVITE_REWARD_EVENT_TYPE_ACTIVATION = 'invite_activation_reward';
+const INVITE_REWARDS_DEFAULTS = {
+  mode: 'off',
+  activationPoints: 10,
+  activationConfirmHours: 24,
+  activationRuleVersion: 'introdeck_listed_ready_v1',
+  catalogVersion: 'v1'
+};
+
+function normalizeInviteRewardsMode(value = INVITE_REWARDS_DEFAULTS.mode) {
+  const normalized = String(value || INVITE_REWARDS_DEFAULTS.mode).trim().toLowerCase();
+  return ['off', 'earn_only', 'live', 'paused'].includes(normalized) ? normalized : INVITE_REWARDS_DEFAULTS.mode;
+}
+
+function normalizeInviteRewardsConfig(value = null) {
+  const raw = value && typeof value === 'object' ? value : {};
+  return {
+    activationPoints: Math.max(0, Math.min(Number(raw.activationPoints ?? raw.activation_points ?? INVITE_REWARDS_DEFAULTS.activationPoints) || INVITE_REWARDS_DEFAULTS.activationPoints, 10000)),
+    activationConfirmHours: Math.max(1, Math.min(Number(raw.activationConfirmHours ?? raw.activation_confirm_hours ?? INVITE_REWARDS_DEFAULTS.activationConfirmHours) || INVITE_REWARDS_DEFAULTS.activationConfirmHours, 24 * 30)),
+    activationRuleVersion: String(raw.activationRuleVersion ?? raw.activation_rule_version ?? INVITE_REWARDS_DEFAULTS.activationRuleVersion).trim() || INVITE_REWARDS_DEFAULTS.activationRuleVersion,
+    catalogVersion: String(raw.catalogVersion ?? raw.catalog_version ?? INVITE_REWARDS_DEFAULTS.catalogVersion).trim() || INVITE_REWARDS_DEFAULTS.catalogVersion
+  };
+}
+
+function normalizeInviteRewardEventRow(row = null) {
+  if (!row) {
+    return null;
+  }
+
+  return {
+    rewardEventId: row.id,
+    referrerUserId: row.referrer_user_id,
+    invitedUserId: row.invited_user_id,
+    inviteLinkId: row.invite_link_id || null,
+    inviteCode: row.invite_code || null,
+    eventType: row.event_type,
+    status: row.status,
+    points: Number(row.points || 0) || 0,
+    activationAt: row.activation_at,
+    confirmAfter: row.confirm_after,
+    confirmedAt: row.confirmed_at || null,
+    rejectedAt: row.rejected_at || null,
+    rejectReason: row.reject_reason || null,
+    meta: row.meta_json || {},
+    createdAt: row.created_at
+  };
+}
+
+async function upsertInviteProgramSetting(client, { key, valueJson, updatedBy = null }) {
+  const result = await client.query(
+    `
+      insert into invite_program_settings (key, value_json, updated_at, updated_by)
+      values ($1, $2::jsonb, now(), $3)
+      on conflict (key)
+      do update set
+        value_json = excluded.value_json,
+        updated_at = now(),
+        updated_by = excluded.updated_by
+      returning key, value_json, updated_at, updated_by
+    `,
+    [key, JSON.stringify(valueJson || {}), updatedBy]
+  );
+
+  return result.rows[0] || null;
+}
+
+export async function ensureInviteRewardsDefaults(client) {
+  const modeResult = await client.query(
+    `
+      insert into invite_program_settings (key, value_json, updated_at, updated_by)
+      values ('invite_rewards_mode', $1::jsonb, now(), null)
+      on conflict (key) do nothing
+      returning key, value_json
+    `,
+    [JSON.stringify({ mode: INVITE_REWARDS_DEFAULTS.mode })]
+  );
+
+  const configResult = await client.query(
+    `
+      insert into invite_program_settings (key, value_json, updated_at, updated_by)
+      values ('invite_rewards_config', $1::jsonb, now(), null)
+      on conflict (key) do nothing
+      returning key, value_json
+    `,
+    [JSON.stringify(normalizeInviteRewardsConfig())]
+  );
+
+  return {
+    mode: normalizeInviteRewardsMode(modeResult.rows[0]?.value_json?.mode || INVITE_REWARDS_DEFAULTS.mode),
+    config: normalizeInviteRewardsConfig(configResult.rows[0]?.value_json || INVITE_REWARDS_DEFAULTS)
+  };
+}
+
+export async function getInviteRewardsMode(client) {
+  await ensureInviteRewardsDefaults(client);
+  const result = await client.query(
+    `
+      select value_json
+      from invite_program_settings
+      where key = 'invite_rewards_mode'
+      limit 1
+    `
+  );
+
+  return normalizeInviteRewardsMode(result.rows[0]?.value_json?.mode || INVITE_REWARDS_DEFAULTS.mode);
+}
+
+export async function setInviteRewardsMode(client, { mode, updatedBy = null }) {
+  const normalizedMode = normalizeInviteRewardsMode(mode);
+  const row = await upsertInviteProgramSetting(client, {
+    key: 'invite_rewards_mode',
+    valueJson: { mode: normalizedMode },
+    updatedBy
+  });
+
+  return {
+    mode: normalizeInviteRewardsMode(row?.value_json?.mode || normalizedMode),
+    updatedAt: row?.updated_at || null,
+    updatedBy: row?.updated_by || null
+  };
+}
+
+export async function getInviteRewardsConfig(client) {
+  await ensureInviteRewardsDefaults(client);
+  const result = await client.query(
+    `
+      select value_json
+      from invite_program_settings
+      where key = 'invite_rewards_config'
+      limit 1
+    `
+  );
+
+  return normalizeInviteRewardsConfig(result.rows[0]?.value_json || INVITE_REWARDS_DEFAULTS);
+}
+
+export async function getInviteRewardActivationStateByInvitedUserId(client, { invitedUserId }) {
+  const result = await client.query(
+    `
+      select
+        u.id as invited_user_id,
+        inv.id as invite_id,
+        inv.referrer_user_id,
+        inv.invite_code,
+        inv.source,
+        inv.joined_at,
+        inv.activated_at,
+        la.user_id is not null as has_linkedin,
+        mp.id as profile_id,
+        mp.profile_state,
+        mp.visibility_status,
+        case
+          when la.user_id is not null and mp.profile_state = 'active' then true
+          else false
+        end as is_listed_ready,
+        case
+          when la.user_id is not null and mp.profile_state = 'active' and mp.visibility_status = 'listed' then true
+          else false
+        end as is_listed_live
+      from users u
+      left join member_invites inv on inv.invited_user_id = u.id
+      left join linkedin_accounts la on la.user_id = u.id
+      left join member_profiles mp on mp.user_id = u.id
+      where u.id = $1
+      limit 1
+    `,
+    [invitedUserId]
+  );
+
+  const row = result.rows[0] || null;
+  if (!row) {
+    return {
+      invitedUserId,
+      inviteId: null,
+      referrerUserId: null,
+      inviteCode: null,
+      source: null,
+      joinedAt: null,
+      activatedAt: null,
+      hasLinkedIn: false,
+      profileId: null,
+      profileState: null,
+      visibilityStatus: null,
+      isListedReady: false,
+      isListedLive: false,
+      rewardable: false,
+      reason: 'invited_user_missing'
+    };
+  }
+
+  const hasInvite = Boolean(row.invite_id);
+  const hasLinkedIn = Boolean(row.has_linkedin);
+  const isListedReady = Boolean(row.is_listed_ready);
+  const isListedLive = Boolean(row.is_listed_live);
+  const rewardable = hasInvite && hasLinkedIn && isListedReady;
+  const reason = rewardable
+    ? 'rewardable_activation'
+    : (!hasInvite ? 'missing_invite_attribution' : (!hasLinkedIn ? 'linkedin_not_connected' : 'listed_ready_threshold_not_reached'));
+
+  return {
+    invitedUserId: row.invited_user_id,
+    inviteId: row.invite_id || null,
+    referrerUserId: row.referrer_user_id || null,
+    inviteCode: row.invite_code || null,
+    source: row.source || null,
+    joinedAt: row.joined_at || null,
+    activatedAt: row.activated_at || null,
+    hasLinkedIn,
+    profileId: row.profile_id || null,
+    profileState: row.profile_state || null,
+    visibilityStatus: row.visibility_status || null,
+    isListedReady,
+    isListedLive,
+    rewardable,
+    reason
+  };
+}
+
+export async function findExistingInviteActivationRewardEvent(client, { invitedUserId }) {
+  const result = await client.query(
+    `
+      select *
+      from invite_reward_events
+      where invited_user_id = $1
+        and event_type = $2
+      limit 1
+    `,
+    [invitedUserId, INVITE_REWARD_EVENT_TYPE_ACTIVATION]
+  );
+
+  return normalizeInviteRewardEventRow(result.rows[0] || null);
+}
+
+export async function createPendingInviteActivationReward(client, {
+  referrerUserId,
+  invitedUserId,
+  inviteLinkId = null,
+  inviteCode = null,
+  source = null,
+  activationState = null,
+  activationAt = null,
+  points = null,
+  confirmHours = null,
+  activationRuleVersion = null,
+  catalogVersion = null
+}) {
+  const config = await getInviteRewardsConfig(client);
+  const safePoints = Math.max(0, Number(points ?? config.activationPoints) || config.activationPoints);
+  const safeConfirmHours = Math.max(1, Number(confirmHours ?? config.activationConfirmHours) || config.activationConfirmHours);
+  const activatedAtDate = activationAt ? new Date(activationAt) : new Date();
+  const activationAtIso = Number.isNaN(activatedAtDate.getTime()) ? new Date().toISOString() : activatedAtDate.toISOString();
+  const confirmAfterIso = new Date(Date.parse(activationAtIso) + safeConfirmHours * 60 * 60 * 1000).toISOString();
+  const meta = {
+    source: source || activationState?.source || null,
+    joinedAt: activationState?.joinedAt || null,
+    profileState: activationState?.profileState || null,
+    visibilityStatus: activationState?.visibilityStatus || null,
+    activationRuleVersion: activationRuleVersion || config.activationRuleVersion,
+    catalogVersion: catalogVersion || config.catalogVersion,
+    rewardableReason: activationState?.reason || 'rewardable_activation'
+  };
+
+  const insertResult = await client.query(
+    `
+      insert into invite_reward_events (
+        referrer_user_id,
+        invited_user_id,
+        invite_link_id,
+        invite_code,
+        event_type,
+        status,
+        points,
+        activation_at,
+        confirm_after,
+        meta_json,
+        created_at
+      )
+      values ($1, $2, $3, $4, $5, 'pending', $6, $7::timestamptz, $8::timestamptz, $9::jsonb, now())
+      on conflict (invited_user_id, event_type)
+      do nothing
+      returning *
+    `,
+    [
+      referrerUserId,
+      invitedUserId,
+      inviteLinkId,
+      inviteCode,
+      INVITE_REWARD_EVENT_TYPE_ACTIVATION,
+      safePoints,
+      activationAtIso,
+      confirmAfterIso,
+      JSON.stringify(meta)
+    ]
+  );
+
+  const inserted = insertResult.rows[0] || null;
+  if (!inserted) {
+    const existing = await findExistingInviteActivationRewardEvent(client, { invitedUserId });
+    return {
+      created: false,
+      duplicate: true,
+      reason: 'activation_reward_already_exists',
+      event: existing,
+      mode: await getInviteRewardsMode(client),
+      config
+    };
+  }
+
+  await client.query(
+    `
+      insert into invite_reward_ledger (
+        user_id,
+        reward_event_id,
+        entry_type,
+        points_delta,
+        balance_bucket,
+        meta_json,
+        created_at
+      )
+      values ($1, $2, 'pending_credit', $3, 'pending', $4::jsonb, now())
+      on conflict do nothing
+    `,
+    [referrerUserId, inserted.id, safePoints, JSON.stringify(meta)]
+  );
+
+  if (inviteLinkId) {
+    await client.query(
+      `
+        update member_invites
+        set activated_at = coalesce(activated_at, $2::timestamptz),
+            updated_at = now()
+        where id = $1
+      `,
+      [inviteLinkId, activationAtIso]
+    );
+  }
+
+  return {
+    created: true,
+    duplicate: false,
+    reason: 'pending_activation_reward_created',
+    event: normalizeInviteRewardEventRow(inserted),
+    mode: await getInviteRewardsMode(client),
+    config
+  };
+}
+
+export async function getInviteRewardSummaryByUserId(client, { userId }) {
+  await ensureInviteRewardsDefaults(client);
+  const [summaryResult, mode, config] = await Promise.all([
+    client.query(
+      `
+        select
+          coalesce(sum(case when balance_bucket = 'pending' then points_delta else 0 end), 0)::int as pending_points,
+          coalesce(sum(case when balance_bucket = 'available' then points_delta else 0 end), 0)::int as available_points,
+          coalesce(sum(case when balance_bucket = 'redeemed' then abs(points_delta) else 0 end), 0)::int as redeemed_points,
+          count(*) filter (where balance_bucket = 'pending' and points_delta > 0)::int as pending_entries,
+          count(*) filter (where balance_bucket = 'available' and points_delta > 0)::int as available_entries,
+          count(*) filter (where balance_bucket = 'redeemed')::int as redeemed_entries
+        from invite_reward_ledger
+        where user_id = $1
+      `,
+      [userId]
+    ),
+    getInviteRewardsMode(client),
+    getInviteRewardsConfig(client)
+  ]);
+
+  const row = summaryResult.rows[0] || {};
+  return {
+    mode,
+    config,
+    availablePoints: Number(row.available_points || 0) || 0,
+    pendingPoints: Number(row.pending_points || 0) || 0,
+    redeemedPoints: Number(row.redeemed_points || 0) || 0,
+    availableEntries: Number(row.available_entries || 0) || 0,
+    pendingEntries: Number(row.pending_entries || 0) || 0,
+    redeemedEntries: Number(row.redeemed_entries || 0) || 0
+  };
+}
+
+export async function listPendingInviteRewardConfirmationCandidates(client, { limit = 50, nowTs = null } = {}) {
+  const safeLimit = Number.isFinite(Number(limit)) && Number(limit) > 0 ? Math.min(200, Number(limit)) : 50;
+  const effectiveNow = nowTs ? new Date(nowTs).toISOString() : new Date().toISOString();
+  const result = await client.query(
+    `
+      select
+        ire.*,
+        inv.source,
+        inv.joined_at
+      from invite_reward_events ire
+      left join member_invites inv on inv.id = ire.invite_link_id
+      where ire.status = 'pending'
+        and ire.confirm_after <= $1::timestamptz
+      order by ire.confirm_after asc, ire.id asc
+      limit $2
+    `,
+    [effectiveNow, safeLimit]
+  );
+
+  return (result.rows || []).map((row) => ({
+    ...normalizeInviteRewardEventRow(row),
+    source: row.source || null,
+    joinedAt: row.joined_at || null
+  }));
+}

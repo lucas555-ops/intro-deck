@@ -9,6 +9,7 @@ import {
 } from '../../db/linkedinRepo.js';
 import { ensureProfileDraft, getProfileSnapshotByUserId, hideProfileListingByUserId } from '../../db/profileRepo.js';
 import { createAdminAuditEvent } from '../../db/adminRepo.js';
+import { maybeCreatePendingInviteRewardForActivationWithClient } from './inviteStore.js';
 
 function buildRawIdentityPayload({ identity, rawTokenPayload, rawUserInfo, source = 'linkedin_oidc' }) {
   return {
@@ -130,6 +131,7 @@ export async function persistLinkedInIdentity({
         afterProfile: profileDraft,
         identity
       });
+      const inviteRewardResult = await maybeCreatePendingInviteRewardForActivationWithClient(client, { userId: user.id });
 
       await createAdminAuditEvent(client, {
         eventType: 'linkedin_relink_transferred',
@@ -145,7 +147,8 @@ export async function persistLinkedInIdentity({
           newTelegramUserId: telegramUserId,
           newTelegramUsername: telegramUsername || null,
           identityImportedFields,
-          profileSeed
+          profileSeed,
+          inviteRewardResult
         }
       });
 
@@ -158,6 +161,7 @@ export async function persistLinkedInIdentity({
         profileDraft,
         profileSeed,
         identityImportedFields,
+        inviteRewardResult,
         previousOwner: {
           userId: existingBySub.user_id,
           telegramUserId: existingBySub.telegram_user_id,
@@ -191,6 +195,7 @@ export async function persistLinkedInIdentity({
       afterProfile: profileDraft,
       identity
     });
+    const inviteRewardResult = await maybeCreatePendingInviteRewardForActivationWithClient(client, { userId: user.id });
 
     return {
       persisted: true,
@@ -201,7 +206,8 @@ export async function persistLinkedInIdentity({
       linkedinAccount,
       profileDraft,
       profileSeed,
-      identityImportedFields
+      identityImportedFields,
+      inviteRewardResult
     };
   });
 }

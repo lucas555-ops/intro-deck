@@ -10,6 +10,7 @@ import {
   updateProfileField
 } from '../../db/profileRepo.js';
 import { getSkillMeta, normalizeProfileFieldValue, getProfileFieldMeta } from '../profile/contract.js';
+import { maybeCreatePendingInviteRewardForActivationWithClient } from './inviteStore.js';
 
 const EDIT_SESSION_TTL_MINUTES = 20;
 
@@ -130,25 +131,16 @@ export async function applyProfileFieldInput({ telegramUserId, text }) {
       fieldKey: pendingSession.field_key,
       value
     });
+    const inviteRewardResult = await maybeCreatePendingInviteRewardForActivationWithClient(client, { userId: pendingSession.user_id });
 
     await clearProfileEditSessionByUserId(client, pendingSession.user_id);
-
-    if (profile?.schema_compat_blocked_reason) {
-      return {
-        persistenceEnabled: true,
-        consumed: true,
-        blocked: true,
-        fieldMeta: getProfileFieldMeta(pendingSession.field_key),
-        profile,
-        reason: profile.schema_compat_blocked_reason
-      };
-    }
 
     return {
       persistenceEnabled: true,
       consumed: true,
       fieldMeta: getProfileFieldMeta(pendingSession.field_key),
       profile,
+      inviteRewardResult,
       reason: 'profile_field_updated'
     };
   });
@@ -182,6 +174,7 @@ export async function toggleProfileSkillForTelegramUser({ telegramUserId, skillS
       userId: profile.user_id,
       skillSlug
     });
+    const inviteRewardResult = await maybeCreatePendingInviteRewardForActivationWithClient(client, { userId: profile.user_id });
 
     return {
       persistenceEnabled: true,
@@ -189,6 +182,7 @@ export async function toggleProfileSkillForTelegramUser({ telegramUserId, skillS
       toggledOn: result.toggledOn,
       skillMeta,
       profile: result.profile,
+      inviteRewardResult,
       reason: result.toggledOn ? 'skill_added' : 'skill_removed'
     };
   });
@@ -323,12 +317,14 @@ export async function toggleProfileVisibilityForTelegramUser({ telegramUserId })
       userId: profile.user_id,
       visibilityStatus: nextVisibility
     });
+    const inviteRewardResult = await maybeCreatePendingInviteRewardForActivationWithClient(client, { userId: profile.user_id });
 
     return {
       persistenceEnabled: true,
       changed: true,
       blocked: false,
       profile: updatedProfile,
+      inviteRewardResult,
       reason: 'visibility_toggled'
     };
   });

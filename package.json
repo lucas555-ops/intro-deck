@@ -85,7 +85,8 @@
     "smoke:landing": "node scripts/smoke_landing_contract.js",
     "smoke:og-social": "node scripts/smoke_og_social_contract.js",
     "smoke:landing-polish": "node scripts/smoke_landing_polish_contract.js",
-    "smoke:invite": "node scripts/smoke_invite_contract.js"
+    "smoke:invite": "node scripts/smoke_invite_contract.js",
+    "smoke:invite-rewards-foundation": "node scripts/smoke_invite_rewards_foundation.js"
   },
   "dependencies": {
     "grammy": "1.41.1",
