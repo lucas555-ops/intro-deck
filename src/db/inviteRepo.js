@@ -568,9 +568,38 @@ function normalizeInviteRewardEventRow(row = null) {
     confirmedAt: row.confirmed_at || null,
     rejectedAt: row.rejected_at || null,
     rejectReason: row.reject_reason || null,
+    settledAt: row.settled_at || null,
+    settlementRunId: row.settlement_run_id || null,
+    stateVersion: Number(row.state_version || 1) || 1,
     meta: row.meta_json || {},
     createdAt: row.created_at
   };
+}
+
+function normalizeInviteRewardSettlementRunRow(row = null) {
+  if (!row) {
+    return null;
+  }
+
+  return {
+    settlementRunId: row.run_id,
+    status: row.status,
+    modeSnapshot: normalizeInviteRewardsMode(row.mode_snapshot),
+    processedCount: Number(row.processed_count || 0) || 0,
+    confirmedCount: Number(row.confirmed_count || 0) || 0,
+    rejectedCount: Number(row.rejected_count || 0) || 0,
+    skippedCount: Number(row.skipped_count || 0) || 0,
+    errorCount: Number(row.error_count || 0) || 0,
+    startedAt: row.started_at || null,
+    finishedAt: row.finished_at || null,
+    meta: row.meta_json || {}
+  };
+}
+
+function buildInviteRewardSettlementRunId() {
+  const ts = Date.now().toString(36);
+  const random = Math.floor(Math.random() * 1_000_000).toString(36).padStart(4, '0');
+  return `inv_settle_${ts}_${random}`;
 }
 
 async function upsertInviteProgramSetting(client, { key, valueJson, updatedBy = null }) {
@@ -1060,6 +1089,420 @@ export async function getSpendableInviteRewardBalance(client, { userId }) {
   return Number(result.rows[0]?.available_points || 0) || 0;
 }
 
+export async function getInviteRewardEventById(client, { rewardEventId, forUpdate = false } = {}) {
+  const result = await client.query(
+    `
+      select *
+      from invite_reward_events
+      where id = $1
+      limit 1
+      ${forUpdate ? 'for update' : ''}
+    `,
+    [rewardEventId]
+  );
+
+  return normalizeInviteRewardEventRow(result.rows[0] || null);
+}
+
+export async function markInviteRewardPendingReversed(client, { userId, rewardEventId, points, meta = null } = {}) {
+  const result = await client.query(
+    `
+      insert into invite_reward_ledger (
+        user_id,
+        reward_event_id,
+        entry_type,
+        points_delta,
+        balance_bucket,
+        meta_json,
+        created_at
+      )
+      values ($1, $2, 'pending_reversal', $3, 'pending', $4::jsonb, now())
+      on conflict (reward_event_id, entry_type)
+      do nothing
+      returning *
+    `,
+    [userId, rewardEventId, -Math.abs(Number(points || 0) || 0), JSON.stringify(meta || {})]
+  );
+
+  return result.rows[0] || null;
+}
+
+async function createInviteRewardAvailableCredit(client, { userId, rewardEventId, points, meta = null } = {}) {
+  const result = await client.query(
+    `
+      insert into invite_reward_ledger (
+        user_id,
+        reward_event_id,
+        entry_type,
+        points_delta,
+        balance_bucket,
+        meta_json,
+        created_at
+      )
+      values ($1, $2, 'available_credit', $3, 'available', $4::jsonb, now())
+      on conflict (reward_event_id, entry_type)
+      do nothing
+      returning *
+    `,
+    [userId, rewardEventId, Math.abs(Number(points || 0) || 0), JSON.stringify(meta || {})]
+  );
+
+  return result.rows[0] || null;
+}
+
+export async function createInviteRewardSettlementRun(client, { modeSnapshot, meta = null } = {}) {
+  const runId = buildInviteRewardSettlementRunId();
+  const result = await client.query(
+    `
+      insert into invite_reward_settlement_runs (
+        run_id,
+        mode_snapshot,
+        status,
+        processed_count,
+        confirmed_count,
+        rejected_count,
+        skipped_count,
+        error_count,
+        started_at,
+        meta_json
+      )
+      values ($1, $2, 'running', 0, 0, 0, 0, 0, now(), $3::jsonb)
+      returning *
+    `,
+    [runId, normalizeInviteRewardsMode(modeSnapshot), JSON.stringify(meta || {})]
+  );
+
+  return normalizeInviteRewardSettlementRunRow(result.rows[0] || null);
+}
+
+export async function finalizeInviteRewardSettlementRun(client, {
+  runId,
+  status = 'completed',
+  processedCount = 0,
+  confirmedCount = 0,
+  rejectedCount = 0,
+  skippedCount = 0,
+  errorCount = 0,
+  meta = null
+} = {}) {
+  const result = await client.query(
+    `
+      update invite_reward_settlement_runs
+      set
+        status = $2,
+        processed_count = $3,
+        confirmed_count = $4,
+        rejected_count = $5,
+        skipped_count = $6,
+        error_count = $7,
+        finished_at = now(),
+        meta_json = coalesce(meta_json, '{}'::jsonb) || $8::jsonb
+      where run_id = $1
+      returning *
+    `,
+    [runId, status, processedCount, confirmedCount, rejectedCount, skippedCount, errorCount, JSON.stringify(meta || {})]
+  );
+
+  return normalizeInviteRewardSettlementRunRow(result.rows[0] || null);
+}
+
+export async function getInviteRewardSettlementRunByRunId(client, { runId } = {}) {
+  const result = await client.query(
+    `
+      select *
+      from invite_reward_settlement_runs
+      where run_id = $1
+      limit 1
+    `,
+    [runId]
+  );
+
+  return normalizeInviteRewardSettlementRunRow(result.rows[0] || null);
+}
+
+export async function getLastInviteRewardSettlementRun(client) {
+  const result = await client.query(
+    `
+      select *
+      from invite_reward_settlement_runs
+      order by started_at desc, id desc
+      limit 1
+    `
+  );
+
+  return normalizeInviteRewardSettlementRunRow(result.rows[0] || null);
+}
+
+export async function confirmInviteRewardEventToAvailable(client, { rewardEventId, settlementRunId = null, meta = null } = {}) {
+  const current = await getInviteRewardEventById(client, { rewardEventId, forUpdate: true });
+  if (!current) {
+    return { changed: false, reason: 'reward_event_not_found', event: null };
+  }
+  if (current.status !== 'pending') {
+    return { changed: false, duplicate: true, reason: `reward_event_already_${current.status}`, event: current };
+  }
+
+  const settlementMeta = {
+    settlementStage: 'confirm',
+    settlementRunId,
+    ...(meta || {})
+  };
+
+  await markInviteRewardPendingReversed(client, {
+    userId: current.referrerUserId,
+    rewardEventId,
+    points: current.points,
+    meta: settlementMeta
+  });
+  await createInviteRewardAvailableCredit(client, {
+    userId: current.referrerUserId,
+    rewardEventId,
+    points: current.points,
+    meta: settlementMeta
+  });
+
+  const updated = await client.query(
+    `
+      update invite_reward_events
+      set
+        status = 'available',
+        confirmed_at = coalesce(confirmed_at, now()),
+        settled_at = coalesce(settled_at, now()),
+        settlement_run_id = coalesce($2, settlement_run_id),
+        state_version = coalesce(state_version, 1) + 1,
+        meta_json = coalesce(meta_json, '{}'::jsonb) || $3::jsonb
+      where id = $1
+      returning *
+    `,
+    [rewardEventId, settlementRunId, JSON.stringify(settlementMeta)]
+  );
+
+  return {
+    changed: true,
+    reason: 'reward_event_confirmed_to_available',
+    event: normalizeInviteRewardEventRow(updated.rows[0] || null)
+  };
+}
+
+export async function rejectInviteRewardEvent(client, { rewardEventId, rejectReason = 'settlement_rejected', settlementRunId = null, meta = null } = {}) {
+  const current = await getInviteRewardEventById(client, { rewardEventId, forUpdate: true });
+  if (!current) {
+    return { changed: false, reason: 'reward_event_not_found', event: null };
+  }
+  if (current.status !== 'pending') {
+    return { changed: false, duplicate: true, reason: `reward_event_already_${current.status}`, event: current };
+  }
+
+  const settlementMeta = {
+    settlementStage: 'reject',
+    settlementRunId,
+    rejectReason,
+    ...(meta || {})
+  };
+
+  await markInviteRewardPendingReversed(client, {
+    userId: current.referrerUserId,
+    rewardEventId,
+    points: current.points,
+    meta: settlementMeta
+  });
+
+  const updated = await client.query(
+    `
+      update invite_reward_events
+      set
+        status = 'rejected',
+        rejected_at = coalesce(rejected_at, now()),
+        reject_reason = coalesce($2, reject_reason),
+        settled_at = coalesce(settled_at, now()),
+        settlement_run_id = coalesce($3, settlement_run_id),
+        state_version = coalesce(state_version, 1) + 1,
+        meta_json = coalesce(meta_json, '{}'::jsonb) || $4::jsonb
+      where id = $1
+      returning *
+    `,
+    [rewardEventId, rejectReason, settlementRunId, JSON.stringify(settlementMeta)]
+  );
+
+  return {
+    changed: true,
+    reason: 'reward_event_rejected',
+    event: normalizeInviteRewardEventRow(updated.rows[0] || null)
+  };
+}
+
+export async function listInviteRewardLedgerMismatches(client, { limit = 20 } = {}) {
+  const safeLimit = Number.isFinite(Number(limit)) && Number(limit) > 0 ? Math.min(100, Number(limit)) : 20;
+  const result = await client.query(
+    `
+      with mismatches as (
+        select 'pending_missing_pending_credit'::text as warning_type, ire.*
+        from invite_reward_events ire
+        where ire.status = 'pending'
+          and not exists (
+            select 1 from invite_reward_ledger irl
+            where irl.reward_event_id = ire.id
+              and irl.entry_type = 'pending_credit'
+              and irl.balance_bucket = 'pending'
+              and irl.points_delta > 0
+          )
+        union all
+        select 'available_missing_pending_reversal'::text as warning_type, ire.*
+        from invite_reward_events ire
+        where ire.status = 'available'
+          and not exists (
+            select 1 from invite_reward_ledger irl
+            where irl.reward_event_id = ire.id
+              and irl.entry_type = 'pending_reversal'
+              and irl.balance_bucket = 'pending'
+              and irl.points_delta < 0
+          )
+        union all
+        select 'available_missing_available_credit'::text as warning_type, ire.*
+        from invite_reward_events ire
+        where ire.status = 'available'
+          and not exists (
+            select 1 from invite_reward_ledger irl
+            where irl.reward_event_id = ire.id
+              and irl.entry_type = 'available_credit'
+              and irl.balance_bucket = 'available'
+              and irl.points_delta > 0
+          )
+        union all
+        select 'rejected_missing_pending_reversal'::text as warning_type, ire.*
+        from invite_reward_events ire
+        where ire.status = 'rejected'
+          and not exists (
+            select 1 from invite_reward_ledger irl
+            where irl.reward_event_id = ire.id
+              and irl.entry_type = 'pending_reversal'
+              and irl.balance_bucket = 'pending'
+              and irl.points_delta < 0
+          )
+      )
+      select
+        m.warning_type,
+        m.*, 
+        ref.telegram_user_id as referrer_telegram_user_id,
+        ref.telegram_username as referrer_telegram_username,
+        la_ref.full_name as referrer_linkedin_name,
+        mp_ref.display_name as referrer_display_name,
+        invited.telegram_user_id as invited_telegram_user_id,
+        invited.telegram_username as invited_telegram_username,
+        la_inv.full_name as invited_linkedin_name,
+        mp_inv.display_name as invited_display_name
+      from mismatches m
+      join users ref on ref.id = m.referrer_user_id
+      join users invited on invited.id = m.invited_user_id
+      left join linkedin_accounts la_ref on la_ref.user_id = ref.id
+      left join member_profiles mp_ref on mp_ref.user_id = ref.id
+      left join linkedin_accounts la_inv on la_inv.user_id = invited.id
+      left join member_profiles mp_inv on mp_inv.user_id = invited.id
+      order by m.created_at desc, m.id desc
+      limit $1
+    `,
+    [safeLimit]
+  );
+
+  return (result.rows || []).map((row) => ({
+    warningType: row.warning_type,
+    ...normalizeInviteRewardEventRow(row),
+    referrerDisplayName: buildMemberLabel({
+      display_name: row.referrer_display_name,
+      linkedin_name: row.referrer_linkedin_name,
+      telegram_username: row.referrer_telegram_username,
+      telegram_user_id: row.referrer_telegram_user_id
+    }),
+    invitedDisplayName: buildMemberLabel({
+      display_name: row.invited_display_name,
+      linkedin_name: row.invited_linkedin_name,
+      telegram_username: row.invited_telegram_username,
+      telegram_user_id: row.invited_telegram_user_id
+    })
+  }));
+}
+
+export async function getInviteRewardReconciliationSnapshot(client, { sampleLimit = 5 } = {}) {
+  const [warningsResult, redemptionResult, sampleWarnings] = await Promise.all([
+    client.query(
+      `
+        select
+          count(*) filter (
+            where ire.status = 'pending'
+              and not exists (
+                select 1 from invite_reward_ledger irl
+                where irl.reward_event_id = ire.id
+                  and irl.entry_type = 'pending_credit'
+                  and irl.balance_bucket = 'pending'
+                  and irl.points_delta > 0
+              )
+          )::int as pending_missing_pending_credit,
+          count(*) filter (
+            where ire.status = 'available'
+              and not exists (
+                select 1 from invite_reward_ledger irl
+                where irl.reward_event_id = ire.id
+                  and irl.entry_type = 'pending_reversal'
+                  and irl.balance_bucket = 'pending'
+                  and irl.points_delta < 0
+              )
+          )::int as available_missing_pending_reversal,
+          count(*) filter (
+            where ire.status = 'available'
+              and not exists (
+                select 1 from invite_reward_ledger irl
+                where irl.reward_event_id = ire.id
+                  and irl.entry_type = 'available_credit'
+                  and irl.balance_bucket = 'available'
+                  and irl.points_delta > 0
+              )
+          )::int as available_missing_available_credit,
+          count(*) filter (
+            where ire.status = 'rejected'
+              and not exists (
+                select 1 from invite_reward_ledger irl
+                where irl.reward_event_id = ire.id
+                  and irl.entry_type = 'pending_reversal'
+                  and irl.balance_bucket = 'pending'
+                  and irl.points_delta < 0
+              )
+          )::int as rejected_missing_pending_reversal
+        from invite_reward_events ire
+      `
+    ),
+    client.query(
+      `
+        select
+          count(*) filter (where status = 'completed')::int as completed_redemptions,
+          count(*) filter (where status = 'completed' and subscription_id is null)::int as completed_missing_subscription,
+          count(*) filter (where status = 'completed' and reward_ledger_entry_id is null)::int as completed_missing_ledger
+        from invite_reward_redemptions
+      `
+    ),
+    listInviteRewardLedgerMismatches(client, { limit: sampleLimit })
+  ]);
+
+  const warnings = warningsResult.rows[0] || {};
+  const redemptions = redemptionResult.rows[0] || {};
+  const warningCount = Object.values(warnings).reduce((sum, value) => sum + (Number(value || 0) || 0), 0)
+    + (Number(redemptions.completed_missing_subscription || 0) || 0)
+    + (Number(redemptions.completed_missing_ledger || 0) || 0);
+
+  return {
+    warningCount,
+    warnings: {
+      pendingMissingPendingCredit: Number(warnings.pending_missing_pending_credit || 0) || 0,
+      availableMissingPendingReversal: Number(warnings.available_missing_pending_reversal || 0) || 0,
+      availableMissingAvailableCredit: Number(warnings.available_missing_available_credit || 0) || 0,
+      rejectedMissingPendingReversal: Number(warnings.rejected_missing_pending_reversal || 0) || 0,
+      completedRedemptionsMissingSubscription: Number(redemptions.completed_missing_subscription || 0) || 0,
+      completedRedemptionsMissingLedger: Number(redemptions.completed_missing_ledger || 0) || 0
+    },
+    completedRedemptions: Number(redemptions.completed_redemptions || 0) || 0,
+    sampleWarnings
+  };
+}
+
 export async function createInviteRewardRedemptionRequest(client, { userId, catalogCode, pointsCost, proDays, meta = null } = {}) {
   const result = await client.query(
     `
@@ -1170,7 +1613,7 @@ export async function getAdminInviteRewardsSnapshot(client, { topLimit = 5, rece
   const safeTopLimit = Number.isFinite(Number(topLimit)) && Number(topLimit) > 0 ? Math.min(20, Number(topLimit)) : 5;
   const safeRecentLimit = Number.isFinite(Number(recentLimit)) && Number(recentLimit) > 0 ? Math.min(20, Number(recentLimit)) : 5;
 
-  const [mode, config, totalsResult, topResult, recentResult, dueResult] = await Promise.all([
+  const [mode, config, totalsResult, topResult, recentResult, dueResult, lastSettlementRun, reconciliation] = await Promise.all([
     getInviteRewardsMode(client),
     getInviteRewardsConfig(client),
     client.query(
@@ -1237,12 +1680,15 @@ export async function getAdminInviteRewardsSnapshot(client, { topLimit = 5, rece
     client.query(
       `
         select
-          count(*)::int as pending_candidates,
-          count(*) filter (where confirm_after <= now())::int as pending_due
+          count(*) filter (where status = 'pending')::int as pending_candidates,
+          count(*) filter (where status = 'pending' and confirm_after <= now())::int as pending_due,
+          count(*) filter (where status = 'available' and confirmed_at >= date_trunc('day', now()))::int as confirmed_today,
+          count(*) filter (where status = 'rejected' and rejected_at >= date_trunc('day', now()))::int as rejected_today
         from invite_reward_events
-        where status = 'pending'
       `
-    )
+    ),
+    getLastInviteRewardSettlementRun(client),
+    getInviteRewardReconciliationSnapshot(client, { sampleLimit: 5 })
   ]);
 
   const totals = totalsResult.rows[0] || {};
@@ -1260,7 +1706,9 @@ export async function getAdminInviteRewardsSnapshot(client, { topLimit = 5, rece
       redeemedEntries: Number(totals.redeemed_entries || 0) || 0,
       totalRewardEvents: Number(totals.total_reward_events || 0) || 0,
       pendingCandidates: Number(dueRow.pending_candidates || 0) || 0,
-      pendingDue: Number(dueRow.pending_due || 0) || 0
+      pendingDue: Number(dueRow.pending_due || 0) || 0,
+      confirmedToday: Number(dueRow.confirmed_today || 0) || 0,
+      rejectedToday: Number(dueRow.rejected_today || 0) || 0
     },
     topRewardInviters: (topResult.rows || []).map((row) => ({
       referrerUserId: row.referrer_user_id,
@@ -1290,6 +1738,8 @@ export async function getAdminInviteRewardsSnapshot(client, { topLimit = 5, rece
         telegram_user_id: row.invited_telegram_user_id
       })
     })),
+    lastSettlementRun,
+    reconciliation,
     modeAudit: await getRecentInviteRewardsModeAudit(client, { limit: 5 })
   };
 }

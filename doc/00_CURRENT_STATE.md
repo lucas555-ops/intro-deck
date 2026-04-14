@@ -4,10 +4,10 @@
 Intro Deck
 
 ## Current source baseline
-STEP052.5 — Invite Rewards Redeem Foundation + Founder Mode Controls
+STEP052.6 — Invite Rewards Settlement + Live Verification Hardening
 
 ## Layer
-Product hardening / invite expansion / rewards redeem truth + founder/operator controls
+Product hardening / invite expansion / rewards settlement truth + live verification hardening
 
 ## Source-confirmed
 - Invite layer remains a bounded module:
@@ -23,9 +23,10 @@ Product hardening / invite expansion / rewards redeem truth + founder/operator c
   - `🎯 Points` read screen inside invite layer
   - invite root points preview
   - performance/history navigation into points
-- Founder/admin invite read truth now includes mode audit and mode-switch controls on the existing admin invite surface.
-- User redeem path is now implemented inside invite rewards surfaces.
+- Founder/admin invite read truth now includes mode audit, settlement summary, reconciliation warnings, and mode-switch controls on the existing admin invite surface.
+- User redeem path remains implemented inside invite rewards surfaces.
 - Runtime accrual remains mode-gated.
+- Manual settlement batch can now move due pending rewards into available or rejected states.
 - Safe default remains `off` until manual verification.
 
 ## Rewards activation truth
@@ -57,10 +58,17 @@ Pending reward accrual check is now re-run after:
 - skill toggle
 - visibility toggle
 
+## Settlement truth now in source
+- due pending rewards can be processed through a founder/operator-triggered settlement batch
+- confirm writes both `pending_reversal` and `available_credit`
+- reject writes `pending_reversal` and a `reject_reason` on the reward event
+- repeated settlement runs stay idempotent through event status + ledger entry uniqueness
+- `paused` blocks settlement writes
+
 ## What this step still does not do
-- no settlement job
-- no pending -> available transition yet
-- no reconciliation / live verification hardening yet
+- no cron auto-enable for settlement
+- no broad rewards dashboard rewrite
+- no new catalog or payout semantics
 
 ## What must not break
 - LinkedIn OIDC truth
@@ -93,5 +101,17 @@ Pending reward accrual check is now re-run after:
   - `paused`
 - recent mode audit is visible in the same admin invite surface
 
+## Rewards corridor continuity
+- STEP052.3 — Invite Rewards Foundation remains in source
+- STEP052.4 — Invite Rewards Read Surfaces + Founder Read Truth remains in source
+- STEP052.5 — Invite Rewards Redeem Foundation + Founder Mode Controls remains in source
+- STEP052.6 now adds settlement and live verification hardening on top of that corridor
+
+## Live verification additions now in source
+- admin invite surface shows last settlement run summary
+- admin invite surface shows reconciliation warning counts
+- founder/operator can run a bounded settlement batch from the same invite ops screen
+- checklist doc added: `doc/76A_INVITE_REWARDS_LIVE_VERIFICATION_CHECKLIST.md`
+
 ## Next recommended step
-STEP052.6 — Invite Rewards Settlement + Live Verification Hardening
+STEP052.7 — Invite Rewards Ops Polish or broader STEP053 monetization/ops continuation after manual verification

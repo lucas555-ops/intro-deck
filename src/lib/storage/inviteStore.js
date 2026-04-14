@@ -5,13 +5,19 @@ import {
   createInviteRewardRedemptionRequest,
   createPendingInviteActivationReward,
   createRedeemDebitLedgerEntry,
+  createInviteRewardSettlementRun,
   ensureInviteRewardsDefaults,
   failInviteRewardRedemption,
+  finalizeInviteRewardSettlementRun,
   getAdminInviteRewardsSnapshot,
+  getInviteRewardReconciliationSnapshot,
+  getLastInviteRewardSettlementRun,
   getInviteAttributionByInvitedUserId,
   getInviteRewardActivationStateByInvitedUserId,
   getInviteRewardRedemptionById,
   getInviteRewardSummaryByUserId,
+  confirmInviteRewardEventToAvailable,
+  rejectInviteRewardEvent,
   getInviteRewardsCatalog,
   getInviteRewardsConfig,
   getInviteRewardsMode,
@@ -20,6 +26,7 @@ import {
   getSpendableInviteRewardBalance,
   getUserByTelegramUserId,
   listInviteRewardEventsByUserId,
+  listPendingInviteRewardConfirmationCandidates,
   loadAdminInviteSnapshot,
   loadInviteHistoryByUserId,
   loadInviteSnapshotByUserId,
@@ -33,6 +40,7 @@ import { getTelegramConfig } from '../../config/env.js';
 
 const INTRO_DECK_INVITE_ACTIVATION_HINT = 'the invited member connected LinkedIn or started a profile';
 const INTRO_DECK_REWARDS_ACTIVATION_HINT = 'the invited member connected LinkedIn and reached listed-ready state';
+const INVITE_REWARDS_SETTLEMENT_BATCH_LIMIT = 25;
 
 function emptyInviteRewardsSummary(reason = 'DATABASE_URL is not configured') {
   return {
@@ -310,10 +318,19 @@ export async function loadAdminInviteSnapshotState() {
           redeemedEntries: 0,
           totalRewardEvents: 0,
           pendingCandidates: 0,
-          pendingDue: 0
+          pendingDue: 0,
+          confirmedToday: 0,
+          rejectedToday: 0
         },
         topRewardInviters: [],
-        recentRewardEvents: []
+        recentRewardEvents: [],
+        lastSettlementRun: null,
+        reconciliation: {
+          warningCount: 0,
+          warnings: {},
+          completedRedemptions: 0,
+          sampleWarnings: []
+        }
       },
       activationHint: INTRO_DECK_INVITE_ACTIVATION_HINT,
       reason: 'DATABASE_URL is not configured'
@@ -634,6 +651,223 @@ export async function changeInviteRewardsModeForTelegramUser({ telegramUserId, t
       reason: result.changed ? 'invite_rewards_mode_changed' : 'invite_rewards_mode_unchanged'
     };
   });
+}
+
+async function doesInvitedUserStillQualifyForRewardSettlementWithClient(client, { invitedUserId }) {
+  const activationState = await getInviteRewardActivationStateByInvitedUserId(client, { invitedUserId });
+  return {
+    qualifies: Boolean(activationState?.rewardable),
+    activationState,
+    reason: activationState?.rewardable ? 'rewardable_activation' : (activationState?.reason || 'invite_activation_not_rewardable')
+  };
+}
+
+export async function doesInvitedUserStillQualifyForRewardSettlement({ invitedUserId }) {
+  if (!isDatabaseConfigured()) {
+    return {
+      persistenceEnabled: false,
+      qualifies: false,
+      reason: 'DATABASE_URL is not configured'
+    };
+  }
+
+  return withDbClient(async (client) => ({
+    persistenceEnabled: true,
+    ...(await doesInvitedUserStillQualifyForRewardSettlementWithClient(client, { invitedUserId }))
+  }));
+}
+
+export async function settlePendingInviteRewardsBatch({ telegramUserId, telegramUsername = null, limit = INVITE_REWARDS_SETTLEMENT_BATCH_LIMIT } = {}) {
+  if (!isDatabaseConfigured()) {
+    return {
+      persistenceEnabled: false,
+      changed: false,
+      blocked: true,
+      reason: 'DATABASE_URL is not configured'
+    };
+  }
+
+  return withDbClient(async (client) => {
+    await client.query('BEGIN');
+    try {
+      const operator = await upsertTelegramUser(client, { telegramUserId, telegramUsername });
+      await ensureInviteRewardsDefaults(client);
+      const mode = await getInviteRewardsMode(client);
+      if (mode === 'paused') {
+        await client.query('ROLLBACK');
+        return {
+          persistenceEnabled: true,
+          changed: false,
+          blocked: true,
+          mode,
+          reason: 'settlement_blocked_in_paused'
+        };
+      }
+
+      const safeLimit = Number.isFinite(Number(limit)) && Number(limit) > 0
+        ? Math.min(100, Number(limit))
+        : INVITE_REWARDS_SETTLEMENT_BATCH_LIMIT;
+
+      const run = await createInviteRewardSettlementRun(client, {
+        modeSnapshot: mode,
+        meta: {
+          source: 'telegram_admin_invite_settlement',
+          triggeredByUserId: operator.id,
+          triggeredByTelegramUserId: operator.telegram_user_id,
+          limit: safeLimit
+        }
+      });
+
+      const candidates = await listPendingInviteRewardConfirmationCandidates(client, { limit: safeLimit });
+      const decisions = [];
+      let processedCount = 0;
+      let confirmedCount = 0;
+      let rejectedCount = 0;
+      let skippedCount = 0;
+      let errorCount = 0;
+
+      for (const candidate of candidates) {
+        const qualification = await doesInvitedUserStillQualifyForRewardSettlementWithClient(client, {
+          invitedUserId: candidate.invitedUserId
+        });
+
+        if (!qualification.qualifies) {
+          const rejected = await rejectInviteRewardEvent(client, {
+            rewardEventId: candidate.rewardEventId,
+            rejectReason: qualification.reason,
+            settlementRunId: run?.settlementRunId || null,
+            meta: {
+              source: 'telegram_admin_invite_settlement',
+              triggeredByUserId: operator.id,
+              qualificationReason: qualification.reason
+            }
+          });
+          if (rejected.changed) {
+            processedCount += 1;
+            rejectedCount += 1;
+          } else {
+            skippedCount += 1;
+          }
+          decisions.push({
+            rewardEventId: candidate.rewardEventId,
+            invitedUserId: candidate.invitedUserId,
+            outcome: rejected.changed ? 'rejected' : 'skipped',
+            reason: qualification.reason
+          });
+          continue;
+        }
+
+        const confirmed = await confirmInviteRewardEventToAvailable(client, {
+          rewardEventId: candidate.rewardEventId,
+          settlementRunId: run?.settlementRunId || null,
+          meta: {
+            source: 'telegram_admin_invite_settlement',
+            triggeredByUserId: operator.id,
+            qualificationReason: qualification.reason
+          }
+        });
+        if (confirmed.changed) {
+          processedCount += 1;
+          confirmedCount += 1;
+        } else {
+          skippedCount += 1;
+        }
+        decisions.push({
+          rewardEventId: candidate.rewardEventId,
+          invitedUserId: candidate.invitedUserId,
+          outcome: confirmed.changed ? 'confirmed' : 'skipped',
+          reason: qualification.reason
+        });
+      }
+
+      const finalizedRun = await finalizeInviteRewardSettlementRun(client, {
+        runId: run?.settlementRunId,
+        status: 'completed',
+        processedCount,
+        confirmedCount,
+        rejectedCount,
+        skippedCount,
+        errorCount,
+        meta: {
+          triggeredByUserId: operator.id,
+          candidateCount: candidates.length,
+          mode,
+          decisionsPreview: decisions.slice(0, 10)
+        }
+      });
+
+      const verification = await getAdminInviteRewardsSnapshot(client);
+      await client.query('COMMIT');
+
+      return {
+        persistenceEnabled: true,
+        changed: processedCount > 0,
+        blocked: false,
+        mode,
+        run: finalizedRun,
+        decisions,
+        rewards: verification,
+        reason: 'invite_rewards_settlement_completed'
+      };
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    }
+  });
+}
+
+export async function loadInviteRewardsReconciliationState() {
+  if (!isDatabaseConfigured()) {
+    return {
+      persistenceEnabled: false,
+      reconciliation: {
+        warningCount: 0,
+        warnings: {},
+        completedRedemptions: 0,
+        sampleWarnings: []
+      },
+      lastSettlementRun: null,
+      reason: 'DATABASE_URL is not configured'
+    };
+  }
+
+  return withDbClient(async (client) => ({
+    persistenceEnabled: true,
+    reconciliation: await getInviteRewardReconciliationSnapshot(client, { sampleLimit: 10 }),
+    lastSettlementRun: await getLastInviteRewardSettlementRun(client),
+    reason: 'invite_rewards_reconciliation_loaded'
+  }));
+}
+
+export async function loadFounderInviteRewardsLiveVerificationState() {
+  if (!isDatabaseConfigured()) {
+    return {
+      persistenceEnabled: false,
+      rewards: {
+        mode: 'off',
+        totals: {
+          pendingCandidates: 0,
+          pendingDue: 0,
+          confirmedToday: 0,
+          rejectedToday: 0
+        },
+        lastSettlementRun: null,
+        reconciliation: {
+          warningCount: 0,
+          warnings: {},
+          completedRedemptions: 0,
+          sampleWarnings: []
+        }
+      },
+      reason: 'DATABASE_URL is not configured'
+    };
+  }
+
+  return withDbClient(async (client) => ({
+    persistenceEnabled: true,
+    rewards: await getAdminInviteRewardsSnapshot(client),
+    reason: 'invite_rewards_live_verification_loaded'
+  }));
 }
 
 export async function loadInviteRewardsSummaryState({ telegramUserId, telegramUsername = null }) {

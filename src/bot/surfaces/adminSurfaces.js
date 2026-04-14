@@ -266,6 +266,9 @@ function buildAdminInviteText({ state = null, notice = null } = {}) {
   const topRewardInviters = Array.isArray(rewards?.topRewardInviters) ? rewards.topRewardInviters : [];
   const recentRewardEvents = Array.isArray(rewards?.recentRewardEvents) ? rewards.recentRewardEvents : [];
   const modeAudit = Array.isArray(rewards?.modeAudit) ? rewards.modeAudit : [];
+  const settlement = rewards?.lastSettlementRun || null;
+  const reconciliation = rewards?.reconciliation || {};
+  const sampleWarnings = Array.isArray(reconciliation?.sampleWarnings) ? reconciliation.sampleWarnings : [];
   const lines = [
     '📨 Инвайты',
     '',
@@ -292,6 +295,7 @@ function buildAdminInviteText({ state = null, notice = null } = {}) {
   lines.push(`Available: ${rewardsTotals.availablePoints || 0} pts • ${rewardsTotals.availableEntries || 0} entries`);
   lines.push(`Redeemed: ${rewardsTotals.redeemedPoints || 0} pts • ${rewardsTotals.redeemedEntries || 0} entries`);
   lines.push(`Кандидаты на confirm: ${rewardsTotals.pendingCandidates || 0} • overdue: ${rewardsTotals.pendingDue || 0}`);
+  lines.push(`Сегодня: confirmed ${rewardsTotals.confirmedToday || 0} • rejected ${rewardsTotals.rejectedToday || 0}`);
   if (rewards?.config) {
     lines.push(`Конфиг: ${rewards.config.activationPoints || 0} pts • окно ${rewards.config.activationConfirmHours || 24}h`);
   }
@@ -319,6 +323,21 @@ function buildAdminInviteText({ state = null, notice = null } = {}) {
   } else {
     lines.push('— пока нет данных');
   }
+  lines.push('', 'Settlement:');
+  if (settlement) {
+    lines.push(`Last run: ${truncate(settlement.settlementRunId, 26)} • ${settlement.status} • mode ${settlement.modeSnapshot}`);
+    lines.push(`Processed ${settlement.processedCount || 0} • confirmed ${settlement.confirmedCount || 0} • rejected ${settlement.rejectedCount || 0} • skipped ${settlement.skippedCount || 0}`);
+    lines.push(`Started: ${formatDateTimeShort(settlement.startedAt)}${settlement.finishedAt ? ` • finished ${formatDateTimeShort(settlement.finishedAt)}` : ''}`);
+  } else {
+    lines.push('— пока не запускался');
+  }
+  lines.push('', 'Reconciliation:');
+  lines.push(`Warnings: ${reconciliation.warningCount || 0} • completed redemptions ${reconciliation.completedRedemptions || 0}`);
+  if (sampleWarnings.length) {
+    sampleWarnings.slice(0, 3).forEach((item, index) => lines.push(`${index + 1}. ${item.warningType} • ${truncate(item.referrerDisplayName, 14)} → ${truncate(item.invitedDisplayName, 14)} • ${item.status}`));
+  } else {
+    lines.push('— явных расхождений не найдено');
+  }
   lines.push('', 'Mode audit:');
   if (modeAudit.length) {
     modeAudit.forEach((item, index) => lines.push(`${index + 1}. ${truncate(item.changedByDisplayName, 22)} • ${item.fromMode} → ${item.toMode} • ${formatDateTimeShort(item.createdAt)}`));
@@ -341,7 +360,14 @@ function buildAdminInviteKeyboard({ state = null } = {}) {
       { text: '🟢 Live', callback_data: 'adm:invite:mode:live' },
       { text: '⏸️ Pause', callback_data: 'adm:invite:mode:paused' }
     ],
-    [{ text: '🧾 Mode audit', callback_data: 'adm:invite:audit' }],
+    [
+      { text: '🧮 Settlement', callback_data: 'adm:invite:settlement' },
+      { text: '✅ Run batch', callback_data: 'adm:invite:settlement:run' }
+    ],
+    [
+      { text: '🧷 Reconcile', callback_data: 'adm:invite:settlement:reconcile' },
+      { text: '🧾 Mode audit', callback_data: 'adm:invite:audit' }
+    ],
     buildBackHomeRow('↩️ Назад в Операции', 'adm:ops')
   ]);
 }

@@ -54,7 +54,7 @@ import {
 } from '../../lib/storage/adminStore.js';
 import { normalizeAdminAuditSegment, normalizeAdminDeliverySegment, normalizeAdminIntroSegment, normalizeAdminQualitySegment, normalizeAdminUserSegment } from '../../db/adminRepo.js';
 import { formatUserFacingError } from '../utils/notices.js';
-import { changeInviteRewardsModeForTelegramUser, loadAdminInviteSnapshotState } from '../../lib/storage/inviteStore.js';
+import { changeInviteRewardsModeForTelegramUser, loadAdminInviteSnapshotState, settlePendingInviteRewardsBatch } from '../../lib/storage/inviteStore.js';
 
 function parseOpsIntroRequestId(text = '') {
   const match = String(text).match(/^\/ops(?:@\w+)?(?:\s+(\d+))?/);
@@ -209,10 +209,19 @@ export function createOperatorComposer({
           redeemedEntries: 0,
           totalRewardEvents: 0,
           pendingCandidates: 0,
-          pendingDue: 0
+          pendingDue: 0,
+          confirmedToday: 0,
+          rejectedToday: 0
         },
         topRewardInviters: [],
         recentRewardEvents: [],
+        lastSettlementRun: null,
+        reconciliation: {
+          warningCount: 0,
+          warnings: {},
+          completedRedemptions: 0,
+          sampleWarnings: []
+        },
         modeAudit: []
       },
       activationHint: 'connected LinkedIn or started a profile',
@@ -960,6 +969,35 @@ export function createOperatorComposer({
   composer.callbackQuery('adm:invite:audit', async (ctx) => {
     await ctx.answerCallbackQuery();
     await renderAdminInvite(ctx, { notice: 'Showing recent mode audit entries below the rewards summary.' }, 'edit');
+  });
+
+  composer.callbackQuery('adm:invite:settlement', async (ctx) => {
+    await ctx.answerCallbackQuery();
+    await renderAdminInvite(ctx, { notice: 'Showing settlement status, last run summary, and reconciliation warnings below the rewards summary.' }, 'edit');
+  });
+
+  composer.callbackQuery('adm:invite:settlement:run', async (ctx) => {
+    await ctx.answerCallbackQuery();
+    if (!isOperatorTelegramUser(ctx.from.id)) {
+      await renderOperatorOnly(ctx, 'edit');
+      return;
+    }
+
+    const result = await settlePendingInviteRewardsBatch({
+      telegramUserId: ctx.from.id,
+      telegramUsername: ctx.from.username || null
+    }).catch((error) => ({ persistenceEnabled: true, changed: false, blocked: true, reason: String(error?.message || error) }));
+
+    const run = result?.run || null;
+    const notice = result?.blocked
+      ? (result.reason === 'settlement_blocked_in_paused' ? 'Settlement blocked: rewards mode is paused.' : `Settlement blocked: ${result.reason || 'unknown reason'}`)
+      : `Settlement run ${run?.settlementRunId || 'n/a'} • processed ${run?.processedCount || 0} • confirmed ${run?.confirmedCount || 0} • rejected ${run?.rejectedCount || 0} • skipped ${run?.skippedCount || 0}`;
+    await renderAdminInvite(ctx, { notice }, 'edit');
+  });
+
+  composer.callbackQuery('adm:invite:settlement:reconcile', async (ctx) => {
+    await ctx.answerCallbackQuery();
+    await renderAdminInvite(ctx, { notice: 'Showing reconciliation warnings and live-verification counters below the rewards summary.' }, 'edit');
   });
 
   composer.callbackQuery('adm:comms', async (ctx) => {
