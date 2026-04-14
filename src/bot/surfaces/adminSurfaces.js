@@ -353,20 +353,20 @@ function buildAdminInviteKeyboard({ state = null } = {}) {
   return buildInlineKeyboard([
     [{ text: '🔄 Обновить', callback_data: 'adm:invite' }],
     [
+      { text: '🧮 Settlement', callback_data: 'adm:invite:settlement' },
+      { text: '🧷 Reconcile', callback_data: 'adm:invite:settlement:reconcile' }
+    ],
+    [
+      { text: '✅ Run batch', callback_data: 'adm:invite:settlement:run' },
+      { text: '🧾 Mode audit', callback_data: 'adm:invite:audit' }
+    ],
+    [
       { text: '🚫 Off', callback_data: 'adm:invite:mode:off' },
       { text: '🟡 Earn', callback_data: 'adm:invite:mode:earn_only' }
     ],
     [
       { text: '🟢 Live', callback_data: 'adm:invite:mode:live' },
       { text: '⏸️ Pause', callback_data: 'adm:invite:mode:paused' }
-    ],
-    [
-      { text: '🧮 Settlement', callback_data: 'adm:invite:settlement' },
-      { text: '✅ Run batch', callback_data: 'adm:invite:settlement:run' }
-    ],
-    [
-      { text: '🧷 Reconcile', callback_data: 'adm:invite:settlement:reconcile' },
-      { text: '🧾 Mode audit', callback_data: 'adm:invite:audit' }
     ],
     buildBackHomeRow('↩️ Назад в Операции', 'adm:ops')
   ]);

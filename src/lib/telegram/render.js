@@ -1671,15 +1671,17 @@ export function renderInviteKeyboard({ inviteState = null } = {}) {
   if (inviteState?.persistenceEnabled && inviteState?.inviteLink) {
     rows.push([{ text: '📨 Share invite', switch_inline_query: inviteState.shareInlineQuery || 'invite' }]);
     rows.push([
-      { text: '🔗 Link + copy', callback_data: 'invite:show_link' },
-      { text: '🧾 Invite card', callback_data: 'invite:send_card' }
+      { text: '🧾 Invite card', callback_data: 'invite:send_card' },
+      { text: '🔗 Link + copy', callback_data: 'invite:show_link' }
     ]);
     rows.push([
       { text: '📊 Performance', callback_data: 'invite:perf' },
-      { text: '📋 Invite history', callback_data: 'invite:hist:1' }
+      { text: '🎯 Points', callback_data: 'invite:points' }
     ]);
-    rows.push([{ text: '🎯 Points', callback_data: 'invite:points' }]);
-    rows.push([{ text: '🔄 Refresh', callback_data: 'invite:root' }]);
+    rows.push([
+      { text: '📋 Invite history', callback_data: 'invite:hist:1' },
+      { text: '🔄 Refresh', callback_data: 'invite:root' }
+    ]);
   }
   rows.push([{ text: '🏠 Home', callback_data: 'home:root' }]);
   return buildInlineKeyboard(rows);
@@ -1744,7 +1746,7 @@ export function renderInviteHistoryText({ inviteState = null, historyState = nul
   const lines = [
     '📋 Invite history',
     '',
-    'Open the full paged list of invited contacts here. This screen stays available even before your first invite arrives.',
+    'Every invited contact appears here. The list stays available even before your first invite arrives.',
     '',
     '<b>Summary</b>',
     `• Invited: ${Number(inviteState?.invitedCount || 0) || 0}`,
@@ -1880,11 +1882,11 @@ export function renderInviteRewardsKeyboard({ rewardsState = null } = {}) {
         : '🚫 Redeem off';
   return buildInlineKeyboard([
     [{ text: redeemLabel, callback_data: 'invite:redeem' }],
-    [{ text: '📨 Invite contacts', callback_data: 'invite:root' }],
     [
-      { text: '📊 Performance', callback_data: 'invite:perf' },
-      { text: '📋 Invite history', callback_data: 'invite:hist:1' }
+      { text: '📨 Invite & rewards', callback_data: 'invite:root' },
+      { text: '📊 Performance', callback_data: 'invite:perf' }
     ],
+    [{ text: '📋 Invite history', callback_data: 'invite:hist:1' }],
     [{ text: '🏠 Home', callback_data: 'home:root' }]
   ]);
 }

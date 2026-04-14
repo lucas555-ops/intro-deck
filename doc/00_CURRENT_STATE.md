@@ -4,10 +4,10 @@
 Intro Deck
 
 ## Current source baseline
-STEP052.6 — Invite Rewards Settlement + Live Verification Hardening
+STEP052.7 — Invite Rewards Ops Polish
 
 ## Layer
-Product hardening / invite expansion / rewards settlement truth + live verification hardening
+Product hardening / invite expansion / rewards ops polish
 
 ## Source-confirmed
 - Invite layer remains a bounded module:
@@ -115,3 +115,15 @@ Pending reward accrual check is now re-run after:
 
 ## Next recommended step
 STEP052.7 — Invite Rewards Ops Polish or broader STEP053 monetization/ops continuation after manual verification
+
+
+## STEP052.7 polish additions now in source
+- admin home / operations / invite top-level copy is now more consistent and action-first
+- admin invite surface is now structured as one operator screen: funnel, rewards program, recent signals, settlement, reconciliation, audit, next actions
+- admin invite keyboard now groups read actions first and mode writes second
+- user invite root copy is now simpler and more action-led
+- user points screen now explains pending / available / redeemed in plainer language
+- no changes to reward rules, settlement math, redeem mechanics, or role model
+
+## Next recommended step
+STEP052.8 — Admin / Invite Deep-Surface Navigation Polish if manual founder pass still finds dead-ends or inconsistent drilldown routing
